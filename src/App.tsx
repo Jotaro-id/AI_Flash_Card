@@ -12,7 +12,8 @@ import {
   deleteVocabularyFile, 
   updateVocabularyFile,
   migrateFromLocalStorage,
-  signOut 
+  signOut,
+  debugSupabaseData
 } from './services/supabaseService';
 import { runSupabaseDiagnostics, DiagnosticResult } from './utils/supabaseDiagnostics';
 
@@ -34,6 +35,14 @@ function App() {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [appState, setAppState] = useState<AppState>('file-manager');
   const { currentTheme, setTheme, availableThemes } = useTheme();
+  
+  // filesステートの変更を監視
+  useEffect(() => {
+    console.log('App: filesステートが更新されました', {
+      filesCount: files.length,
+      files
+    });
+  }, [files]);
 
   // 認証状態をチェック
   useEffect(() => {
@@ -55,6 +64,8 @@ function App() {
         console.log('Session check result:', session);
         if (session) {
           setIsAuthenticated(true);
+          // デバッグ診断を実行
+          await debugSupabaseData();
           await loadVocabularyFiles();
           // ローカルストレージからのデータ移行を試みる
           await migrateFromLocalStorage();
@@ -82,6 +93,8 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
+        // デバッグ診断を実行
+        await debugSupabaseData();
         await loadVocabularyFiles();
         await migrateFromLocalStorage();
       } else if (event === 'SIGNED_OUT') {
@@ -101,10 +114,23 @@ function App() {
   // Supabaseから単語帳を読み込む
   const loadVocabularyFiles = async () => {
     try {
+      console.log('loadVocabularyFiles: 開始');
       const loadedFiles = await fetchVocabularyFiles();
+      console.log('loadVocabularyFiles: 読み込み完了', loadedFiles);
+      console.log('loadVocabularyFiles: 読み込んだファイル数', loadedFiles.length);
+      if (loadedFiles.length > 0) {
+        console.log('loadVocabularyFiles: 最初のファイル', loadedFiles[0]);
+      }
       setFiles(loadedFiles);
+      console.log('loadVocabularyFiles: state更新完了');
+      // 現在のfilesステートも確認
+      console.log('loadVocabularyFiles: 現在のfiles state', files);
     } catch (error) {
       console.error('単語帳の読み込みエラー:', error);
+      console.error('エラー詳細:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
     }
   };
 
@@ -339,6 +365,11 @@ function App() {
   }
 
   if (appState === 'file-manager') {
+    console.log('App: FileManagerをレンダリング', {
+      filesCount: files.length,
+      files,
+      appState
+    });
     return (
       <FileManager
         files={files}

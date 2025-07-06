@@ -24,6 +24,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
   availableThemes,
   onThemeChange
 }) => {
+  console.log('FileManager: レンダリング開始', { 
+    filesCount: files.length, 
+    files,
+    filesType: Array.isArray(files) ? 'array' : typeof files,
+    firstFile: files.length > 0 ? files[0] : 'no files'
+  });
   const [isCreating, setIsCreating] = useState(false);
   const [fileName, setFileName] = useState('');
   const [targetLanguage, setTargetLanguage] = useState<SupportedLanguage>('en');

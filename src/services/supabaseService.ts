@@ -3,9 +3,22 @@ import { VocabularyFile, Word, SupportedLanguage } from '../types';
 
 // 単語帳の取得
 export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
+  console.log('fetchVocabularyFiles: 開始');
+  
   const { data: { user } } = await supabase.auth.getUser();
+  console.log('fetchVocabularyFiles: ユーザー情報', user ? 'ユーザーあり' : 'ユーザーなし');
   if (!user) throw new Error('ユーザーが認証されていません');
 
+  console.log('fetchVocabularyFiles: Supabaseクエリを実行中...');
+  // まず単純なクエリでデータが取得できるか確認
+  const { data: simpleData, error: simpleError } = await supabase
+    .from('word_books')
+    .select('*')
+    .eq('user_id', user.id);
+  
+  console.log('fetchVocabularyFiles: 単純クエリ結果', { simpleData, simpleError });
+  
+  // 関連データを含む完全なクエリ
   const { data, error } = await supabase
     .from('word_books')
     .select(`
@@ -17,21 +30,49 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  console.log('fetchVocabularyFiles: クエリ結果', { data, error });
+  if (error) {
+    console.error('fetchVocabularyFiles: エラー発生', error);
+    throw error;
+  }
+
+  console.log('fetchVocabularyFiles: 取得したデータ数', data ? data.length : 0);
+  if (data && data.length > 0) {
+    console.log('fetchVocabularyFiles: 最初のデータサンプル', {
+      id: data[0].id,
+      name: data[0].name,
+      target_language: data[0].target_language,
+      word_book_cards: data[0].word_book_cards,
+      word_book_cards_length: data[0].word_book_cards?.length
+    });
+  }
 
   // データ形式を変換
-  return (data || []).map(book => ({
-    id: book.id,
-    name: book.name,
-    createdAt: new Date(book.created_at),
-    targetLanguage: book.target_language as SupportedLanguage,
-    words: book.word_book_cards?.map((wbc: { word_cards: { id: string; word: string; created_at: string; ai_generated_info: unknown } }) => ({
-      id: wbc.word_cards.id,
-      word: wbc.word_cards.word,
-      createdAt: new Date(wbc.word_cards.created_at),
-      aiGenerated: wbc.word_cards.ai_generated_info
-    })) || []
-  }));
+  const result = (data || []).map(book => {
+    console.log('fetchVocabularyFiles: 変換中', {
+      bookId: book.id,
+      bookName: book.name,
+      target_language: book.target_language,
+      word_book_cards: book.word_book_cards?.length || 0
+    });
+    
+    return {
+      id: book.id,
+      name: book.name,
+      createdAt: new Date(book.created_at),
+      targetLanguage: (book.target_language || 'en') as SupportedLanguage,
+      words: book.word_book_cards?.map((wbc: { word_cards: { id: string; word: string; created_at: string; ai_generated_info: unknown } }) => ({
+        id: wbc.word_cards.id,
+        word: wbc.word_cards.word,
+        createdAt: new Date(wbc.word_cards.created_at),
+        aiGenerated: wbc.word_cards.ai_generated_info
+      })) || []
+    };
+  });
+  
+  console.log('fetchVocabularyFiles: 変換後のデータ数', result.length);
+  console.log('fetchVocabularyFiles: 完了', result);
+  return result;
 };
 
 // 単語帳の作成
@@ -163,6 +204,54 @@ export const migrateFromLocalStorage = async (): Promise<void> => {
     console.error('データ移行エラー:', error);
     throw error;
   }
+};
+
+// デバッグ用：Supabaseのデータを直接確認
+export const debugSupabaseData = async (): Promise<any> => {
+  console.log('debugSupabaseData: 開始');
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log('debugSupabaseData: ユーザー情報', user);
+  
+  if (!user) {
+    console.log('debugSupabaseData: ユーザーが認証されていません');
+    return { error: 'ユーザーが認証されていません' };
+  }
+  
+  // 単語帳テーブルを直接確認
+  const { data: wordBooks, error: wordBooksError } = await supabase
+    .from('word_books')
+    .select('*')
+    .eq('user_id', user.id);
+    
+  console.log('debugSupabaseData: word_books', { wordBooks, wordBooksError });
+  
+  // 単語カードテーブルを直接確認
+  const { data: wordCards, error: wordCardsError } = await supabase
+    .from('word_cards')
+    .select('*')
+    .eq('user_id', user.id);
+    
+  console.log('debugSupabaseData: word_cards', { wordCards, wordCardsError });
+  
+  // 関連テーブルを直接確認
+  const { data: wordBookCards, error: wordBookCardsError } = await supabase
+    .from('word_book_cards')
+    .select('*');
+    
+  console.log('debugSupabaseData: word_book_cards', { wordBookCards, wordBookCardsError });
+  
+  return {
+    user,
+    wordBooks,
+    wordCards,
+    wordBookCards,
+    errors: {
+      wordBooksError,
+      wordCardsError,
+      wordBookCardsError
+    }
+  };
 };
 
 // ユーザーのサインアウト
