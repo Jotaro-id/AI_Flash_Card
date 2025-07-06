@@ -24,6 +24,8 @@ function App() {
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [files, setFiles] = useState<VocabularyFile[]>([]);
   const [currentFile, setCurrentFile] = useState<VocabularyFile | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -33,6 +35,16 @@ function App() {
   // 認証状態をチェック
   useEffect(() => {
     console.log('App component mounted. Starting auth check...');
+    
+    // 10秒後にタイムアウト
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        console.log('Loading timeout - showing error state');
+        setLoadingTimeout(true);
+        setIsLoading(false);
+      }
+    }, 10000);
+    
     const checkAuth = async () => {
       try {
         console.log('Checking Supabase session...');
@@ -53,8 +65,10 @@ function App() {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : 'No stack trace'
         });
+        setAuthError(error instanceof Error ? error.message : '認証エラーが発生しました');
       } finally {
         console.log('Finished auth check. Setting isLoading to false.');
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
@@ -75,8 +89,11 @@ function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeoutId);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Supabaseから単語帳を読み込む
   const loadVocabularyFiles = async () => {
@@ -176,6 +193,14 @@ function App() {
     setCurrentFile(null);
   };
 
+  // リトライ処理
+  const handleRetry = () => {
+    setIsLoading(true);
+    setLoadingTimeout(false);
+    setAuthError(null);
+    window.location.reload();
+  };
+
   // ローディング中の表示
   if (isLoading) {
     return (
@@ -183,6 +208,74 @@ function App() {
         <div className="text-white text-center">
           <h1 className="text-3xl font-bold mb-4">AI単語帳</h1>
           <p>読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // タイムアウトまたはエラー時の表示
+  if (loadingTimeout || authError) {
+    return (
+      <div className={`min-h-screen bg-gradient-to-br ${currentTheme.loading} flex items-center justify-center`}>
+        <div className="bg-white/20 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+          <div className="text-white text-center">
+            <h1 className="text-3xl font-bold mb-4">AI単語帳</h1>
+            
+            {loadingTimeout ? (
+              <>
+                <p className="text-xl mb-2">読み込みに時間がかかっています</p>
+                <p className="text-sm mb-6 text-white/80">
+                  接続に問題があるかもしれません。以下をお試しください：
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xl mb-2">エラーが発生しました</p>
+                <p className="text-sm mb-6 text-white/80 break-words">
+                  {authError}
+                </p>
+              </>
+            )}
+            
+            <div className="space-y-3">
+              <button
+                onClick={handleRetry}
+                className="w-full bg-white/30 hover:bg-white/40 text-white px-4 py-3 rounded-lg font-semibold transition-colors"
+              >
+                再読み込み
+              </button>
+              
+              <button
+                onClick={() => {
+                  setIsLoading(false);
+                  setLoadingTimeout(false);
+                  setAuthError(null);
+                  setIsAuthenticated(false);
+                }}
+                className="w-full bg-blue-500/30 hover:bg-blue-500/40 text-white px-4 py-3 rounded-lg font-semibold transition-colors"
+              >
+                ログイン画面へ
+              </button>
+              
+              <details className="text-left">
+                <summary className="cursor-pointer text-white/70 hover:text-white text-sm">
+                  トラブルシューティング
+                </summary>
+                <div className="mt-3 space-y-2 text-sm text-white/70">
+                  <p>• インターネット接続を確認してください</p>
+                  <p>• ブラウザのキャッシュをクリアしてください</p>
+                  <p>• 環境変数が正しく設定されているか確認してください</p>
+                  <p className="mt-3">環境変数の状態:</p>
+                  <p className="font-mono text-xs">
+                    VITE_SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL ? '✓ 設定済み' : '✗ 未設定'}
+                  </p>
+                  <p className="font-mono text-xs">
+                    VITE_SUPABASE_ANON_KEY: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ 設定済み' : '✗ 未設定'}
+                  </p>
+                </div>
+              </details>
+            </div>
+          </div>
         </div>
       </div>
     );
