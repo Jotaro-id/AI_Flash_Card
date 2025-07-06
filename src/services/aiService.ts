@@ -205,6 +205,47 @@ export const getWordSuggestions = async (
   }
 };
 
+// スペルチェック機能
+export const checkSpelling = async (word: string): Promise<string[]> => {
+  // APIキーが設定されていない場合はオフラインチェックのみ
+  if (!model) {
+    const { getSpellSuggestions } = await import('../utils/spellChecker');
+    const suggestions = await getSpellSuggestions(word, false);
+    return suggestions.map(s => s.word);
+  }
+  
+  try {
+    const prompt = `Check the spelling of "${word}" and provide corrections if needed.
+Requirements:
+1. If the word is misspelled, provide up to 3 correct spelling suggestions
+2. If the word is correct, return the word itself
+3. Return only the words, separated by commas
+4. No explanations or additional text
+5. Consider common spelling mistakes like: recieve→receive, definately→definitely
+
+Response:`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const suggestionsText = response.text();
+
+    const suggestions = suggestionsText
+      .trim()
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .slice(0, 3);
+
+    return suggestions;
+  } catch (error) {
+    console.error('Spell check error:', error);
+    // エラー時はオフラインチェックを使用
+    const { getSpellSuggestions } = await import('../utils/spellChecker');
+    const suggestions = await getSpellSuggestions(word, false);
+    return suggestions.map(s => s.word);
+  }
+};
+
 // フォールバックのサジェスチョン
 const getFallbackSuggestions = (text: string, targetLanguage: SupportedLanguage): string[] => {
   const lowerText = text.toLowerCase();

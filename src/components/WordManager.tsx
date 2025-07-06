@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages } from 'lucide-react';
 import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
-import { generateWordInfo, getWordSuggestions } from '../services/aiService';
+import { generateWordInfo, getWordSuggestions, checkSpelling } from '../services/aiService';
 import { addWordToFile } from '../services/supabaseService';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
@@ -13,6 +13,7 @@ import {
 } from '../services/jsonExportService';
 import { useDebounce } from '../hooks/useDebounce';
 import { WordDetailModal } from './WordDetailModal';
+import { SpellingSuggestions } from './SpellingSuggestions';
 
 interface WordManagerProps {
   file: VocabularyFile;
@@ -55,6 +56,10 @@ export const WordManager: React.FC<WordManagerProps> = ({
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  
+  // スペルチェック機能の状態
+  const [spellingSuggestions, setSpellingSuggestions] = useState<string[]>([]);
+  const [showSpellingSuggestions, setShowSpellingSuggestions] = useState(false);
   
   // Refs
   const suggestionListRef = useRef<HTMLDivElement>(null);
@@ -126,6 +131,38 @@ export const WordManager: React.FC<WordManagerProps> = ({
     };
 
     fetchSuggestions();
+  }, [debouncedWord, file.targetLanguage]);
+  
+  // スペルチェック機能
+  useEffect(() => {
+    const checkSpellingAsync = async () => {
+      if (!debouncedWord.trim() || debouncedWord.length < 3) {
+        setSpellingSuggestions([]);
+        setShowSpellingSuggestions(false);
+        return;
+      }
+
+      // 日本語、中国語、韓国語の場合はスペルチェックをスキップ
+      if (file.targetLanguage && ['ja', 'zh', 'ko'].includes(file.targetLanguage)) {
+        return;
+      }
+
+      try {
+        const spellingResults = await checkSpelling(debouncedWord);
+        // 現在の単語と異なる提案のみ表示
+        const filteredSuggestions = spellingResults.filter(
+          s => s.toLowerCase() !== debouncedWord.toLowerCase()
+        );
+        setSpellingSuggestions(filteredSuggestions);
+        setShowSpellingSuggestions(filteredSuggestions.length > 0);
+      } catch (error) {
+        console.error('Failed to check spelling:', error);
+        setSpellingSuggestions([]);
+        setShowSpellingSuggestions(false);
+      }
+    };
+
+    checkSpellingAsync();
   }, [debouncedWord, file.targetLanguage]);
 
   const handleAddWord = async () => {
@@ -412,6 +449,18 @@ export const WordManager: React.FC<WordManagerProps> = ({
                     </div>
                   )}
                 </div>
+                
+                {/* スペル補完 */}
+                <SpellingSuggestions
+                  suggestions={spellingSuggestions}
+                  onSelectSuggestion={(suggestion) => {
+                    setNewWord(suggestion);
+                    setShowSpellingSuggestions(false);
+                    inputRef.current?.focus();
+                  }}
+                  isVisible={showSpellingSuggestions && !showSuggestions}
+                  currentWord={newWord}
+                />
                 
                 {/* サジェスチョンドロップダウン */}
                 {showSuggestions && (
