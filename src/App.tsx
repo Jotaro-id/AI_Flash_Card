@@ -14,6 +14,7 @@ import {
   migrateFromLocalStorage,
   signOut 
 } from './services/supabaseService';
+import { runSupabaseDiagnostics, DiagnosticResult } from './utils/supabaseDiagnostics';
 
 type AppState = 'file-manager' | 'word-manager' | 'flashcards';
 
@@ -26,6 +27,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [diagnosticResults, setDiagnosticResults] = useState<DiagnosticResult[]>([]);
+  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [files, setFiles] = useState<VocabularyFile[]>([]);
   const [currentFile, setCurrentFile] = useState<VocabularyFile | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -198,7 +201,21 @@ function App() {
     setIsLoading(true);
     setLoadingTimeout(false);
     setAuthError(null);
+    setDiagnosticResults([]);
     window.location.reload();
+  };
+
+  // 診断実行
+  const handleRunDiagnostics = async () => {
+    setIsRunningDiagnostics(true);
+    try {
+      const results = await runSupabaseDiagnostics();
+      setDiagnosticResults(results);
+    } catch (error) {
+      console.error('診断実行エラー:', error);
+    } finally {
+      setIsRunningDiagnostics(false);
+    }
   };
 
   // ローディング中の表示
@@ -257,6 +274,40 @@ function App() {
                 ログイン画面へ
               </button>
               
+              <button
+                onClick={handleRunDiagnostics}
+                disabled={isRunningDiagnostics}
+                className="w-full bg-purple-500/30 hover:bg-purple-500/40 disabled:bg-gray-500/30 text-white px-4 py-3 rounded-lg font-semibold transition-colors disabled:cursor-not-allowed"
+              >
+                {isRunningDiagnostics ? '診断中...' : '接続診断を実行'}
+              </button>
+              
+              {diagnosticResults.length > 0 && (
+                <div className="bg-black/20 rounded-lg p-4 max-h-60 overflow-y-auto">
+                  <h4 className="text-white font-semibold mb-2">診断結果:</h4>
+                  <div className="space-y-1 text-xs">
+                    {diagnosticResults.map((result, index) => (
+                      <div key={index} className={`flex items-start gap-2 ${
+                        result.status === 'success' ? 'text-green-300' : 
+                        result.status === 'warning' ? 'text-yellow-300' : 'text-red-300'
+                      }`}>
+                        <span className="flex-shrink-0">
+                          {result.status === 'success' ? '✅' : 
+                           result.status === 'warning' ? '⚠️' : '❌'}
+                        </span>
+                        <div>
+                          <div className="font-medium">{result.test}</div>
+                          <div className="text-white/70">{result.message}</div>
+                          {result.details && (
+                            <div className="text-white/50 mt-1">{result.details}</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <details className="text-left">
                 <summary className="cursor-pointer text-white/70 hover:text-white text-sm">
                   トラブルシューティング
@@ -265,6 +316,7 @@ function App() {
                   <p>• インターネット接続を確認してください</p>
                   <p>• ブラウザのキャッシュをクリアしてください</p>
                   <p>• 環境変数が正しく設定されているか確認してください</p>
+                  <p>• Supabaseのテーブルとカラムが作成されているか確認してください</p>
                   <p className="mt-3">環境変数の状態:</p>
                   <p className="font-mono text-xs">
                     VITE_SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL ? '✓ 設定済み' : '✗ 未設定'}
