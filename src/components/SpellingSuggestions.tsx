@@ -22,28 +22,28 @@ export const SpellingSuggestions: React.FC<SpellingSuggestionsProps> = ({
   const isCorrectSpelling = suggestions.length === 1 && suggestions[0].toLowerCase() === currentWord.toLowerCase();
 
   return (
-    <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+    <div className="absolute z-50 right-0 mt-1 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 overflow-hidden max-w-xs">
       {isCorrectSpelling ? (
-        <div className="px-4 py-3 flex items-center gap-2 text-green-600">
-          <Check size={16} />
-          <span className="text-sm">スペルは正しいです</span>
+        <div className="px-3 py-2 flex items-center gap-1.5 text-green-600">
+          <Check size={14} />
+          <span className="text-xs">スペルは正しいです</span>
         </div>
       ) : (
         <>
-          <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
-            <AlertCircle size={16} className="text-amber-600" />
-            <span className="text-sm text-amber-700">もしかして：</span>
+          <div className="px-3 py-1.5 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5">
+            <AlertCircle size={14} className="text-amber-600" />
+            <span className="text-xs text-amber-700">もしかして：</span>
           </div>
-          <div className="py-1">
+          <div className="py-0.5">
             {suggestions.map((suggestion, index) => (
               <button
                 key={index}
                 onClick={() => onSelectSuggestion(suggestion)}
-                className="w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors flex items-center justify-between group"
+                className="w-full px-3 py-1.5 text-left hover:bg-blue-50 transition-colors flex items-center justify-between group"
               >
-                <span className="text-gray-800">{suggestion}</span>
+                <span className="text-sm text-gray-800">{suggestion}</span>
                 <span className="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  クリックして修正
+                  修正
                 </span>
               </button>
             ))}
