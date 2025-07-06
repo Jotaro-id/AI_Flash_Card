@@ -43,6 +43,9 @@ function App() {
           await loadVocabularyFiles();
           // ローカルストレージからのデータ移行を試みる
           await migrateFromLocalStorage();
+        } else {
+          console.log('No session found. User needs to authenticate.');
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('認証チェックエラー:', error);
