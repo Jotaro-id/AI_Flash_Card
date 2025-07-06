@@ -3,6 +3,7 @@ export interface VocabularyFile {
   name: string;
   createdAt: Date;
   words: Word[];
+  targetLanguage?: SupportedLanguage; // 対象言語の設定（デフォルトは英語）
 }
 
 export interface Word {

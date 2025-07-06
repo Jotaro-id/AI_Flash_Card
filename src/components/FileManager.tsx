@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Plus, FileText, Trash2 } from 'lucide-react';
-import { VocabularyFile, ColorTheme } from '../types';
+import { Plus, FileText, Trash2, Globe, LogOut } from 'lucide-react';
+import { VocabularyFile, ColorTheme, supportedLanguages, SupportedLanguage } from '../types';
 import { ThemeSelector } from './ThemeSelector';
 
 interface FileManagerProps {
   files: VocabularyFile[];
-  onCreateFile: (name: string) => void;
+  onCreateFile: (name: string, targetLanguage?: SupportedLanguage) => void;
   onDeleteFile: (id: string) => void;
   onSelectFile: (file: VocabularyFile) => void;
+  onSignOut?: () => void;
   currentTheme: ColorTheme;
   availableThemes: ColorTheme[];
   onThemeChange: (themeId: string) => void;
@@ -18,18 +19,21 @@ export const FileManager: React.FC<FileManagerProps> = ({
   onCreateFile,
   onDeleteFile,
   onSelectFile,
+  onSignOut,
   currentTheme,
   availableThemes,
   onThemeChange
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState<SupportedLanguage>('en');
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
 
   const handleCreateFile = () => {
     if (fileName.trim()) {
-      onCreateFile(fileName.trim());
+      onCreateFile(fileName.trim(), targetLanguage);
       setFileName('');
+      setTargetLanguage('en');
       setIsCreating(false);
     }
   };
@@ -57,6 +61,15 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 isOpen={isThemeSelectorOpen}
                 onToggle={() => setIsThemeSelectorOpen(!isThemeSelectorOpen)}
               />
+              {onSignOut && (
+                <button
+                  onClick={onSignOut}
+                  className="bg-red-500/20 hover:bg-red-500/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 hover:scale-105"
+                >
+                  <LogOut size={20} />
+                  サインアウト
+                </button>
+              )}
               <button
                 onClick={() => setIsCreating(true)}
                 className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 hover:scale-105"
@@ -69,15 +82,33 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
           {isCreating && (
             <div className="mb-6 p-4 bg-white/20 rounded-lg backdrop-blur-sm">
-              <input
-                type="text"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="ファイル名を入力..."
-                className="w-full p-3 bg-white/20 text-white placeholder-white/70 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
-                autoFocus
-              />
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={fileName}
+                  onChange={(e) => setFileName(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="ファイル名を入力..."
+                  className="w-full p-3 bg-white/20 text-white placeholder-white/70 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  autoFocus
+                />
+                
+                <div className="flex items-center gap-3">
+                  <Globe className="text-white/80" size={20} />
+                  <select
+                    value={targetLanguage}
+                    onChange={(e) => setTargetLanguage(e.target.value as SupportedLanguage)}
+                    className="flex-1 p-3 bg-white/20 text-white rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  >
+                    {Object.entries(supportedLanguages).map(([code, name]) => (
+                      <option key={code} value={code} className="bg-gray-800">
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleCreateFile}
@@ -89,6 +120,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   onClick={() => {
                     setIsCreating(false);
                     setFileName('');
+                    setTargetLanguage('en');
                   }}
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
                 >
@@ -110,9 +142,22 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     <FileText className="text-white/80" size={24} />
                     <div>
                       <h3 className="text-white font-semibold text-lg">{file.name}</h3>
-                      <p className="text-white/70 text-sm">
-                        {file.words.length} 単語
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-white/70 text-sm">
+                          {file.words.length} 単語
+                        </p>
+                        {file.targetLanguage && (
+                          <>
+                            <span className="text-white/50">•</span>
+                            <div className="flex items-center gap-1">
+                              <Globe className="text-white/60" size={14} />
+                              <span className="text-white/70 text-sm">
+                                {supportedLanguages[file.targetLanguage]}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <button

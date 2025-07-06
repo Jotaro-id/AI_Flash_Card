@@ -1,41 +1,51 @@
-import { Ollama } from 'ollama/browser';
-import { AIWordInfo } from '../types';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AIWordInfo, SupportedLanguage, supportedLanguages } from '../types';
 
-// Gemma 3n AIを使用した単語情報生成サービス
+// APIキーを環境変数から取得
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey || apiKey === 'your_api_key_here') {
+  console.warn("VITE_GEMINI_API_KEY is not properly configured in .env.local file");
+}
+
+// Google Generative AIクライアントの初期化
+const genAI = apiKey && apiKey !== 'your_api_key_here' 
+  ? new GoogleGenerativeAI(apiKey) 
+  : null;
+
+// Gemini 1.5 Flashモデルを使用（高速・無料）
+const model = genAI?.getGenerativeModel({
+  model: "gemini-1.5-flash-latest",
+});
+
+// Gemini APIを使用した単語情報生成サービス
 export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
+  // APIキーが設定されていない場合はフォールバックを使用
+  if (!model) {
+    console.warn('Gemini API is not configured. Using fallback data.');
+    return generateFallbackWordInfo(word);
+  }
+
   try {
-    // Gemma 3n用のプロンプトを作成
     const prompt = createWordAnalysisPrompt(word);
     
-    // Ollama APIを使用してGemma 3nに単語情報を生成させる
-    const ollama = new Ollama({ host: 'http://localhost:11434' });
-    const response = await ollama.chat({
-      model: 'gemma3n',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      options: {
-        temperature: 0.3, // 一貫性を重視
-        num_predict: 2048, // 十分な長さの回答を得るため
-      }
-    });
-
-    // AIの回答をパースしてAIWordInfo形式に変換
-    const aiResponse = response.message.content;
-    const wordInfo = parseAIResponse(aiResponse, word);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const aiResponse = response.text();
     
+    const wordInfo = parseAIResponse(aiResponse, word);
     return wordInfo;
+
   } catch (error) {
-    console.error('Gemma 3n API error:', error);
-    // エラーが発生した場合はフォールバック用のモックデータを返す
+    console.error('Gemini API error:', error);
+    // レート制限やエラーの詳細をログ出力
+    if (error.response?.status === 429) {
+      console.error('Rate limit exceeded. Please try again later.');
+    }
     return generateFallbackWordInfo(word);
   }
 };
 
-// Gemma 3n用のプロンプトを作成
+// Gemini用のプロンプトを作成（簡略化版で高速化）
 const createWordAnalysisPrompt = (word: string): string => {
   return `単語「${word}」について、以下の情報をJSON形式で提供してください：
 
@@ -140,4 +150,94 @@ const determineWordClass = (word: string): AIWordInfo['wordClass'] => {
   if (word.endsWith('ly')) return 'adverb';
   if (word.endsWith('ful') || word.endsWith('less')) return 'adjective';
   return 'noun';
+};
+
+// 単語のサジェスチョン（翻訳・補完）を取得
+export const getWordSuggestions = async (
+  text: string, 
+  targetLanguage: SupportedLanguage
+): Promise<string[]> => {
+  // 入力が空の場合は空配列を返す
+  if (!text.trim()) return [];
+  
+  // APIキーが設定されていない場合はフォールバックを使用
+  if (!model) {
+    return getFallbackSuggestions(text, targetLanguage);
+  }
+  
+  try {
+    const targetLangName = supportedLanguages[targetLanguage];
+    
+    // Gemini用のプロンプトを作成
+    const prompt = `次の単語またはフレーズを${targetLangName}に翻訳または補完してください：
+"${text}"
+
+要求：
+1. もし入力が${targetLangName}でない場合は、${targetLangName}に翻訳してください
+2. もし入力が既に${targetLangName}の場合は、関連する単語や同義語を提案してください
+3. 最大3つの提案を提供してください
+4. カンマ区切りで回答してください（説明は不要）
+5. 単語のみを返してください
+
+例：
+- 入力: "hello" → 出力: "hola, buenos días, qué tal" (スペイン語の場合)
+- 入力: "こんにちは" → 出力: "hello, hi, good afternoon" (英語の場合)
+
+回答:`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const suggestionsText = response.text();
+
+    // レスポンスを解析してサジェスチョンのリストを作成
+    const suggestions = suggestionsText
+      .trim()
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .slice(0, 3); // 最大3つまで
+
+    return suggestions;
+  } catch (error) {
+    console.error('Suggestion generation error:', error);
+    // エラー時はフォールバックのサジェスチョンを返す
+    return getFallbackSuggestions(text, targetLanguage);
+  }
+};
+
+// フォールバックのサジェスチョン
+const getFallbackSuggestions = (text: string, targetLanguage: SupportedLanguage): string[] => {
+  const lowerText = text.toLowerCase();
+  
+  // 簡単な翻訳の例（実際の使用では拡張が必要）
+  const translations: Record<string, Record<SupportedLanguage, string[]>> = {
+    'hello': {
+      'es': ['hola', 'buenos días', 'qué tal'],
+      'fr': ['bonjour', 'salut', 'allô'],
+      'de': ['hallo', 'guten Tag', 'servus'],
+      'it': ['ciao', 'buongiorno', 'salve'],
+      'ja': ['こんにちは', 'やあ', 'どうも'],
+      'zh': ['你好', '您好', '哈罗'],
+      'ko': ['안녕하세요', '안녕', '여보세요'],
+      'en': ['hi', 'hey', 'greetings']
+    },
+    'thank you': {
+      'es': ['gracias', 'muchas gracias', 'te agradezco'],
+      'fr': ['merci', 'merci beaucoup', 'je vous remercie'],
+      'de': ['danke', 'vielen Dank', 'danke schön'],
+      'it': ['grazie', 'grazie mille', 'ti ringrazio'],
+      'ja': ['ありがとう', 'ありがとうございます', 'どうも'],
+      'zh': ['谢谢', '感谢', '多谢'],
+      'ko': ['감사합니다', '고맙습니다', '고마워요'],
+      'en': ['thanks', 'thanks a lot', 'appreciate it']
+    }
+  };
+  
+  // 翻訳が見つかった場合
+  if (translations[lowerText] && translations[lowerText][targetLanguage]) {
+    return translations[lowerText][targetLanguage];
+  }
+  
+  // デフォルトのサジェスチョン
+  return [`${text} (${supportedLanguages[targetLanguage]})`];
 };

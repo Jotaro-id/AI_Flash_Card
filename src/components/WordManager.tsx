@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Plus, Search, BookOpen, Download, FileText } from 'lucide-react';
-import { VocabularyFile, Word, ColorTheme } from '../types';
-import { generateWordInfo } from '../services/aiService';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages } from 'lucide-react';
+import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
+import { generateWordInfo, getWordSuggestions } from '../services/aiService';
+import { addWordToFile } from '../services/supabaseService';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { 
@@ -10,6 +11,8 @@ import {
   exportMultipleWordsToJSON, 
   exportAIGeneratedWordInfo 
 } from '../services/jsonExportService';
+import { useDebounce } from '../hooks/useDebounce';
+import { WordDetailModal } from './WordDetailModal';
 
 interface WordManagerProps {
   file: VocabularyFile;
@@ -20,6 +23,14 @@ interface WordManagerProps {
   availableThemes: ColorTheme[];
   onThemeChange: (themeId: string) => void;
 }
+
+// 動的ローディングメッセージ定数
+const LOADING_MESSAGES = [
+  'AIが思考中...',
+  '情報を整理中...',
+  '詳細な分析中...',
+  'もう少しお待ちください...'
+];
 
 export const WordManager: React.FC<WordManagerProps> = ({
   file,
@@ -34,50 +45,192 @@ export const WordManager: React.FC<WordManagerProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingWords, setLoadingWords] = useState<Set<string>>(new Set());
+  const [loadingTexts, setLoadingTexts] = useState<Record<string, string>>({});
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  
+  // サジェスチョン機能の状態
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  
+  // Refs
+  const suggestionListRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // デバウンスされた入力値
+  const debouncedWord = useDebounce(newWord, 300);
+  
+  // 詳細モーダルの状態
+  const [selectedWord, setSelectedWord] = useState<Word | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // 動的ローディングテキスト管理
+  useEffect(() => {
+    const intervals: Record<string, NodeJS.Timeout> = {};
+    
+    loadingWords.forEach((wordId) => {
+      if (!intervals[wordId]) {
+        let messageIndex = 0;
+        setLoadingTexts(prev => ({ ...prev, [wordId]: LOADING_MESSAGES[0] }));
+        
+        intervals[wordId] = setInterval(() => {
+          messageIndex = (messageIndex + 1) % LOADING_MESSAGES.length;
+          setLoadingTexts(prev => ({ ...prev, [wordId]: LOADING_MESSAGES[messageIndex] }));
+        }, 2000);
+      }
+    });
+
+    // クリーンアップ：ローディング完了した単語のインターバルを削除
+    Object.keys(intervals).forEach(wordId => {
+      if (!loadingWords.has(wordId)) {
+        clearInterval(intervals[wordId]);
+        delete intervals[wordId];
+        setLoadingTexts(prev => {
+          const newTexts = { ...prev };
+          delete newTexts[wordId];
+          return newTexts;
+        });
+      }
+    });
+
+    return () => {
+      Object.values(intervals).forEach(clearInterval);
+    };
+  }, [loadingWords]);
+
+  // サジェスチョンの取得
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!debouncedWord.trim() || !file.targetLanguage) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      setIsLoadingSuggestions(true);
+      setShowSuggestions(true);
+      
+      try {
+        const suggestionList = await getWordSuggestions(debouncedWord, file.targetLanguage);
+        setSuggestions(suggestionList);
+        setSelectedSuggestionIndex(-1);
+      } catch (error) {
+        console.error('Failed to fetch suggestions:', error);
+        setSuggestions([]);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    };
+
+    fetchSuggestions();
+  }, [debouncedWord, file.targetLanguage]);
 
   const handleAddWord = async () => {
     if (!newWord.trim()) return;
 
-    const word: Word = {
-      id: Date.now().toString(),
+    const tempId = Date.now().toString();
+    const tempWord: Word = {
+      id: tempId,
       word: newWord.trim(),
       createdAt: new Date()
     };
 
-    setLoadingWords(prev => new Set([...prev, word.id]));
+    // まず単語をリストに追加（ローディング状態で表示）
+    const updatedFileWithLoading = {
+      ...file,
+      words: [...file.words, tempWord]
+    };
+    onUpdateFile(updatedFileWithLoading);
+
+    // ローディング状態を設定
+    setLoadingWords(prev => new Set([...prev, tempId]));
     
     try {
+      // AI情報を生成
       const aiInfo = await generateWordInfo(newWord.trim());
-      word.aiGenerated = aiInfo;
+      tempWord.aiGenerated = aiInfo;
+      
+      // Supabaseに保存
+      const savedWord = await addWordToFile(file.id, tempWord);
+      
+      // 保存された単語で更新
+      const updatedFileWithAI = {
+        ...file,
+        words: file.words.map(w => 
+          w.id === tempId ? savedWord : w
+        )
+      };
+      onUpdateFile(updatedFileWithAI);
     } catch (error) {
-      console.error('Failed to generate AI info:', error);
+      console.error('Failed to add word:', error);
+      // エラー時は一時的な単語を削除
+      const revertedFile = {
+        ...file,
+        words: file.words.filter(w => w.id !== tempId)
+      };
+      onUpdateFile(revertedFile);
+      alert('単語の追加に失敗しました');
     }
 
+    // ローディング状態を解除
     setLoadingWords(prev => {
       const newSet = new Set(prev);
-      newSet.delete(word.id);
+      newSet.delete(tempId);
       return newSet;
     });
-
-    const updatedFile = {
-      ...file,
-      words: [...file.words, word]
-    };
-
-    onUpdateFile(updatedFile);
     setNewWord('');
     setIsAdding(false);
   };
 
+  const handleSelectSuggestion = (suggestion: string) => {
+    setNewWord(suggestion);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setSelectedSuggestionIndex(-1);
+    inputRef.current?.focus();
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleAddWord();
-    } else if (e.key === 'Escape') {
-      setIsAdding(false);
-      setNewWord('');
+    if (showSuggestions && suggestions.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedSuggestionIndex(prev => 
+            prev < suggestions.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedSuggestionIndex(prev => 
+            prev > 0 ? prev - 1 : suggestions.length - 1
+          );
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedSuggestionIndex >= 0) {
+            handleSelectSuggestion(suggestions[selectedSuggestionIndex]);
+          } else {
+            handleAddWord();
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowSuggestions(false);
+          setSelectedSuggestionIndex(-1);
+          break;
+        default:
+          break;
+      }
+    } else {
+      if (e.key === 'Enter') {
+        handleAddWord();
+      } else if (e.key === 'Escape') {
+        setIsAdding(false);
+        setNewWord('');
+      }
     }
   };
 
@@ -134,6 +287,16 @@ export const WordManager: React.FC<WordManagerProps> = ({
 
   const deselectAllWords = () => {
     setSelectedWords(new Set());
+  };
+
+  const handleShowWordDetail = (word: Word) => {
+    setSelectedWord(word);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleCloseDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setSelectedWord(null);
   };
 
   return (
@@ -227,15 +390,66 @@ export const WordManager: React.FC<WordManagerProps> = ({
 
           {isAdding && (
             <div className="mb-6 p-4 bg-white/20 rounded-lg backdrop-blur-sm">
-              <input
-                type="text"
-                value={newWord}
-                onChange={(e) => setNewWord(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="新しい単語を入力..."
-                className="w-full p-3 bg-white/20 text-white placeholder-white/70 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
-                autoFocus
-              />
+              <div className="relative">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newWord}
+                    onChange={(e) => setNewWord(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    onFocus={() => debouncedWord && setShowSuggestions(true)}
+                    placeholder="新しい単語を入力..."
+                    className="flex-1 p-3 bg-white/20 text-white placeholder-white/70 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                    autoFocus
+                  />
+                  {file.targetLanguage && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-lg">
+                      <Languages className="text-white/70" size={18} />
+                      <span className="text-white/80 text-sm font-medium">
+                        {supportedLanguages[file.targetLanguage]}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* サジェスチョンドロップダウン */}
+                {showSuggestions && (
+                  <div
+                    ref={suggestionListRef}
+                    className="absolute z-10 w-full mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-white/20 overflow-hidden"
+                  >
+                    {isLoadingSuggestions ? (
+                      <div className="p-4 flex items-center justify-center text-gray-600">
+                        <Loader2 className="animate-spin mr-2" size={16} />
+                        <span>翻訳・補完候補を取得中...</span>
+                      </div>
+                    ) : suggestions.length > 0 ? (
+                      <ul className="py-2">
+                        {suggestions.map((suggestion, index) => (
+                          <li
+                            key={index}
+                            className={`px-4 py-2 cursor-pointer transition-colors ${
+                              index === selectedSuggestionIndex
+                                ? 'bg-blue-500 text-white'
+                                : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                            onClick={() => handleSelectSuggestion(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                          >
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="p-4 text-center text-gray-500">
+                        候補が見つかりませんでした
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleAddWord}
@@ -247,6 +461,8 @@ export const WordManager: React.FC<WordManagerProps> = ({
                   onClick={() => {
                     setIsAdding(false);
                     setNewWord('');
+                    setShowSuggestions(false);
+                    setSuggestions([]);
                   }}
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
                 >
@@ -273,14 +489,32 @@ export const WordManager: React.FC<WordManagerProps> = ({
             {filteredWords.map((word) => (
               <div
                 key={word.id}
-                className={`bg-white/20 backdrop-blur-sm rounded-xl p-6 hover:bg-white/30 transition-all duration-200 hover:scale-105 ${
+                className={`bg-white/20 backdrop-blur-sm rounded-xl p-6 hover:bg-white/30 transition-all duration-200 hover:scale-105 cursor-pointer ${
                   selectedWords.has(word.id) ? 'ring-2 ring-blue-400' : ''
                 }`}
+                onClick={(e) => {
+                  // チェックボックスやボタンをクリックした場合は詳細表示しない
+                  const target = e.target as HTMLElement;
+                  if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('button')) {
+                    return;
+                  }
+                  handleShowWordDetail(word);
+                }}
               >
                 {loadingWords.has(word.id) ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                    <span className="ml-2 text-white">AI分析中...</span>
+                  <div className="flex flex-col items-center justify-center h-32 bg-gradient-to-br from-purple-400/20 to-blue-500/20 rounded-lg backdrop-blur-sm">
+                    <div className="relative mb-3">
+                      <Brain className="h-10 w-10 text-white animate-pulse" />
+                      <div className="absolute inset-0 h-10 w-10">
+                        <Brain className="h-10 w-10 text-blue-300 animate-ping opacity-30" />
+                      </div>
+                    </div>
+                    <span className="text-white font-medium text-sm animate-pulse">
+                      {loadingTexts[word.id] || 'AIが思考中...'}
+                    </span>
+                    <div className="mt-2 w-16 h-1 bg-white/20 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-pulse"></div>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -349,6 +583,15 @@ export const WordManager: React.FC<WordManagerProps> = ({
           )}
         </div>
       </div>
+      
+      {/* 単語詳細モーダル */}
+      {selectedWord && (
+        <WordDetailModal
+          word={selectedWord}
+          isOpen={isDetailModalOpen}
+          onClose={handleCloseDetailModal}
+        />
+      )}
     </div>
   );
 };
