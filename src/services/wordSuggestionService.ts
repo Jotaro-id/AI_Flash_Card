@@ -65,47 +65,175 @@ const getEnglishSuggestions = async (text: string): Promise<string[]> => {
   }
 };
 
-// スペイン語のサジェスチョン（APIとローカル辞書の組み合わせ）
+// スペイン語のサジェスチョン（複数のAPIを使用）
 const getSpanishSuggestions = async (text: string): Promise<string[]> => {
   // 短すぎる入力は処理しない
   if (text.length < 2) return [];
   
   try {
-    // Datamuse APIを使用（スペイン語でも機能する）
-    const response = await fetch(`${DATAMUSE_BASE_URL}/sug?s=${encodeURIComponent(text)}&max=10`);
+    // 複数のAPI戦略を並行して実行
+    const [wordnikSuggestions, datamideSuggestions, localSuggestions] = await Promise.allSettled([
+      getSpanishWordnikSuggestions(text),
+      getSpanishDatamuseSuggestions(text),
+      Promise.resolve(getExtendedSpanishLocalSuggestions(text))
+    ]);
+    
+    // 結果を統合
+    const allSuggestions: string[] = [];
+    
+    // ローカル辞書を最優先
+    if (localSuggestions.status === 'fulfilled') {
+      allSuggestions.push(...localSuggestions.value);
+    }
+    
+    // Wordnik APIの結果を追加
+    if (wordnikSuggestions.status === 'fulfilled') {
+      allSuggestions.push(...wordnikSuggestions.value);
+    }
+    
+    // Datamuse APIの結果を追加
+    if (datamideSuggestions.status === 'fulfilled') {
+      allSuggestions.push(...datamideSuggestions.value);
+    }
+    
+    // 重複を除去し、スペイン語単語を優先してソート
+    const uniqueSuggestions = Array.from(new Set(allSuggestions));
+    return scoreAndSortSpanishWords(uniqueSuggestions, text).slice(0, 8);
+    
+  } catch (error) {
+    console.error('Spanish suggestions error:', error);
+    return getExtendedSpanishLocalSuggestions(text);
+  }
+};
+
+// Wordnik APIを使用したスペイン語サジェスチョン
+const getSpanishWordnikSuggestions = async (text: string): Promise<string[]> => {
+  try {
+    // Free Dictionary APIを使用してスペイン語の単語を検索
+    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/es/${encodeURIComponent(text)}`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const suggestions = data.map(entry => entry.word).filter(word => word && word.startsWith(text));
+        return suggestions.slice(0, 3);
+      }
+    }
+  } catch (error) {
+    console.error('Wordnik API error:', error);
+  }
+  
+  return [];
+};
+
+// Datamuse APIを使用したスペイン語サジェスチョン（改良版）
+const getSpanishDatamuseSuggestions = async (text: string): Promise<string[]> => {
+  try {
+    // Datamuse APIで類似語を検索
+    const response = await fetch(`${DATAMUSE_BASE_URL}/sug?s=${encodeURIComponent(text)}&max=20`);
     
     if (response.ok) {
       const data = await response.json();
       const apiSuggestions = data
         .map((item: { word: string; score: number }) => item.word)
-        .filter((word: string) => {
-          // スペイン語の単語らしいものをフィルタリング（基本的なヒューリスティック）
-          // 英語っぽい単語を除外
-          if (/^(the|and|or|but|in|on|at|to|for|of|with|by|from|as|is|was|are|been)$/i.test(word)) {
-            return false;
-          }
-          // スペイン語の特徴を持つ単語を優先
-          if (/[ñáéíóúü]/.test(word) || 
-              /^(el|la|los|las|un|una|de|del|que|en|es|por|para|con|sin)$/i.test(word) ||
-              word.endsWith('ar') || word.endsWith('er') || word.endsWith('ir') ||
-              word.endsWith('ción') || word.endsWith('dad') || word.endsWith('mente')) {
-            return true;
-          }
-          // その他の単語も一応含める
-          return true;
-        });
+        .filter((word: string) => isSpanishWord(word, text));
       
-      if (apiSuggestions.length > 0) {
-        // ローカル辞書と組み合わせる
-        return combineSuggestionsWithLocal(text, apiSuggestions);
-      }
+      return apiSuggestions.slice(0, 5);
     }
   } catch (error) {
-    console.error('Datamuse API error for Spanish:', error);
+    console.error('Datamuse API error:', error);
   }
   
-  // APIが失敗した場合は拡張されたローカル辞書を使用
-  return getExtendedSpanishLocalSuggestions(text);
+  return [];
+};
+
+// スペイン語の単語かどうかを判定する関数
+const isSpanishWord = (word: string, inputText: string): boolean => {
+  // 明確な英語単語を除外
+  const englishWords = [
+    'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'been',
+    'diaspora', 'diabetes', 'diatribe', 'dialogue', 'diagnosis', 'diamond', 'diagonal', 'diagram', 'dial',
+    'dialectic', 'diameter', 'diary', 'dice', 'dictate', 'dictionary', 'die', 'diet', 'different', 'difficult',
+    'digital', 'dignity', 'dimension', 'dinosaur', 'diplomatic', 'direct', 'directory', 'dirty', 'disability',
+    'disappear', 'disaster', 'discipline', 'discount', 'discover', 'discussion', 'disease', 'disguise',
+    'distance', 'district', 'divide', 'doctor', 'document', 'dollar', 'domestic', 'dominant', 'door',
+    'double', 'doubt', 'down', 'download', 'dramatic', 'dream', 'dress', 'drink', 'drive', 'drop'
+  ];
+  
+  if (englishWords.includes(word.toLowerCase())) {
+    return false;
+  }
+  
+  // スペイン語特有の特徴を持つ単語を優先
+  if (/[ñáéíóúü]/.test(word)) {
+    return true;
+  }
+  
+  // スペイン語の動詞語尾
+  if (word.endsWith('ar') || word.endsWith('er') || word.endsWith('ir')) {
+    return true;
+  }
+  
+  // スペイン語の名詞語尾
+  if (word.endsWith('ción') || word.endsWith('dad') || word.endsWith('mente') || word.endsWith('ería')) {
+    return true;
+  }
+  
+  // スペイン語の基本単語
+  if (/^(el|la|los|las|un|una|de|del|que|en|es|por|para|con|sin|día|días|donde|cuando|como|quien|cual)$/i.test(word)) {
+    return true;
+  }
+  
+  // 入力文字で始まる場合は候補とする（ただし、明らかに英語でない場合のみ）
+  if (word.toLowerCase().startsWith(inputText.toLowerCase())) {
+    // 英語らしい特徴を持つ単語を除外
+    if (/^(th|wh|sh|ch|gh|ph|ght|ough|tion|sion)/.test(word.toLowerCase())) {
+      return false;
+    }
+    return true;
+  }
+  
+  return false;
+};
+
+// スペイン語単語のスコアリングとソート
+const scoreAndSortSpanishWords = (words: string[], inputText: string): string[] => {
+  const scored = words.map(word => {
+    let score = 0;
+    
+    // 完全一致
+    if (word.toLowerCase() === inputText.toLowerCase()) {
+      score += 100;
+    }
+    
+    // 前方一致の精度
+    if (word.toLowerCase().startsWith(inputText.toLowerCase())) {
+      score += 50;
+    }
+    
+    // スペイン語特有の文字を含む場合は高得点
+    if (/[ñáéíóúü]/.test(word)) {
+      score += 20;
+    }
+    
+    // スペイン語の典型的な語尾
+    if (word.endsWith('ar') || word.endsWith('er') || word.endsWith('ir')) {
+      score += 15;
+    }
+    
+    if (word.endsWith('ción') || word.endsWith('dad') || word.endsWith('mente')) {
+      score += 15;
+    }
+    
+    // 長さの近さ
+    score -= Math.abs(word.length - inputText.length);
+    
+    return { word, score };
+  });
+  
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.word);
 };
 
 // 拡張されたスペイン語ローカル辞書
@@ -116,6 +244,11 @@ const getExtendedSpanishLocalSuggestions = (text: string): string[] => {
     // 一般的な名詞
     'comida', 'casa', 'escuela', 'trabajo', 'familia', 'amigo', 'tiempo', 'dinero', 'mundo', 'vida',
     'amor', 'niño', 'niña', 'mujer', 'hombre', 'día', 'noche', 'mañana', 'tarde', 'año', 'mes',
+    // 「d」で始まる単語
+    'dedo', 'dentro', 'después', 'desde', 'decir', 'dejar', 'delante', 'demás', 'democracia', 'departamento',
+    'derecho', 'desarrollo', 'descanso', 'deseo', 'despertar', 'detalle', 'devolver', 'diabético', 'diario',
+    'dibujo', 'diferente', 'difícil', 'digital', 'dinámico', 'director', 'discutir', 'diseño', 'distancia',
+    'distrito', 'diverso', 'divertido', 'dividir', 'documento', 'dolor', 'domingo', 'donde', 'dorado', 'drama',
     // 動詞 - 原形
     'comprar', 'comprender', 'completar', 'comenzar', 'comer', 'conocer', 'conseguir', 'considerar',
     'construir', 'contar', 'continuar', 'contribuir', 'conversar', 'convertir', 'correr', 'cortar',
@@ -195,15 +328,6 @@ const getExtendedSpanishLocalSuggestions = (text: string): string[] => {
     .slice(0, 8); // 8つまで候補を表示
 };
 
-// APIの結果とローカル辞書を組み合わせる
-const combineSuggestionsWithLocal = (text: string, apiSuggestions: string[]): string[] => {
-  const localSuggestions = getExtendedSpanishLocalSuggestions(text);
-  
-  // APIとローカルの結果を結合して重複を除去
-  const combined = Array.from(new Set([...apiSuggestions.slice(0, 5), ...localSuggestions.slice(0, 3)]));
-  
-  return combined.slice(0, 8); // 最大8つまで
-};
 
 // フランス語のサジェスチョン（特殊文字を考慮）
 const getFrenchSuggestions = async (text: string): Promise<string[]> => {

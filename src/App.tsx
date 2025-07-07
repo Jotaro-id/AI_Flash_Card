@@ -93,6 +93,41 @@ function App() {
         
         // 開発時は認証をスキップしてデータを直接読み込み
         if (session || import.meta.env.DEV) {
+          // 開発環境でセッションがない場合、テストユーザーでログインを試行
+          if (!session && import.meta.env.DEV) {
+            console.log('開発環境: テストユーザーでログインを試行中...');
+            try {
+              // テスト用のメールアドレスでサインアップを試行
+              const testEmail = 'test@example.com';
+              const testPassword = 'testpassword123';
+              
+              const { error: signUpError } = await supabase.auth.signUp({
+                email: testEmail,
+                password: testPassword,
+              });
+              
+              if (signUpError && signUpError.message !== 'User already registered') {
+                console.error('テストユーザーサインアップエラー:', signUpError);
+              } else {
+                console.log('テストユーザーサインアップ成功または既存ユーザー');
+              }
+              
+              // サインインを試行
+              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email: testEmail,
+                password: testPassword,
+              });
+              
+              if (signInError) {
+                console.error('テストユーザーサインインエラー:', signInError);
+              } else {
+                console.log('テストユーザーサインイン成功:', signInData.user?.id);
+              }
+            } catch (devAuthError) {
+              console.error('開発環境認証エラー:', devAuthError);
+            }
+          }
+          
           setIsAuthenticated(true);
           // デバッグ診断を実行
           await debugSupabaseData();
@@ -167,6 +202,8 @@ function App() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
+      const errorMessage = error instanceof Error ? error.message : '不明なエラー';
+      setAuthError(`単語帳の読み込みに失敗しました: ${errorMessage}`);
     }
   };
 

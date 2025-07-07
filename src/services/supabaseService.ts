@@ -12,8 +12,16 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
   // 開発時はユーザー認証をスキップ
   let userId = user?.id;
   if (!userId && import.meta.env.DEV) {
-    console.warn('Development mode: using dummy user ID');
-    userId = '00000000-0000-0000-0000-000000000000';
+    console.warn('Development mode: 現在のセッションを再確認...');
+    // 現在のセッションを再確認
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      userId = currentUser.id;
+      console.log('Development mode: 現在のユーザーIDを使用', userId);
+    } else {
+      console.warn('Development mode: ユーザーが見つからないため、ダミーIDを使用');
+      userId = '00000000-0000-0000-0000-000000000000';
+    }
   }
   
   if (!userId) throw new Error('ユーザーが認証されていません');
@@ -116,8 +124,16 @@ export const createVocabularyFile = async (
   // 開発時はユーザー認証をスキップ
   let userId = user?.id;
   if (!userId && import.meta.env.DEV) {
-    console.warn('Development mode: using dummy user ID');
-    userId = '00000000-0000-0000-0000-000000000000';
+    console.warn('Development mode: 現在のセッションを再確認...');
+    // 現在のセッションを再確認
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      userId = currentUser.id;
+      console.log('Development mode: 現在のユーザーIDを使用', userId);
+    } else {
+      console.warn('Development mode: ユーザーが見つからないため、ダミーIDを使用');
+      userId = '00000000-0000-0000-0000-000000000000';
+    }
   }
   
   if (!userId) throw new Error('ユーザーが認証されていません');
@@ -402,6 +418,57 @@ export const migrateFromLocalStorage = async (): Promise<void> => {
   } catch (error) {
     console.error('データ移行エラー:', error);
     throw error;
+  }
+};
+
+// 開発環境用のテストデータ作成
+export const createDevTestData = async (): Promise<void> => {
+  if (!import.meta.env.DEV) {
+    console.warn('createDevTestData: 本番環境では実行できません');
+    return;
+  }
+  
+  console.log('createDevTestData: 開発環境用テストデータを作成中...');
+  
+  try {
+    // ダミーユーザーIDを使用して直接データを挿入
+    const dummyUserId = '00000000-0000-0000-0000-000000000000';
+    
+    // 1. テスト単語帳を作成
+    const { data: testBook, error: bookError } = await supabase.rpc('create_test_wordbook', {
+      p_name: 'スペイン語テスト単語帳',
+      p_description: '開発テスト用のスペイン語単語帳',
+      p_target_language: 'es',
+      p_user_id: dummyUserId
+    });
+    
+    if (bookError) {
+      console.log('RPC関数が存在しないため、直接挿入を試行...');
+      
+      // RPC関数がない場合は直接挿入
+      const { data: directBook, error: directError } = await supabase
+        .from('word_books')
+        .insert({
+          name: 'スペイン語テスト単語帳',
+          description: '開発テスト用のスペイン語単語帳',
+          target_language: 'es',
+          user_id: dummyUserId
+        })
+        .select()
+        .single();
+      
+      if (directError) {
+        console.error('createDevTestData: 直接挿入エラー', directError);
+        return;
+      }
+      
+      console.log('createDevTestData: テスト単語帳作成成功', directBook);
+    } else {
+      console.log('createDevTestData: RPC関数でテスト単語帳作成成功', testBook);
+    }
+    
+  } catch (error) {
+    console.error('createDevTestData: エラー', error);
   }
 };
 

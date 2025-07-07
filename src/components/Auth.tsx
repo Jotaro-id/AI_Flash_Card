@@ -34,10 +34,27 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           password,
         });
         if (error) throw error;
+        console.log('ログイン成功:', { email, userId: data.user?.id });
         onSuccess();
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      console.error('認証エラー:', error);
+      let errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      
+      // ユーザーにわかりやすいエラーメッセージに変換
+      if (errorMessage.includes('Invalid login credentials')) {
+        errorMessage = 'メールアドレスまたはパスワードが正しくありません';
+      } else if (errorMessage.includes('Email not confirmed')) {
+        errorMessage = 'メールアドレスの確認が完了していません。確認メールをご確認ください';
+      } else if (errorMessage.includes('User already registered')) {
+        errorMessage = 'このメールアドレスは既に登録されています';
+      } else if (errorMessage.includes('Password')) {
+        errorMessage = 'パスワードは6文字以上で入力してください';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        errorMessage = 'ネットワークエラーが発生しました。接続を確認してください';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -112,6 +129,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="email@example.com"
+                autoComplete="email"
                 required
               />
             </div>
@@ -129,6 +147,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 required
                 minLength={6}
               />
