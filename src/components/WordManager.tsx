@@ -506,7 +506,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
                 {showSuggestions && (
                   <div
                     ref={suggestionListRef}
-                    className="absolute z-10 right-0 w-64 max-w-xs mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-white/20 overflow-hidden"
+                    className="absolute z-10 right-0 w-72 max-w-sm mt-2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-white/20 overflow-hidden max-h-96 overflow-y-auto"
                   >
                     {isLoadingSuggestions ? (
                       <div className="p-4 flex items-center justify-center text-gray-600">

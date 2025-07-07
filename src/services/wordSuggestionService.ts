@@ -65,32 +65,86 @@ const getEnglishSuggestions = async (text: string): Promise<string[]> => {
   }
 };
 
-// スペイン語のサジェスチョン（特殊文字を考慮した部分一致）
+// スペイン語のサジェスチョン（APIとローカル辞書の組み合わせ）
 const getSpanishSuggestions = async (text: string): Promise<string[]> => {
-  const commonSpanishWords = [
+  // 短すぎる入力は処理しない
+  if (text.length < 2) return [];
+  
+  try {
+    // Datamuse APIを使用（スペイン語でも機能する）
+    const response = await fetch(`${DATAMUSE_BASE_URL}/sug?s=${encodeURIComponent(text)}&max=10`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      const apiSuggestions = data
+        .map((item: { word: string; score: number }) => item.word)
+        .filter((word: string) => {
+          // スペイン語の単語らしいものをフィルタリング（基本的なヒューリスティック）
+          // 英語っぽい単語を除外
+          if (/^(the|and|or|but|in|on|at|to|for|of|with|by|from|as|is|was|are|been)$/i.test(word)) {
+            return false;
+          }
+          // スペイン語の特徴を持つ単語を優先
+          if (/[ñáéíóúü]/.test(word) || 
+              /^(el|la|los|las|un|una|de|del|que|en|es|por|para|con|sin)$/i.test(word) ||
+              word.endsWith('ar') || word.endsWith('er') || word.endsWith('ir') ||
+              word.endsWith('ción') || word.endsWith('dad') || word.endsWith('mente')) {
+            return true;
+          }
+          // その他の単語も一応含める
+          return true;
+        });
+      
+      if (apiSuggestions.length > 0) {
+        // ローカル辞書と組み合わせる
+        return combineSuggestionsWithLocal(text, apiSuggestions);
+      }
+    }
+  } catch (error) {
+    console.error('Datamuse API error for Spanish:', error);
+  }
+  
+  // APIが失敗した場合は拡張されたローカル辞書を使用
+  return getExtendedSpanishLocalSuggestions(text);
+};
+
+// 拡張されたスペイン語ローカル辞書
+const getExtendedSpanishLocalSuggestions = (text: string): string[] => {
+  const extendedSpanishWords = [
     // 基本的な挨拶・表現
     'hola', 'adiós', 'gracias', 'por favor', 'disculpe', 'sí', 'no', 'bien', 'mal', 'agua',
     // 一般的な名詞
     'comida', 'casa', 'escuela', 'trabajo', 'familia', 'amigo', 'tiempo', 'dinero', 'mundo', 'vida',
     'amor', 'niño', 'niña', 'mujer', 'hombre', 'día', 'noche', 'mañana', 'tarde', 'año', 'mes',
-    'semana', 'hora', 'minuto', 'segundo', 'grande', 'pequeño', 'bueno', 'malo', 'nuevo', 'viejo',
-    // 色
-    'rojo', 'azul', 'verde', 'amarillo', 'negro', 'blanco', 'gris', 'rosa', 'naranja', 'morado',
-    // 家族
-    'abuelo', 'abuela', 'padre', 'madre', 'hermano', 'hermana', 'tío', 'tía', 'primo', 'prima',
-    // 動詞の基本形
+    // 動詞 - 原形
+    'comprar', 'comprender', 'completar', 'comenzar', 'comer', 'conocer', 'conseguir', 'considerar',
+    'construir', 'contar', 'continuar', 'contribuir', 'conversar', 'convertir', 'correr', 'cortar',
+    'crear', 'crecer', 'creer', 'cruzar', 'cubrir', 'cumplir', 'cambiar', 'caminar', 'cantar',
     'estar', 'ser', 'tener', 'hacer', 'ir', 'venir', 'querer', 'poder', 'decir', 'saber',
+    'dar', 'ver', 'pasar', 'deber', 'poner', 'parecer', 'quedar', 'pensar', 'sentir', 'llegar',
+    'llevar', 'dejar', 'encontrar', 'llamar', 'volver', 'tomar', 'vivir', 'sentir', 'contar', 'buscar',
+    'existir', 'entrar', 'trabajar', 'escribir', 'perder', 'producir', 'ocurrir', 'entender', 'pedir',
+    'recibir', 'recordar', 'terminar', 'permitir', 'aparecer', 'conseguir', 'empezar', 'servir', 'sacar',
+    'necesitar', 'mantener', 'resultar', 'leer', 'caer', 'cambiar', 'presentar', 'oír', 'hablar',
+    // 動詞 - 活用形（一人称単数現在）
+    'compro', 'comprendo', 'completo', 'comienzo', 'como', 'conozco', 'consigo', 'considero',
+    'construyo', 'cuento', 'continúo', 'contribuyo', 'converso', 'convierto', 'corro', 'corto',
+    'creo', 'crezco', 'cruzo', 'cubro', 'cumplo', 'cambio', 'camino', 'canto',
+    'estoy', 'soy', 'tengo', 'hago', 'voy', 'vengo', 'quiero', 'puedo', 'digo', 'sé',
+    // 動詞 - 過去形
+    'compré', 'comprendí', 'completé', 'comencé', 'comí', 'conocí', 'conseguí', 'consideré',
+    'construí', 'conté', 'continué', 'contribuí', 'conversé', 'convertí', 'corrí', 'corté',
+    // 形容詞
+    'completo', 'complejo', 'común', 'conocido', 'contento', 'contrario', 'conveniente', 'correcto',
+    'corto', 'cultural', 'curioso', 'cierto', 'claro', 'comercial', 'complicado', 'concreto',
     // 特殊文字を含む単語
     'español', 'mañana', 'señor', 'señora', 'niño', 'niña', 'año', 'añadir', 'cumpleaños', 'tamaño',
     'sueño', 'otoño', 'montaña', 'cañón', 'compañero', 'compañía', 'diseño', 'enseñar', 'pequeño',
-    // アクセント記号を含む単語
     'café', 'árbol', 'música', 'médico', 'teléfono', 'número', 'lápiz', 'máquina', 'cámara', 'fácil',
-    'difícil', 'último', 'próximo', 'rápido', 'débil', 'útil', 'líquido', 'sólido', 'público', 'básico',
-    // よく使われる動詞の変化形
-    'está', 'están', 'tenía', 'había', 'será', 'sería', 'querría', 'podría', 'haría', 'diría'
+    'difícil', 'último', 'próximo', 'rápido', 'débil', 'útil', 'líquido', 'sólido', 'público', 'básico'
   ];
   
-  // 入力テキストをノーマライズ（アクセント記号を除去）して比較
+  // 入力テキストをノーマライズ
   const normalizeText = (str: string): string => {
     return str.toLowerCase()
       .replace(/á/g, 'a')
@@ -105,41 +159,50 @@ const getSpanishSuggestions = async (text: string): Promise<string[]> => {
   const normalizedInput = normalizeText(text);
   
   // 候補を検索
-  const suggestions = commonSpanishWords.filter(word => {
+  const suggestions = extendedSpanishWords.filter(word => {
     const normalizedWord = normalizeText(word);
-    // 通常の前方一致
-    if (word.toLowerCase().startsWith(text.toLowerCase())) {
-      return true;
-    }
-    // ノーマライズした文字列での前方一致（例: nino -> niño）
-    if (normalizedWord.startsWith(normalizedInput)) {
-      return true;
-    }
-    return false;
+    return word.toLowerCase().startsWith(text.toLowerCase()) || 
+           normalizedWord.startsWith(normalizedInput);
   });
   
-  // スコアリング: 完全一致を優先、次に特殊文字を含む候補を優先
-  const scored = suggestions.map(word => {
+  // 重複を除去してユニークな候補のみを返す
+  const uniqueSuggestions = Array.from(new Set(suggestions));
+  
+  // スコアリング
+  const scored = uniqueSuggestions.map(word => {
     let score = 0;
     // 完全一致
     if (word.toLowerCase() === text.toLowerCase()) {
       score += 100;
     }
-    // 特殊文字を含む単語を優先（例: niño > nino）
+    // 前方一致の精度
+    if (word.toLowerCase().startsWith(text.toLowerCase())) {
+      score += 50;
+    }
+    // 特殊文字を含む単語を優先
     if (/[ñáéíóúü]/.test(word)) {
       score += 10;
     }
     // 長さの近さ
-    score -= Math.abs(word.length - text.length);
+    score -= Math.abs(word.length - text.length) * 2;
     
     return { word, score };
   });
   
-  // スコアでソートして上位を返す
   return scored
     .sort((a, b) => b.score - a.score)
     .map(item => item.word)
-    .slice(0, 5); // 5つまで候補を表示
+    .slice(0, 8); // 8つまで候補を表示
+};
+
+// APIの結果とローカル辞書を組み合わせる
+const combineSuggestionsWithLocal = (text: string, apiSuggestions: string[]): string[] => {
+  const localSuggestions = getExtendedSpanishLocalSuggestions(text);
+  
+  // APIとローカルの結果を結合して重複を除去
+  const combined = Array.from(new Set([...apiSuggestions.slice(0, 5), ...localSuggestions.slice(0, 3)]));
+  
+  return combined.slice(0, 8); // 最大8つまで
 };
 
 // フランス語のサジェスチョン（特殊文字を考慮）
