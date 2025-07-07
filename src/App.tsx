@@ -3,6 +3,7 @@ import { FileManager } from './components/FileManager';
 import { WordManager } from './components/WordManager';
 import { Flashcard } from './components/Flashcard';
 import { Auth } from './components/Auth';
+import { ConnectionStatus } from './components/ConnectionStatus';
 import { VocabularyFile, SupportedLanguage } from './types';
 import { useTheme } from './hooks/useTheme';
 import { supabase } from './lib/supabase';
@@ -423,47 +424,56 @@ function App() {
       appState
     });
     return (
-      <FileManager
-        files={files}
-        onCreateFile={handleCreateFile}
-        onDeleteFile={handleDeleteFile}
-        onSelectFile={handleSelectFile}
-        onSignOut={handleSignOut}
-        currentTheme={currentTheme}
-        availableThemes={availableThemes}
-        onThemeChange={setTheme}
-      />
+      <>
+        <FileManager
+          files={files}
+          onCreateFile={handleCreateFile}
+          onDeleteFile={handleDeleteFile}
+          onSelectFile={handleSelectFile}
+          onSignOut={handleSignOut}
+          currentTheme={currentTheme}
+          availableThemes={availableThemes}
+          onThemeChange={setTheme}
+        />
+        <ConnectionStatus />
+      </>
     );
   }
 
   if (appState === 'word-manager' && currentFile) {
     return (
-      <WordManager
-        file={currentFile}
-        onBack={handleBackToFileManager}
-        onUpdateFile={handleUpdateFile}
-        onStartFlashcards={handleStartFlashcards}
-        currentTheme={currentTheme}
-        availableThemes={availableThemes}
-        onThemeChange={setTheme}
-      />
+      <>
+        <WordManager
+          file={currentFile}
+          onBack={handleBackToFileManager}
+          onUpdateFile={handleUpdateFile}
+          onStartFlashcards={handleStartFlashcards}
+          currentTheme={currentTheme}
+          availableThemes={availableThemes}
+          onThemeChange={setTheme}
+        />
+        <ConnectionStatus />
+      </>
     );
   }
 
   if (appState === 'flashcards' && currentFile && currentFile.words.length > 0) {
     return (
-      <Flashcard
-        word={currentFile.words[currentWordIndex]}
-        currentIndex={currentWordIndex}
-        totalWords={currentFile.words.length}
-        onNext={handleNextWord}
-        onPrevious={handlePreviousWord}
-        onShuffle={handleShuffleWords}
-        onBack={handleBackToWordManager}
-        currentTheme={currentTheme}
-        availableThemes={availableThemes}
-        onThemeChange={setTheme}
-      />
+      <>
+        <Flashcard
+          word={currentFile.words[currentWordIndex]}
+          currentIndex={currentWordIndex}
+          totalWords={currentFile.words.length}
+          onNext={handleNextWord}
+          onPrevious={handlePreviousWord}
+          onShuffle={handleShuffleWords}
+          onBack={handleBackToWordManager}
+          currentTheme={currentTheme}
+          availableThemes={availableThemes}
+          onThemeChange={setTheme}
+        />
+        <ConnectionStatus />
+      </>
     );
   }
 

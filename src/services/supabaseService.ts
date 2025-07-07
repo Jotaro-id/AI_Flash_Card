@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { VocabularyFile, Word, SupportedLanguage } from '../types';
+import { withRetry, handleSupabaseError } from '../utils/supabaseHelpers';
 
 // 単語帳の取得
 export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
@@ -17,46 +18,63 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
   
   if (!userId) throw new Error('ユーザーが認証されていません');
 
-  console.log('fetchVocabularyFiles: Supabaseクエリを実行中...');
-  // まず単純なクエリでデータが取得できるか確認
-  const { data: simpleData, error: simpleError } = await supabase
-    .from('word_books')
-    .select('*')
-    .eq('user_id', userId);
-  
-  console.log('fetchVocabularyFiles: 単純クエリ結果', { simpleData, simpleError });
-  
-  // 関連データを含む完全なクエリ
-  const { data, error } = await supabase
-    .from('word_books')
-    .select(`
-      *,
-      word_book_cards (
-        word_cards (*)
-      )
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+  try {
+    console.log('fetchVocabularyFiles: Supabaseクエリを実行中...');
+    
+    // 再試行ロジック付きでクエリを実行
+    const result = await withRetry(
+      async () => {
+        // まず単純なクエリでデータが取得できるか確認
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('word_books')
+          .select('*')
+          .eq('user_id', userId);
+        
+        console.log('fetchVocabularyFiles: 単純クエリ結果', { simpleData, simpleError });
+        
+        if (simpleError) throw simpleError;
+        
+        // 関連データを含む完全なクエリ
+        const { data, error } = await supabase
+          .from('word_books')
+          .select(`
+            *,
+            word_book_cards (
+              word_cards (*)
+            )
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
 
-  console.log('fetchVocabularyFiles: クエリ結果', { data, error });
-  if (error) {
-    console.error('fetchVocabularyFiles: エラー発生', error);
-    throw error;
-  }
+        console.log('fetchVocabularyFiles: クエリ結果', { data, error });
+        
+        if (error) throw error;
+        
+        return data;
+      },
+      {
+        maxRetries: 3,
+        onRetry: (attempt, error) => {
+          console.log(`fetchVocabularyFiles: 再試行 ${attempt}/3`, error.message);
+        }
+      }
+    );
+    
+    const data = result;
 
-  console.log('fetchVocabularyFiles: 取得したデータ数', data ? data.length : 0);
-  if (data && data.length > 0) {
-    console.log('fetchVocabularyFiles: 最初のデータサンプル', {
-      id: data[0].id,
-      name: data[0].name,
-      target_language: data[0].target_language,
-      word_book_cards: data[0].word_book_cards,
-      word_book_cards_length: data[0].word_book_cards?.length
-    });
-  }
+    console.log('fetchVocabularyFiles: 取得したデータ数', data ? data.length : 0);
+    if (data && data.length > 0) {
+      console.log('fetchVocabularyFiles: 最初のデータサンプル', {
+        id: data[0].id,
+        name: data[0].name,
+        target_language: data[0].target_language,
+        word_book_cards: data[0].word_book_cards,
+        word_book_cards_length: data[0].word_book_cards?.length
+      });
+    }
 
-  // データ形式を変換
-  const result = (data || []).map(book => {
+    // データ形式を変換
+    const transformedResult = (data || []).map(book => {
     console.log('fetchVocabularyFiles: 変換中', {
       bookId: book.id,
       bookName: book.name,
@@ -78,9 +96,14 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
     };
   });
   
-  console.log('fetchVocabularyFiles: 変換後のデータ数', result.length);
-  console.log('fetchVocabularyFiles: 完了', result);
-  return result;
+    console.log('fetchVocabularyFiles: 変換後のデータ数', transformedResult.length);
+    console.log('fetchVocabularyFiles: 完了', transformedResult);
+    return transformedResult;
+  } catch (error) {
+    handleSupabaseError(error);
+    console.error('fetchVocabularyFiles: 最終的なエラー', error);
+    throw new Error('単語帳の取得に失敗しました。ネットワーク接続を確認してください。');
+  }
 };
 
 // 単語帳の作成
@@ -99,26 +122,45 @@ export const createVocabularyFile = async (
   
   if (!userId) throw new Error('ユーザーが認証されていません');
 
-  const { data, error } = await supabase
-    .from('word_books')
-    .insert({
-      name,
-      user_id: userId,
-      target_language: targetLanguage,
-      description: `${name} - AI単語帳`
-    })
-    .select()
-    .single();
+  try {
+    const { data, error } = await withRetry(
+      async () => {
+        const result = await supabase
+          .from('word_books')
+          .insert({
+            name,
+            user_id: userId,
+            target_language: targetLanguage,
+            description: `${name} - AI単語帳`
+          })
+          .select()
+          .single();
+        
+        if (result.error) throw result.error;
+        return result;
+      },
+      {
+        maxRetries: 3,
+        onRetry: (attempt, error) => {
+          console.log(`createVocabularyFile: 再試行 ${attempt}/3`, error.message);
+        }
+      }
+    );
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return {
-    id: data.id,
-    name: data.name,
-    createdAt: new Date(data.created_at),
-    targetLanguage: data.target_language as SupportedLanguage,
-    words: []
-  };
+    return {
+      id: data.id,
+      name: data.name,
+      createdAt: new Date(data.created_at),
+      targetLanguage: data.target_language as SupportedLanguage,
+      words: []
+    };
+  } catch (error) {
+    handleSupabaseError(error);
+    console.error('createVocabularyFile: エラー', error);
+    throw new Error('単語帳の作成に失敗しました。ネットワーク接続を確認してください。');
+  }
 };
 
 // 単語帳の削除（関連データを含む完全削除）

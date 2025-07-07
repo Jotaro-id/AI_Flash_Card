@@ -17,11 +17,43 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase URL and Anon Key are required')
 }
 
-// Supabaseクライアントを作成
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Supabaseクライアントを作成（改善されたオプション付き）
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storage: window.localStorage,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+  global: {
+    headers: {
+      'x-my-custom-header': 'ai-flashcard',
+    },
+    fetch: (input, init) => {
+      // タイムアウトを設定
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+      
+      return fetch(input, {
+        ...init,
+        signal: controller.signal,
+      }).finally(() => {
+        clearTimeout(timeoutId);
+      });
+    },
+  },
+});
 
 // 初期化完了ログ
-console.log('Supabase client created successfully');
+console.log('Supabase client created successfully with enhanced options');
 
 // グローバルスコープに公開（デバッグ用）
 if (typeof window !== 'undefined') {
