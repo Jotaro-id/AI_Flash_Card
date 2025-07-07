@@ -65,64 +65,189 @@ const getEnglishSuggestions = async (text: string): Promise<string[]> => {
   }
 };
 
-// スペイン語のサジェスチョン（基本的な部分一致）
+// スペイン語のサジェスチョン（特殊文字を考慮した部分一致）
 const getSpanishSuggestions = async (text: string): Promise<string[]> => {
   const commonSpanishWords = [
+    // 基本的な挨拶・表現
     'hola', 'adiós', 'gracias', 'por favor', 'disculpe', 'sí', 'no', 'bien', 'mal', 'agua',
+    // 一般的な名詞
     'comida', 'casa', 'escuela', 'trabajo', 'familia', 'amigo', 'tiempo', 'dinero', 'mundo', 'vida',
-    'amor', 'niño', 'mujer', 'hombre', 'día', 'noche', 'mañana', 'tarde', 'año', 'mes',
+    'amor', 'niño', 'niña', 'mujer', 'hombre', 'día', 'noche', 'mañana', 'tarde', 'año', 'mes',
     'semana', 'hora', 'minuto', 'segundo', 'grande', 'pequeño', 'bueno', 'malo', 'nuevo', 'viejo',
-    'rojo', 'azul', 'verde', 'amarillo', 'negro', 'blanco', 'abuelo', 'abuela', 'padre', 'madre'
+    // 色
+    'rojo', 'azul', 'verde', 'amarillo', 'negro', 'blanco', 'gris', 'rosa', 'naranja', 'morado',
+    // 家族
+    'abuelo', 'abuela', 'padre', 'madre', 'hermano', 'hermana', 'tío', 'tía', 'primo', 'prima',
+    // 動詞の基本形
+    'estar', 'ser', 'tener', 'hacer', 'ir', 'venir', 'querer', 'poder', 'decir', 'saber',
+    // 特殊文字を含む単語
+    'español', 'mañana', 'señor', 'señora', 'niño', 'niña', 'año', 'añadir', 'cumpleaños', 'tamaño',
+    'sueño', 'otoño', 'montaña', 'cañón', 'compañero', 'compañía', 'diseño', 'enseñar', 'pequeño',
+    // アクセント記号を含む単語
+    'café', 'árbol', 'música', 'médico', 'teléfono', 'número', 'lápiz', 'máquina', 'cámara', 'fácil',
+    'difícil', 'último', 'próximo', 'rápido', 'débil', 'útil', 'líquido', 'sólido', 'público', 'básico',
+    // よく使われる動詞の変化形
+    'está', 'están', 'tenía', 'había', 'será', 'sería', 'querría', 'podría', 'haría', 'diría'
   ];
   
-  return commonSpanishWords
-    .filter(word => word.toLowerCase().startsWith(text.toLowerCase()))
-    .slice(0, 3);
+  // 入力テキストをノーマライズ（アクセント記号を除去）して比較
+  const normalizeText = (str: string): string => {
+    return str.toLowerCase()
+      .replace(/á/g, 'a')
+      .replace(/é/g, 'e')
+      .replace(/í/g, 'i')
+      .replace(/ó/g, 'o')
+      .replace(/ú/g, 'u')
+      .replace(/ñ/g, 'n')
+      .replace(/ü/g, 'u');
+  };
+  
+  const normalizedInput = normalizeText(text);
+  
+  // 候補を検索
+  const suggestions = commonSpanishWords.filter(word => {
+    const normalizedWord = normalizeText(word);
+    // 通常の前方一致
+    if (word.toLowerCase().startsWith(text.toLowerCase())) {
+      return true;
+    }
+    // ノーマライズした文字列での前方一致（例: nino -> niño）
+    if (normalizedWord.startsWith(normalizedInput)) {
+      return true;
+    }
+    return false;
+  });
+  
+  // スコアリング: 完全一致を優先、次に特殊文字を含む候補を優先
+  const scored = suggestions.map(word => {
+    let score = 0;
+    // 完全一致
+    if (word.toLowerCase() === text.toLowerCase()) {
+      score += 100;
+    }
+    // 特殊文字を含む単語を優先（例: niño > nino）
+    if (/[ñáéíóúü]/.test(word)) {
+      score += 10;
+    }
+    // 長さの近さ
+    score -= Math.abs(word.length - text.length);
+    
+    return { word, score };
+  });
+  
+  // スコアでソートして上位を返す
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.word)
+    .slice(0, 5); // 5つまで候補を表示
 };
 
-// フランス語のサジェスチョン
+// フランス語のサジェスチョン（特殊文字を考慮）
 const getFrenchSuggestions = async (text: string): Promise<string[]> => {
   const commonFrenchWords = [
     'bonjour', 'au revoir', 'merci', 's\'il vous plaît', 'excusez-moi', 'oui', 'non', 'bien', 'mal', 'eau',
     'nourriture', 'maison', 'école', 'travail', 'famille', 'ami', 'temps', 'argent', 'monde', 'vie',
     'amour', 'enfant', 'femme', 'homme', 'jour', 'nuit', 'matin', 'après-midi', 'année', 'mois',
     'semaine', 'heure', 'minute', 'seconde', 'grand', 'petit', 'bon', 'mauvais', 'nouveau', 'vieux',
-    'rouge', 'bleu', 'vert', 'jaune', 'noir', 'blanc', 'grand-père', 'grand-mère', 'père', 'mère'
+    'rouge', 'bleu', 'vert', 'jaune', 'noir', 'blanc', 'grand-père', 'grand-mère', 'père', 'mère',
+    // 特殊文字を含む単語
+    'être', 'avoir', 'aller', 'faire', 'très', 'déjà', 'bientôt', 'peut-être', 'même', 'hôtel',
+    'café', 'château', 'forêt', 'frère', 'sœur', 'œuvre', 'cœur', 'élève', 'étudiant', 'préférer',
+    'espérer', 'créer', 'idée', 'problème', 'système', 'théâtre', 'cinéma', 'musée', 'lycée', 'université',
+    'français', 'européen', 'médecin', 'ingénieur', 'présent', 'futur', 'passé', 'début', 'façon', 'leçon'
   ];
   
-  return commonFrenchWords
-    .filter(word => word.toLowerCase().startsWith(text.toLowerCase()))
-    .slice(0, 3);
+  const normalizeText = (str: string): string => {
+    return str.toLowerCase()
+      .replace(/[àâä]/g, 'a')
+      .replace(/[éèêë]/g, 'e')
+      .replace(/[îï]/g, 'i')
+      .replace(/[ôö]/g, 'o')
+      .replace(/[ùûü]/g, 'u')
+      .replace(/ÿ/g, 'y')
+      .replace(/ç/g, 'c')
+      .replace(/œ/g, 'oe')
+      .replace(/æ/g, 'ae');
+  };
+  
+  const normalizedInput = normalizeText(text);
+  
+  const suggestions = commonFrenchWords.filter(word => {
+    const normalizedWord = normalizeText(word);
+    return word.toLowerCase().startsWith(text.toLowerCase()) || 
+           normalizedWord.startsWith(normalizedInput);
+  });
+  
+  return suggestions.slice(0, 5);
 };
 
-// ドイツ語のサジェスチョン
+// ドイツ語のサジェスチョン（特殊文字を考慮）
 const getGermanSuggestions = async (text: string): Promise<string[]> => {
   const commonGermanWords = [
     'hallo', 'auf wiedersehen', 'danke', 'bitte', 'entschuldigung', 'ja', 'nein', 'gut', 'schlecht', 'wasser',
     'essen', 'haus', 'schule', 'arbeit', 'familie', 'freund', 'zeit', 'geld', 'welt', 'leben',
     'liebe', 'kind', 'frau', 'mann', 'tag', 'nacht', 'morgen', 'nachmittag', 'jahr', 'monat',
     'woche', 'stunde', 'minute', 'sekunde', 'groß', 'klein', 'gut', 'schlecht', 'neu', 'alt',
-    'rot', 'blau', 'grün', 'gelb', 'schwarz', 'weiß', 'großvater', 'großmutter', 'vater', 'mutter'
+    'rot', 'blau', 'grün', 'gelb', 'schwarz', 'weiß', 'großvater', 'großmutter', 'vater', 'mutter',
+    // 特殊文字を含む単語
+    'können', 'müssen', 'möchten', 'würde', 'hätte', 'wäre', 'für', 'über', 'schön', 'größer',
+    'höher', 'länger', 'stärker', 'jünger', 'älter', 'früher', 'später', 'öffnen', 'hören', 'gehören',
+    'führen', 'berühren', 'erzählen', 'erklären', 'verstärken', 'überlegen', 'übersetzen', 'überraschen',
+    'straße', 'größe', 'süß', 'heiß', 'fließen', 'schließen', 'genießen', 'beißen', 'reißen', 'gießen'
   ];
   
-  return commonGermanWords
-    .filter(word => word.toLowerCase().startsWith(text.toLowerCase()))
-    .slice(0, 3);
+  const normalizeText = (str: string): string => {
+    return str.toLowerCase()
+      .replace(/ä/g, 'a')
+      .replace(/ö/g, 'o')
+      .replace(/ü/g, 'u')
+      .replace(/ß/g, 'ss');
+  };
+  
+  const normalizedInput = normalizeText(text);
+  
+  const suggestions = commonGermanWords.filter(word => {
+    const normalizedWord = normalizeText(word);
+    return word.toLowerCase().startsWith(text.toLowerCase()) || 
+           normalizedWord.startsWith(normalizedInput);
+  });
+  
+  return suggestions.slice(0, 5);
 };
 
-// イタリア語のサジェスチョン
+// イタリア語のサジェスチョン（特殊文字を考慮）
 const getItalianSuggestions = async (text: string): Promise<string[]> => {
   const commonItalianWords = [
     'ciao', 'arrivederci', 'grazie', 'prego', 'scusi', 'sì', 'no', 'bene', 'male', 'acqua',
     'cibo', 'casa', 'scuola', 'lavoro', 'famiglia', 'amico', 'tempo', 'denaro', 'mondo', 'vita',
     'amore', 'bambino', 'donna', 'uomo', 'giorno', 'notte', 'mattina', 'pomeriggio', 'anno', 'mese',
     'settimana', 'ora', 'minuto', 'secondo', 'grande', 'piccolo', 'buono', 'cattivo', 'nuovo', 'vecchio',
-    'rosso', 'blu', 'verde', 'giallo', 'nero', 'bianco', 'nonno', 'nonna', 'padre', 'madre'
+    'rosso', 'blu', 'verde', 'giallo', 'nero', 'bianco', 'nonno', 'nonna', 'padre', 'madre',
+    // 特殊文字を含む単語
+    'caffè', 'città', 'università', 'possibilità', 'libertà', 'verità', 'società', 'qualità', 'quantità',
+    'più', 'già', 'però', 'perché', 'così', 'là', 'qua', 'può', 'sarà', 'farà', 'andrà',
+    'è', 'sarò', 'farò', 'andrò', 'verrò', 'dirò', 'avrò', 'saprò', 'potrò', 'dovrò',
+    'papà', 'bebè', 'virtù', 'gioventù', 'servitù', 'tribù', 'menù', 'tabù', 'perciò', 'cioè'
   ];
   
-  return commonItalianWords
-    .filter(word => word.toLowerCase().startsWith(text.toLowerCase()))
-    .slice(0, 3);
+  const normalizeText = (str: string): string => {
+    return str.toLowerCase()
+      .replace(/[àá]/g, 'a')
+      .replace(/[èé]/g, 'e')
+      .replace(/[ìí]/g, 'i')
+      .replace(/[òó]/g, 'o')
+      .replace(/[ùú]/g, 'u');
+  };
+  
+  const normalizedInput = normalizeText(text);
+  
+  const suggestions = commonItalianWords.filter(word => {
+    const normalizedWord = normalizeText(word);
+    return word.toLowerCase().startsWith(text.toLowerCase()) || 
+           normalizedWord.startsWith(normalizedInput);
+  });
+  
+  return suggestions.slice(0, 5);
 };
 
 // 日本語のサジェスチョン
