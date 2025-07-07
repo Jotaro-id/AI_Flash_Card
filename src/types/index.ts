@@ -24,6 +24,13 @@ export interface AIWordInfo {
   wordClass: 'noun' | 'verb' | 'adjective' | 'adverb' | 'other';
   tenseInfo?: string;
   additionalInfo?: string;
+  // 段階的表示のための新しい例文構造
+  enhancedExample?: {
+    originalLanguage: SupportedLanguage;
+    originalSentence: string;
+    japaneseTranslation: string;
+    englishTranslation: string;
+  };
   // 多言語対応のための新しいフィールド
   translations?: {
     spanish?: string;

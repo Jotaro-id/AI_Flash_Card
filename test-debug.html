@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI単語帳 - デバッグテスト</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #61dafb;
+        }
+        .section {
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #ffd700;
+            margin-top: 0;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .status.success {
+            background-color: #28a745;
+        }
+        .status.error {
+            background-color: #dc3545;
+        }
+        .status.warning {
+            background-color: #ffc107;
+            color: #000;
+        }
+        .log {
+            background-color: #000;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI単語帳 - デバッグテスト</h1>
+        
+        <div class="section">
+            <h2>開発サーバー状態確認</h2>
+            <button id="checkServerBtn" onclick="checkServer()">サーバー確認</button>
+            <div id="serverStatus"></div>
+        </div>
+
+        <div class="section">
+            <h2>アプリケーションデバッグ</h2>
+            <button id="openAppBtn" onclick="openApp()">アプリを開く</button>
+            <button id="captureLogsBtn" onclick="captureLogs()">コンソールログ取得</button>
+            <button id="clearLogsBtn" onclick="clearLogs()">ログクリア</button>
+            <div id="appStatus"></div>
+            <div id="consoleLogs" class="log" style="margin-top: 10px; display: none;">
+                <strong>コンソールログ:</strong><br>
+                <div id="logContent"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Supabase接続デバッグ</h2>
+            <button id="testSupabaseBtn" onclick="testSupabase()">Supabase接続テスト</button>
+            <div id="supabaseStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        let appWindow = null;
+        let logs = [];
+
+        function addLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString('ja-JP');
+            logs.push({ timestamp, message, type });
+            updateLogDisplay();
+        }
+
+        function updateLogDisplay() {
+            const logContent = document.getElementById('logContent');
+            logContent.innerHTML = logs.map(log => {
+                const color = log.type === 'error' ? '#ff6b6b' : 
+                              log.type === 'warn' ? '#feca57' : '#54a0ff';
+                return `<div style="color: ${color}">[${log.timestamp}] ${log.message}</div>`;
+            }).join('');
+        }
+
+        function clearLogs() {
+            logs = [];
+            updateLogDisplay();
+            addLog('ログをクリアしました', 'log');
+        }
+
+        async function checkServer() {
+            const statusDiv = document.getElementById('serverStatus');
+            statusDiv.innerHTML = '<div class="loader"></div> サーバーを確認中...';
+            
+            try {
+                const response = await fetch('http://localhost:5173');
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="status success">✅ 開発サーバーは稼働中です</div>';
+                } else {
+                    statusDiv.innerHTML = '<div class="status error">❌ サーバーはアクセス可能ですが、エラーを返しています: ' + response.status + '</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ 開発サーバーに接続できません。npm run dev を実行してください。</div>';
+            }
+        }
+
+        function openApp() {
+            if (appWindow && !appWindow.closed) {
+                appWindow.focus();
+                return;
+            }
+            
+            appWindow = window.open('http://localhost:5173', 'ai-flashcard-app', 'width=1200,height=800');
+            document.getElementById('appStatus').innerHTML = '<div class="status success">✅ アプリケーションを新しいウィンドウで開きました</div>';
+            document.getElementById('consoleLogs').style.display = 'block';
+            
+            // アプリウィンドウのコンソールログをキャプチャ
+            setTimeout(() => {
+                if (appWindow && !appWindow.closed) {
+                    try {
+                        // オリジナルのconsole関数を保存
+                        const originalLog = appWindow.console.log;
+                        const originalError = appWindow.console.error;
+                        const originalWarn = appWindow.console.warn;
+                        
+                        // console.logをインターセプト
+                        appWindow.console.log = function(...args) {
+                            addLog(args.join(' '), 'log');
+                            originalLog.apply(appWindow.console, args);
+                        };
+                        
+                        // console.errorをインターセプト
+                        appWindow.console.error = function(...args) {
+                            addLog(args.join(' '), 'error');
+                            originalError.apply(appWindow.console, args);
+                        };
+                        
+                        // console.warnをインターセプト
+                        appWindow.console.warn = function(...args) {
+                            addLog(args.join(' '), 'warn');
+                            originalWarn.apply(appWindow.console, args);
+                        };
+                        
+                        addLog('コンソールログの監視を開始しました', 'log');
+                    } catch (error) {
+                        addLog('コンソールログの監視設定に失敗しました: ' + error.message, 'error');
+                    }
+                }
+            }, 1000);
+        }
+
+        async function captureLogs() {
+            if (!appWindow || appWindow.closed) {
+                document.getElementById('appStatus').innerHTML = '<div class="status error">❌ アプリケーションウィンドウが開いていません</div>';
+                return;
+            }
+            
+            try {
+                // アプリウィンドウでデバッグ関数を実行
+                const result = await appWindow.eval(`
+                    (async () => {
+                        // debugSupabaseData関数を探して実行
+                        if (window.debugSupabaseData) {
+                            console.log('debugSupabaseData関数を実行中...');
+                            const result = await window.debugSupabaseData();
+                            console.log('debugSupabaseData結果:', result);
+                            return result;
+                        } else {
+                            console.error('debugSupabaseData関数が見つかりません');
+                            return { error: 'debugSupabaseData関数が見つかりません' };
+                        }
+                    })()
+                `);
+                
+                addLog('デバッグ関数の実行結果: ' + JSON.stringify(result, null, 2), 'log');
+            } catch (error) {
+                addLog('デバッグ関数の実行に失敗しました: ' + error.message, 'error');
+            }
+        }
+
+        async function testSupabase() {
+            const statusDiv = document.getElementById('supabaseStatus');
+            statusDiv.innerHTML = '<div class="loader"></div> Supabase接続をテスト中...';
+            
+            if (!appWindow || appWindow.closed) {
+                statusDiv.innerHTML = '<div class="status error">❌ アプリケーションウィンドウが開いていません。先にアプリを開いてください。</div>';
+                return;
+            }
+            
+            try {
+                // アプリウィンドウで診断を実行
+                const diagnostics = await appWindow.eval(`
+                    (async () => {
+                        if (window.runSupabaseDiagnostics) {
+                            return await window.runSupabaseDiagnostics();
+                        } else {
+                            return { error: 'runSupabaseDiagnostics関数が見つかりません' };
+                        }
+                    })()
+                `);
+                
+                if (diagnostics.error) {
+                    statusDiv.innerHTML = '<div class="status error">❌ ' + diagnostics.error + '</div>';
+                } else {
+                    let html = '<h3>診断結果:</h3>';
+                    diagnostics.forEach(result => {
+                        const statusClass = result.status === 'success' ? 'success' : 
+                                           result.status === 'warning' ? 'warning' : 'error';
+                        const icon = result.status === 'success' ? '✅' : 
+                                    result.status === 'warning' ? '⚠️' : '❌';
+                        html += `<div class="status ${statusClass}">${icon} ${result.test}: ${result.message}`;
+                        if (result.details) {
+                            html += `<br><small>${result.details}</small>`;
+                        }
+                        html += '</div>';
+                    });
+                    statusDiv.innerHTML = html;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ 診断の実行に失敗しました: ' + error.message + '</div>';
+            }
+        }
+
+        // ページ読み込み時に自動でサーバーをチェック
+        window.onload = () => {
+            checkServer();
+        };
+    </script>
+</body>
+</html>

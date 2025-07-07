@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages } from 'lucide-react';
+import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2 } from 'lucide-react';
 import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
-import { generateWordInfo, getWordSuggestions, checkSpelling } from '../services/aiService';
+import { generateWordInfo, checkSpelling } from '../services/aiService';
+import { getWordSuggestions } from '../services/wordSuggestionService';
 import { addWordToFile } from '../services/supabaseService';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
@@ -71,6 +72,11 @@ export const WordManager: React.FC<WordManagerProps> = ({
   // 詳細モーダルの状態
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
+  // 削除確認ダイアログの状態
+  const [wordToDelete, setWordToDelete] = useState<Word | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 動的ローディングテキスト管理
   useEffect(() => {
@@ -336,6 +342,40 @@ export const WordManager: React.FC<WordManagerProps> = ({
     setSelectedWord(null);
   };
 
+  const handleDeleteWord = (word: Word) => {
+    setWordToDelete(word);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteWord = async () => {
+    if (!wordToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteWordFromFile(file.id, wordToDelete.id);
+      
+      // UIからも削除
+      const updatedFile = {
+        ...file,
+        words: file.words.filter(w => w.id !== wordToDelete.id)
+      };
+      onUpdateFile(updatedFile);
+      
+      setIsDeleteDialogOpen(false);
+      setWordToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete word:', error);
+      alert('単語の削除に失敗しました');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDeleteWord = () => {
+    setIsDeleteDialogOpen(false);
+    setWordToDelete(null);
+  };
+
   return (
     <div className={`min-h-screen bg-gradient-to-br ${currentTheme.wordManager} p-4`}>
       <div className="max-w-6xl mx-auto">
@@ -580,6 +620,13 @@ export const WordManager: React.FC<WordManagerProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => handleDeleteWord(word)}
+                          className="bg-red-500/80 hover:bg-red-600 text-white p-1 rounded-lg transition-all duration-200 hover:scale-105"
+                          title="この単語を削除"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <button
                           onClick={() => handleExportSingleWord(word)}
                           className="bg-white/20 hover:bg-white/30 text-white p-1 rounded-lg transition-all duration-200 hover:scale-105"
                           title="この単語をJSONでエクスポート"
@@ -640,6 +687,46 @@ export const WordManager: React.FC<WordManagerProps> = ({
           isOpen={isDetailModalOpen}
           onClose={handleCloseDetailModal}
         />
+      )}
+      
+      {/* 削除確認ダイアログ */}
+      {isDeleteDialogOpen && wordToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">単語の削除確認</h3>
+            <p className="text-gray-700 mb-6">
+              「<span className="font-semibold text-red-600">{wordToDelete.word}</span>」を削除してもよろしいですか？
+              <br />
+              この操作は取り消せません。
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDeleteWord}
+                disabled={isDeleting}
+                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={confirmDeleteWord}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} />
+                    削除中...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    削除する
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

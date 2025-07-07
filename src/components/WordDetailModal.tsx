@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Globe, BookOpen, Lightbulb, Languages, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff } from 'lucide-react';
 import { Word, supportedLanguages } from '../types';
 import { SpeechButton } from './SpeechButton';
 
@@ -10,6 +10,9 @@ interface WordDetailModalProps {
 }
 
 export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose }) => {
+  const [showJapaneseTranslation, setShowJapaneseTranslation] = useState(false);
+  const [showEnglishTranslation, setShowEnglishTranslation] = useState(false);
+
   if (!isOpen || !word.aiGenerated) return null;
 
   const aiInfo = word.aiGenerated;
@@ -76,29 +79,111 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
             </div>
           </div>
 
-          {/* 例文 */}
-          <div className="mb-6">
-            <h3 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800">
-              <BookOpen size={20} />
-              例文
-            </h3>
-            <div className="space-y-3">
-              <div className="bg-blue-50 rounded-lg p-4">
-                <p className="text-gray-800 mb-2">{aiInfo.exampleSentence}</p>
-                <SpeechButton text={aiInfo.exampleSentence} language="en" size={16} />
-              </div>
-              <div className="bg-green-50 rounded-lg p-4">
-                <p className="text-gray-800 mb-2">{aiInfo.japaneseExample}</p>
-                <SpeechButton text={aiInfo.japaneseExample} language="ja" size={16} />
-              </div>
-              {aiInfo.englishExample && (
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <p className="text-gray-800 mb-2">{aiInfo.englishExample}</p>
-                  <SpeechButton text={aiInfo.englishExample} language="en" size={16} />
+          {/* 段階的表示の例文 */}
+          {aiInfo.enhancedExample && (
+            <div className="mb-6">
+              <h3 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800">
+                <BookOpen size={20} />
+                例文
+              </h3>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-5 space-y-4">
+                {/* 第1段階: 元言語の例文 */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-600">
+                      {supportedLanguages[aiInfo.enhancedExample.originalLanguage]}
+                    </span>
+                    <SpeechButton 
+                      text={aiInfo.enhancedExample.originalSentence} 
+                      language={aiInfo.enhancedExample.originalLanguage} 
+                      size={16} 
+                    />
+                  </div>
+                  <p className="text-lg text-gray-800 font-medium">
+                    {aiInfo.enhancedExample.originalSentence}
+                  </p>
                 </div>
-              )}
+
+                {/* 第2段階: 日本語訳を表示/非表示 */}
+                <div className="border-t border-gray-200 pt-3">
+                  <button
+                    onClick={() => setShowJapaneseTranslation(!showJapaneseTranslation)}
+                    className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors mb-2"
+                  >
+                    {showJapaneseTranslation ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showJapaneseTranslation ? '日本語訳を隠す' : '日本語訳を見る'}
+                  </button>
+                  
+                  {showJapaneseTranslation && (
+                    <div className="bg-white/70 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-600">🇯🇵 日本語</span>
+                        <SpeechButton 
+                          text={aiInfo.enhancedExample.japaneseTranslation} 
+                          language="ja" 
+                          size={14} 
+                        />
+                      </div>
+                      <p className="text-gray-800">{aiInfo.enhancedExample.japaneseTranslation}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 第3段階: 英訳を表示/非表示 */}
+                {aiInfo.enhancedExample.originalLanguage !== 'en' && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <button
+                      onClick={() => setShowEnglishTranslation(!showEnglishTranslation)}
+                      className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-800 transition-colors mb-2"
+                    >
+                      {showEnglishTranslation ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showEnglishTranslation ? '英訳を隠す' : '英訳を見る'}
+                    </button>
+                    
+                    {showEnglishTranslation && (
+                      <div className="bg-white/70 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-600">🇬🇧 English</span>
+                          <SpeechButton 
+                            text={aiInfo.enhancedExample.englishTranslation} 
+                            language="en" 
+                            size={14} 
+                          />
+                        </div>
+                        <p className="text-gray-800">{aiInfo.enhancedExample.englishTranslation}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* フォールバック用の従来の例文表示 */}
+          {!aiInfo.enhancedExample && (
+            <div className="mb-6">
+              <h3 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800">
+                <BookOpen size={20} />
+                例文
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <p className="text-gray-800 mb-2">{aiInfo.exampleSentence}</p>
+                  <SpeechButton text={aiInfo.exampleSentence} language="en" size={16} />
+                </div>
+                <div className="bg-green-50 rounded-lg p-4">
+                  <p className="text-gray-800 mb-2">{aiInfo.japaneseExample}</p>
+                  <SpeechButton text={aiInfo.japaneseExample} language="ja" size={16} />
+                </div>
+                {aiInfo.englishExample && (
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <p className="text-gray-800 mb-2">{aiInfo.englishExample}</p>
+                    <SpeechButton text={aiInfo.englishExample} language="en" size={16} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 使用上の注意 */}
           <div className="mb-6">

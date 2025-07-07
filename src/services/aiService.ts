@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AIWordInfo, SupportedLanguage, supportedLanguages } from '../types';
+import { AIWordInfo, SupportedLanguage } from '../types';
 
 // APIキーを環境変数から取得
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -45,9 +45,11 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
   }
 };
 
-// Gemini用のプロンプトを作成（簡略化版で高速化）
+// Gemini用のプロンプトを作成（言語検出機能付き）
 const createWordAnalysisPrompt = (word: string): string => {
   return `単語「${word}」について、以下の情報をJSON形式で提供してください：
+
+まず単語「${word}」の言語を検出してください。そして、その検出された言語で自然な例文を作成してください。
 
 {
   "englishEquivalent": "英語での意味・定義",
@@ -60,6 +62,12 @@ const createWordAnalysisPrompt = (word: string): string => {
   "wordClass": "品詞（noun/verb/adjective/adverb/other）",
   "tenseInfo": "時制情報（該当する場合）",
   "additionalInfo": "追加の文法情報",
+  "enhancedExample": {
+    "originalLanguage": "検出された言語コード（en/ja/es/fr/it/de/zh/ko）",
+    "originalSentence": "検出された言語での自然な例文",
+    "japaneseTranslation": "その例文の日本語訳",
+    "englishTranslation": "その例文の英語訳"
+  },
   "translations": {
     "spanish": "スペイン語での意味",
     "french": "フランス語での意味",
@@ -77,6 +85,13 @@ const createWordAnalysisPrompt = (word: string): string => {
     "korean": "韓国語での例文"
   }
 }
+
+重要：
+1. 「originalLanguage」は単語「${word}」が属する言語を正確に検出してください
+2. 「originalSentence」はその言語で自然で適切な例文を作成してください
+3. 例：「niño」→スペイン語なので「El niño juega en el parque.」
+4. 例：「bonjour」→フランス語なので「Bonjour, comment allez-vous?」
+5. 例：「こんにちは」→日本語なので「こんにちは、元気ですか？」
 
 正確で教育的な内容を提供し、学習者に役立つ情報を含めてください。JSON形式で回答してください。`;
 };
@@ -104,6 +119,12 @@ const parseAIResponse = (aiResponse: string, word: string): AIWordInfo => {
       wordClass: parsedData.wordClass || determineWordClass(word),
       tenseInfo: parsedData.tenseInfo,
       additionalInfo: parsedData.additionalInfo,
+      enhancedExample: parsedData.enhancedExample || {
+        originalLanguage: 'en' as SupportedLanguage,
+        originalSentence: `Example sentence with "${word}".`,
+        japaneseTranslation: `「${word}」を使った例文です。`,
+        englishTranslation: `Example sentence with "${word}".`
+      },
       translations: parsedData.translations || {},
       multilingualExamples: parsedData.multilingualExamples || {}
     };
@@ -126,6 +147,12 @@ const generateFallbackWordInfo = (word: string): AIWordInfo => {
     wordClass: determineWordClass(word),
     tenseInfo: word.endsWith('ed') ? 'Past tense form' : undefined,
     additionalInfo: `Additional grammatical information about "${word}".`,
+    enhancedExample: {
+      originalLanguage: 'en' as SupportedLanguage,
+      originalSentence: `This is an example sentence using "${word}".`,
+      japaneseTranslation: `これは「${word}」を使った例文です。`,
+      englishTranslation: `This is an example sentence using "${word}".`
+    },
     translations: {
       spanish: `Significado en español de "${word}"`,
       french: `Signification française de "${word}"`,
@@ -152,58 +179,7 @@ const determineWordClass = (word: string): AIWordInfo['wordClass'] => {
   return 'noun';
 };
 
-// 単語のサジェスチョン（翻訳・補完）を取得
-export const getWordSuggestions = async (
-  text: string, 
-  targetLanguage: SupportedLanguage
-): Promise<string[]> => {
-  // 入力が空の場合は空配列を返す
-  if (!text.trim()) return [];
-  
-  // APIキーが設定されていない場合はフォールバックを使用
-  if (!model) {
-    return getFallbackSuggestions(text, targetLanguage);
-  }
-  
-  try {
-    const targetLangName = supportedLanguages[targetLanguage];
-    
-    // Gemini用のプロンプトを作成
-    const prompt = `次の単語またはフレーズを${targetLangName}に翻訳または補完してください：
-"${text}"
-
-要求：
-1. もし入力が${targetLangName}でない場合は、${targetLangName}に翻訳してください
-2. もし入力が既に${targetLangName}の場合は、関連する単語や同義語を提案してください
-3. 最大3つの提案を提供してください
-4. カンマ区切りで回答してください（説明は不要）
-5. 単語のみを返してください
-
-例：
-- 入力: "hello" → 出力: "hola, buenos días, qué tal" (スペイン語の場合)
-- 入力: "こんにちは" → 出力: "hello, hi, good afternoon" (英語の場合)
-
-回答:`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const suggestionsText = response.text();
-
-    // レスポンスを解析してサジェスチョンのリストを作成
-    const suggestions = suggestionsText
-      .trim()
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0)
-      .slice(0, 3); // 最大3つまで
-
-    return suggestions;
-  } catch (error) {
-    console.error('Suggestion generation error:', error);
-    // エラー時はフォールバックのサジェスチョンを返す
-    return getFallbackSuggestions(text, targetLanguage);
-  }
-};
+// 注意: getWordSuggestions機能は wordSuggestionService.ts に移行しました
 
 // スペルチェック機能
 export const checkSpelling = async (word: string): Promise<string[]> => {
@@ -246,39 +222,3 @@ Response:`;
   }
 };
 
-// フォールバックのサジェスチョン
-const getFallbackSuggestions = (text: string, targetLanguage: SupportedLanguage): string[] => {
-  const lowerText = text.toLowerCase();
-  
-  // 簡単な翻訳の例（実際の使用では拡張が必要）
-  const translations: Record<string, Record<SupportedLanguage, string[]>> = {
-    'hello': {
-      'es': ['hola', 'buenos días', 'qué tal'],
-      'fr': ['bonjour', 'salut', 'allô'],
-      'de': ['hallo', 'guten Tag', 'servus'],
-      'it': ['ciao', 'buongiorno', 'salve'],
-      'ja': ['こんにちは', 'やあ', 'どうも'],
-      'zh': ['你好', '您好', '哈罗'],
-      'ko': ['안녕하세요', '안녕', '여보세요'],
-      'en': ['hi', 'hey', 'greetings']
-    },
-    'thank you': {
-      'es': ['gracias', 'muchas gracias', 'te agradezco'],
-      'fr': ['merci', 'merci beaucoup', 'je vous remercie'],
-      'de': ['danke', 'vielen Dank', 'danke schön'],
-      'it': ['grazie', 'grazie mille', 'ti ringrazio'],
-      'ja': ['ありがとう', 'ありがとうございます', 'どうも'],
-      'zh': ['谢谢', '感谢', '多谢'],
-      'ko': ['감사합니다', '고맙습니다', '고마워요'],
-      'en': ['thanks', 'thanks a lot', 'appreciate it']
-    }
-  };
-  
-  // 翻訳が見つかった場合
-  if (translations[lowerText] && translations[lowerText][targetLanguage]) {
-    return translations[lowerText][targetLanguage];
-  }
-  
-  // デフォルトのサジェスチョン
-  return [`${text} (${supportedLanguages[targetLanguage]})`];
-};

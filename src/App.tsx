@@ -43,6 +43,15 @@ function App() {
       files
     });
   }, [files]);
+  
+  // デバッグ用にグローバルに関数を公開
+  useEffect(() => {
+    // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
+    window.debugSupabaseData = debugSupabaseData;
+    // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
+    window.runSupabaseDiagnostics = runSupabaseDiagnostics;
+    console.log('デバッグ関数をwindowオブジェクトに追加しました');
+  }, []);
 
   // 認証状態をチェック
   useEffect(() => {
@@ -150,11 +159,28 @@ function App() {
 
   const handleDeleteFile = async (id: string) => {
     try {
+      console.log('handleDeleteFile: 削除開始', id);
       await deleteVocabularyFile(id);
-      setFiles(files.filter(file => file.id !== id));
+      console.log('handleDeleteFile: データベース削除完了');
+      
+      // データベースから削除成功後、UIステートを更新
+      const updatedFiles = files.filter(file => file.id !== id);
+      setFiles(updatedFiles);
+      console.log('handleDeleteFile: UIステート更新完了', {
+        削除前ファイル数: files.length,
+        削除後ファイル数: updatedFiles.length,
+        削除されたID: id
+      });
+      
+      // 成功メッセージを表示
+      alert('ファイルを削除しました');
     } catch (error) {
       console.error('単語帳削除エラー:', error);
-      alert('単語帳の削除に失敗しました');
+      console.error('エラー詳細:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      alert(`単語帳の削除に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

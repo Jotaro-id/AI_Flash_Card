@@ -169,9 +169,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDeleteFile(file.id);
+                      if (window.confirm(`「${file.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。関連する単語データもすべて削除されます。`)) {
+                        onDeleteFile(file.id);
+                      }
                     }}
                     className="text-white/60 hover:text-red-300 transition-colors opacity-0 group-hover:opacity-100"
+                    title="ファイルを削除"
                   >
                     <Trash2 size={18} />
                   </button>

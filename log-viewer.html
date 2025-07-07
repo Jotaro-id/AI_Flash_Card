@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI単語帳 - ログビューア</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #61dafb;
+            margin-bottom: 30px;
+        }
+        .section {
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #ffd700;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .log-container {
+            background-color: #000;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            border: 1px solid #444;
+        }
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+        .log-entry.error {
+            background-color: rgba(255, 0, 0, 0.1);
+            border-left: 3px solid #ff0000;
+        }
+        .log-entry.warn {
+            background-color: rgba(255, 255, 0, 0.1);
+            border-left: 3px solid #ffff00;
+        }
+        .log-entry.info {
+            background-color: rgba(0, 255, 255, 0.1);
+            border-left: 3px solid #00ffff;
+        }
+        .log-entry.debug {
+            background-color: rgba(128, 128, 128, 0.1);
+            border-left: 3px solid #808080;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .app-frame {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background-color: #fff;
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .status.success {
+            background-color: #28a745;
+            color: white;
+        }
+        .status.error {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status.info {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .timestamp {
+            color: #888;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI単語帳 - デバッグ・ログビューア</h1>
+        
+        <div class="section">
+            <h2>アプリケーション</h2>
+            <div class="button-group">
+                <button onclick="loadApp()">アプリを読み込む</button>
+                <button onclick="clearLogs()">ログクリア</button>
+                <button onclick="exportLogs()">ログエクスポート</button>
+                <button onclick="runDebugFunction()">デバッグ関数実行</button>
+            </div>
+            <div id="appStatus"></div>
+            <iframe id="appFrame" class="app-frame" src="about:blank"></iframe>
+        </div>
+
+        <div class="section">
+            <h2>コンソールログ</h2>
+            <div id="consoleLogContainer" class="log-container">
+                <div class="log-entry info">
+                    <span class="timestamp">[起動時]</span> ログビューアを開始しました
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>ネットワークログ</h2>
+            <div id="networkLogContainer" class="log-container">
+                <div class="log-entry info">
+                    <span class="timestamp">[起動時]</span> ネットワークログの監視を開始しました
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+        let networkLogs = [];
+        let appFrame = null;
+
+        function addLog(message, type = 'info', source = 'system') {
+            const timestamp = new Date().toLocaleTimeString('ja-JP', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                fractionalSecondDigits: 3
+            });
+            
+            const logEntry = {
+                timestamp,
+                message,
+                type,
+                source
+            };
+            
+            logs.push(logEntry);
+            updateLogDisplay();
+        }
+
+        function addNetworkLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString('ja-JP', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                fractionalSecondDigits: 3
+            });
+            
+            const logEntry = {
+                timestamp,
+                message,
+                type
+            };
+            
+            networkLogs.push(logEntry);
+            updateNetworkLogDisplay();
+        }
+
+        function updateLogDisplay() {
+            const container = document.getElementById('consoleLogContainer');
+            container.innerHTML = logs.map(log => 
+                `<div class="log-entry ${log.type}">
+                    <span class="timestamp">[${log.timestamp}]</span> 
+                    <span class="source">[${log.source}]</span> 
+                    ${log.message}
+                </div>`
+            ).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateNetworkLogDisplay() {
+            const container = document.getElementById('networkLogContainer');
+            container.innerHTML = networkLogs.map(log => 
+                `<div class="log-entry ${log.type}">
+                    <span class="timestamp">[${log.timestamp}]</span> 
+                    ${log.message}
+                </div>`
+            ).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearLogs() {
+            logs = [];
+            networkLogs = [];
+            updateLogDisplay();
+            updateNetworkLogDisplay();
+            addLog('ログをクリアしました', 'info', 'system');
+        }
+
+        function exportLogs() {
+            const allLogs = {
+                consoleLogs: logs,
+                networkLogs: networkLogs,
+                timestamp: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(allLogs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ai-flashcard-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            addLog('ログをエクスポートしました', 'info', 'system');
+        }
+
+        function loadApp() {
+            const frame = document.getElementById('appFrame');
+            const statusDiv = document.getElementById('appStatus');
+            
+            statusDiv.innerHTML = '<div class="status info">アプリケーションを読み込み中...</div>';
+            addLog('アプリケーションの読み込みを開始', 'info', 'system');
+            
+            frame.src = 'http://localhost:5173';
+            
+            frame.onload = function() {
+                statusDiv.innerHTML = '<div class="status success">アプリケーションが正常に読み込まれました</div>';
+                addLog('アプリケーションの読み込みが完了', 'info', 'system');
+                
+                // フレーム内のコンソールログを監視
+                try {
+                    const frameWindow = frame.contentWindow;
+                    const frameDocument = frame.contentDocument;
+                    
+                    if (frameWindow && frameDocument) {
+                        // オリジナルのconsole関数を保存
+                        const originalLog = frameWindow.console.log;
+                        const originalError = frameWindow.console.error;
+                        const originalWarn = frameWindow.console.warn;
+                        const originalInfo = frameWindow.console.info;
+                        
+                        // console関数をインターセプト
+                        frameWindow.console.log = function(...args) {
+                            addLog(args.join(' '), 'debug', 'app');
+                            originalLog.apply(frameWindow.console, args);
+                        };
+                        
+                        frameWindow.console.error = function(...args) {
+                            addLog(args.join(' '), 'error', 'app');
+                            originalError.apply(frameWindow.console, args);
+                        };
+                        
+                        frameWindow.console.warn = function(...args) {
+                            addLog(args.join(' '), 'warn', 'app');
+                            originalWarn.apply(frameWindow.console, args);
+                        };
+                        
+                        frameWindow.console.info = function(...args) {
+                            addLog(args.join(' '), 'info', 'app');
+                            originalInfo.apply(frameWindow.console, args);
+                        };
+                        
+                        addLog('コンソールログの監視を開始しました', 'info', 'system');
+                    }
+                } catch (error) {
+                    addLog(`コンソールログの監視設定に失敗: ${error.message}`, 'error', 'system');
+                }
+            };
+            
+            frame.onerror = function(error) {
+                statusDiv.innerHTML = '<div class="status error">アプリケーションの読み込みに失敗しました</div>';
+                addLog(`フレーム読み込みエラー: ${error}`, 'error', 'system');
+            };
+        }
+
+        async function runDebugFunction() {
+            const frame = document.getElementById('appFrame');
+            
+            if (!frame.contentWindow) {
+                addLog('アプリケーションが読み込まれていません', 'error', 'debug');
+                return;
+            }
+            
+            try {
+                addLog('デバッグ関数を実行中...', 'info', 'debug');
+                
+                // windowオブジェクトにデバッグ関数が存在するか確認
+                const frameWindow = frame.contentWindow;
+                
+                if (frameWindow.debugSupabaseData) {
+                    addLog('debugSupabaseData関数を実行中...', 'info', 'debug');
+                    const result = await frameWindow.debugSupabaseData();
+                    addLog(`debugSupabaseData結果: ${JSON.stringify(result, null, 2)}`, 'info', 'debug');
+                } else {
+                    addLog('debugSupabaseData関数が見つかりません', 'error', 'debug');
+                }
+                
+                if (frameWindow.runSupabaseDiagnostics) {
+                    addLog('runSupabaseDiagnostics関数を実行中...', 'info', 'debug');
+                    const diagnostics = await frameWindow.runSupabaseDiagnostics();
+                    addLog(`runSupabaseDiagnostics結果: ${JSON.stringify(diagnostics, null, 2)}`, 'info', 'debug');
+                } else {
+                    addLog('runSupabaseDiagnostics関数が見つかりません', 'error', 'debug');
+                }
+                
+            } catch (error) {
+                addLog(`デバッグ関数の実行に失敗: ${error.message}`, 'error', 'debug');
+            }
+        }
+
+        // 自動的にアプリを読み込む
+        window.onload = function() {
+            loadApp();
+        };
+    </script>
+</body>
+</html>
