@@ -7,14 +7,22 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
   
   const { data: { user } } = await supabase.auth.getUser();
   console.log('fetchVocabularyFiles: ユーザー情報', user ? 'ユーザーあり' : 'ユーザーなし');
-  if (!user) throw new Error('ユーザーが認証されていません');
+  
+  // 開発時はユーザー認証をスキップ
+  let userId = user?.id;
+  if (!userId && import.meta.env.DEV) {
+    console.warn('Development mode: using dummy user ID');
+    userId = '00000000-0000-0000-0000-000000000000';
+  }
+  
+  if (!userId) throw new Error('ユーザーが認証されていません');
 
   console.log('fetchVocabularyFiles: Supabaseクエリを実行中...');
   // まず単純なクエリでデータが取得できるか確認
   const { data: simpleData, error: simpleError } = await supabase
     .from('word_books')
     .select('*')
-    .eq('user_id', user.id);
+    .eq('user_id', userId);
   
   console.log('fetchVocabularyFiles: 単純クエリ結果', { simpleData, simpleError });
   
@@ -27,7 +35,7 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
         word_cards (*)
       )
     `)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   console.log('fetchVocabularyFiles: クエリ結果', { data, error });
@@ -81,13 +89,21 @@ export const createVocabularyFile = async (
   targetLanguage: SupportedLanguage
 ): Promise<VocabularyFile> => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('ユーザーが認証されていません');
+  
+  // 開発時はユーザー認証をスキップ
+  let userId = user?.id;
+  if (!userId && import.meta.env.DEV) {
+    console.warn('Development mode: using dummy user ID');
+    userId = '00000000-0000-0000-0000-000000000000';
+  }
+  
+  if (!userId) throw new Error('ユーザーが認証されていません');
 
   const { data, error } = await supabase
     .from('word_books')
     .insert({
       name,
-      user_id: user.id,
+      user_id: userId,
       target_language: targetLanguage,
       description: `${name} - AI単語帳`
     })

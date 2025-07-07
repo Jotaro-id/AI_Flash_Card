@@ -46,11 +46,29 @@ function App() {
   
   // デバッグ用にグローバルに関数を公開
   useEffect(() => {
-    // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
-    window.debugSupabaseData = debugSupabaseData;
-    // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
-    window.runSupabaseDiagnostics = runSupabaseDiagnostics;
-    console.log('デバッグ関数をwindowオブジェクトに追加しました');
+    if (typeof window !== 'undefined') {
+      // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
+      window.debugSupabaseData = debugSupabaseData;
+      // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加  
+      window.runSupabaseDiagnostics = runSupabaseDiagnostics;
+      
+      // 環境変数へのアクセス関数も追加
+      // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
+      window.getSupabaseConfig = () => {
+        return {
+          VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+          VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set',
+          isDev: import.meta.env.DEV
+        };
+      };
+      
+      console.log('デバッグ関数とSupabaseクライアントをwindowオブジェクトに追加しました');
+      console.log('利用可能なデバッグ関数:');
+      console.log('- window.debugSupabaseData()');
+      console.log('- window.runSupabaseDiagnostics()');
+      console.log('- window.getSupabaseConfig()');
+      console.log('- window.supabase (Supabaseクライアント)');
+    }
   }, []);
 
   // 認証状態をチェック（開発時は認証をスキップ）
