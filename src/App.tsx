@@ -53,7 +53,7 @@ function App() {
     console.log('デバッグ関数をwindowオブジェクトに追加しました');
   }, []);
 
-  // 認証状態をチェック
+  // 認証状態をチェック（開発時は認証をスキップ）
   useEffect(() => {
     console.log('App component mounted. Starting auth check...');
     
@@ -71,13 +71,15 @@ function App() {
         console.log('Checking Supabase session...');
         const { data: { session } } = await supabase.auth.getSession();
         console.log('Session check result:', session);
-        if (session) {
+        
+        // 開発時は認証をスキップしてデータを直接読み込み
+        if (session || import.meta.env.DEV) {
           setIsAuthenticated(true);
           // デバッグ診断を実行
           await debugSupabaseData();
-          await loadVocabularyFiles();
           // ローカルストレージからのデータ移行を試みる
           await migrateFromLocalStorage();
+          await loadVocabularyFiles();
         } else {
           console.log('No session found. User needs to authenticate.');
           setIsAuthenticated(false);
@@ -89,6 +91,12 @@ function App() {
           stack: error instanceof Error ? error.stack : 'No stack trace'
         });
         setAuthError(error instanceof Error ? error.message : '認証エラーが発生しました');
+        // 開発時はエラーでも続行
+        if (import.meta.env.DEV) {
+          console.warn('Development mode: continuing despite auth error');
+          setIsAuthenticated(true);
+          await loadVocabularyFiles();
+        }
       } finally {
         console.log('Finished auth check. Setting isLoading to false.');
         clearTimeout(timeoutId);

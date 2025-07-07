@@ -3,7 +3,7 @@ import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, 
 import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
 import { generateWordInfo, checkSpelling } from '../services/aiService';
 import { getWordSuggestions } from '../services/wordSuggestionService';
-import { addWordToFile } from '../services/supabaseService';
+import { addWordToFile, deleteWordFromFile } from '../services/supabaseService';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { 
