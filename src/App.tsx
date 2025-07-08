@@ -91,44 +91,9 @@ function App() {
         const { data: { session } } = await supabase.auth.getSession();
         console.log('Session check result:', session);
         
-        // 開発時は認証をスキップしてデータを直接読み込み
-        if (session || import.meta.env.DEV) {
-          // 開発環境でセッションがない場合、テストユーザーでログインを試行
-          if (!session && import.meta.env.DEV) {
-            console.log('開発環境: テストユーザーでログインを試行中...');
-            try {
-              // テスト用のメールアドレスでサインアップを試行
-              const testEmail = 'test@example.com';
-              const testPassword = 'testpassword123';
-              
-              const { error: signUpError } = await supabase.auth.signUp({
-                email: testEmail,
-                password: testPassword,
-              });
-              
-              if (signUpError && signUpError.message !== 'User already registered') {
-                console.error('テストユーザーサインアップエラー:', signUpError);
-              } else {
-                console.log('テストユーザーサインアップ成功または既存ユーザー');
-              }
-              
-              // サインインを試行
-              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-                email: testEmail,
-                password: testPassword,
-              });
-              
-              if (signInError) {
-                console.error('テストユーザーサインインエラー:', signInError);
-              } else {
-                console.log('テストユーザーサインイン成功:', signInData.user?.id);
-              }
-            } catch (devAuthError) {
-              console.error('開発環境認証エラー:', devAuthError);
-            }
-          }
-          
+        if (session) {
           setIsAuthenticated(true);
+          console.log('セッション確認済み:', { userId: session.user.id, email: session.user.email });
           // デバッグ診断を実行
           await debugSupabaseData();
           // ローカルストレージからのデータ移行を試みる
@@ -145,12 +110,8 @@ function App() {
           stack: error instanceof Error ? error.stack : 'No stack trace'
         });
         setAuthError(error instanceof Error ? error.message : '認証エラーが発生しました');
-        // 開発時はエラーでも続行
-        if (import.meta.env.DEV) {
-          console.warn('Development mode: continuing despite auth error');
-          setIsAuthenticated(true);
-          await loadVocabularyFiles();
-        }
+        // エラー時は認証されていない状態とする
+        setIsAuthenticated(false);
       } finally {
         console.log('Finished auth check. Setting isLoading to false.');
         clearTimeout(timeoutId);
@@ -162,12 +123,16 @@ function App() {
 
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
+        console.log('SIGNED_INイベント発生:', { userId: session.user.id, email: session.user.email });
         // デバッグ診断を実行
         await debugSupabaseData();
-        await loadVocabularyFiles();
+        // ローカルストレージからのデータ移行を試みる
         await migrateFromLocalStorage();
+        // データを読み込む
+        await loadVocabularyFiles();
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setFiles([]);

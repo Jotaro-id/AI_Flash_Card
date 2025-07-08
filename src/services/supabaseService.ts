@@ -9,22 +9,12 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
   const { data: { user } } = await supabase.auth.getUser();
   console.log('fetchVocabularyFiles: ユーザー情報', user ? 'ユーザーあり' : 'ユーザーなし');
   
-  // 開発時はユーザー認証をスキップ
-  let userId = user?.id;
-  if (!userId && import.meta.env.DEV) {
-    console.warn('Development mode: 現在のセッションを再確認...');
-    // 現在のセッションを再確認
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (currentUser) {
-      userId = currentUser.id;
-      console.log('Development mode: 現在のユーザーIDを使用', userId);
-    } else {
-      console.warn('Development mode: ユーザーが見つからないため、ダミーIDを使用');
-      userId = '00000000-0000-0000-0000-000000000000';
-    }
-  }
+  const userId = user?.id;
   
-  if (!userId) throw new Error('ユーザーが認証されていません');
+  if (!userId) {
+    console.warn('fetchVocabularyFiles: ユーザーIDが取得できません');
+    return [];
+  }
 
   try {
     console.log('fetchVocabularyFiles: Supabaseクエリを実行中...');
@@ -121,22 +111,12 @@ export const createVocabularyFile = async (
 ): Promise<VocabularyFile> => {
   const { data: { user } } = await supabase.auth.getUser();
   
-  // 開発時はユーザー認証をスキップ
-  let userId = user?.id;
-  if (!userId && import.meta.env.DEV) {
-    console.warn('Development mode: 現在のセッションを再確認...');
-    // 現在のセッションを再確認
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (currentUser) {
-      userId = currentUser.id;
-      console.log('Development mode: 現在のユーザーIDを使用', userId);
-    } else {
-      console.warn('Development mode: ユーザーが見つからないため、ダミーIDを使用');
-      userId = '00000000-0000-0000-0000-000000000000';
-    }
-  }
+  const userId = user?.id;
   
-  if (!userId) throw new Error('ユーザーが認証されていません');
+  if (!userId) {
+    console.warn('fetchVocabularyFiles: ユーザーIDが取得できません');
+    return [];
+  }
 
   try {
     const { data, error } = await withRetry(
