@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI単語帳 - デバッグコンソール</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        .section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .button {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+        .button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .log-container {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .error {
+            color: #ef4444;
+        }
+        .success {
+            color: #10b981;
+        }
+        .warning {
+            color: #f59e0b;
+        }
+        .info {
+            color: #3b82f6;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI単語帳 - デバッグコンソール</h1>
+    
+    <div class="section">
+        <h2>アプリケーション</h2>
+        <iframe id="app-frame" src="http://localhost:5173"></iframe>
+    </div>
+    
+    <div class="section">
+        <h2>デバッグツール</h2>
+        <button class="button" onclick="collectConsoleLogs()">コンソールログを収集</button>
+        <button class="button" onclick="checkLocalStorage()">LocalStorageを確認</button>
+        <button class="button" onclick="runDebugSupabase()">debugSupabaseDataを実行</button>
+        <button class="button" onclick="checkSupabaseConfig()">Supabase設定を確認</button>
+        <button class="button" onclick="clearLogs()">ログをクリア</button>
+        
+        <div id="log-output" class="log-container"></div>
+    </div>
+    
+    <script>
+        const logOutput = document.getElementById('log-output');
+        const appFrame = document.getElementById('app-frame');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logOutput.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        function clearLogs() {
+            logOutput.innerHTML = '';
+            log('ログをクリアしました', 'info');
+        }
+        
+        function collectConsoleLogs() {
+            log('コンソールログの収集を開始...', 'info');
+            
+            try {
+                // iframeのwindowオブジェクトにアクセス
+                const appWindow = appFrame.contentWindow;
+                
+                if (!appWindow) {
+                    log('アプリケーションウィンドウにアクセスできません', 'error');
+                    return;
+                }
+                
+                // コンソールの内容を取得（これは実際のコンソールログではなく、デモ用）
+                log('アプリケーションが読み込まれています', 'success');
+                log('実際のコンソールログはブラウザの開発者ツールで確認してください', 'warning');
+                
+                // iframeのconsoleをオーバーライド
+                const originalLog = appWindow.console.log;
+                const originalError = appWindow.console.error;
+                const originalWarn = appWindow.console.warn;
+                
+                appWindow.console.log = function(...args) {
+                    originalLog.apply(appWindow.console, args);
+                    log('LOG: ' + args.join(' '), 'info');
+                };
+                
+                appWindow.console.error = function(...args) {
+                    originalError.apply(appWindow.console, args);
+                    log('ERROR: ' + args.join(' '), 'error');
+                };
+                
+                appWindow.console.warn = function(...args) {
+                    originalWarn.apply(appWindow.console, args);
+                    log('WARN: ' + args.join(' '), 'warning');
+                };
+                
+                log('コンソールログの監視を開始しました', 'success');
+                
+            } catch (error) {
+                log('エラー: ' + error.message, 'error');
+            }
+        }
+        
+        function checkLocalStorage() {
+            log('LocalStorageの確認を開始...', 'info');
+            
+            try {
+                const appWindow = appFrame.contentWindow;
+                
+                if (!appWindow) {
+                    log('アプリケーションウィンドウにアクセスできません', 'error');
+                    return;
+                }
+                
+                const vocabularyFiles = appWindow.localStorage.getItem('vocabulary-files');
+                
+                if (vocabularyFiles) {
+                    log('vocabulary-files が見つかりました:', 'success');
+                    try {
+                        const parsed = JSON.parse(vocabularyFiles);
+                        log(JSON.stringify(parsed, null, 2), 'info');
+                    } catch (e) {
+                        log('パースエラー: ' + e.message, 'error');
+                        log('Raw data: ' + vocabularyFiles, 'warning');
+                    }
+                } else {
+                    log('vocabulary-files が見つかりません', 'warning');
+                }
+                
+                // その他のキーを確認
+                const keys = Object.keys(appWindow.localStorage);
+                log(`LocalStorageのキー数: ${keys.length}`, 'info');
+                keys.forEach(key => {
+                    log(`- ${key}`, 'info');
+                });
+                
+            } catch (error) {
+                log('エラー: ' + error.message, 'error');
+            }
+        }
+        
+        function runDebugSupabase() {
+            log('debugSupabaseDataの実行を開始...', 'info');
+            
+            try {
+                const appWindow = appFrame.contentWindow;
+                
+                if (!appWindow || !appWindow.debugSupabaseData) {
+                    log('debugSupabaseData関数が見つかりません', 'error');
+                    return;
+                }
+                
+                appWindow.debugSupabaseData().then(result => {
+                    log('debugSupabaseData実行成功:', 'success');
+                    log(JSON.stringify(result, null, 2), 'info');
+                }).catch(error => {
+                    log('debugSupabaseData実行エラー: ' + error.message, 'error');
+                });
+                
+            } catch (error) {
+                log('エラー: ' + error.message, 'error');
+            }
+        }
+        
+        function checkSupabaseConfig() {
+            log('Supabase設定の確認を開始...', 'info');
+            
+            try {
+                const appWindow = appFrame.contentWindow;
+                
+                if (!appWindow || !appWindow.getSupabaseConfig) {
+                    log('getSupabaseConfig関数が見つかりません', 'error');
+                    return;
+                }
+                
+                const config = appWindow.getSupabaseConfig();
+                log('Supabase設定:', 'success');
+                log(JSON.stringify(config, null, 2), 'info');
+                
+            } catch (error) {
+                log('エラー: ' + error.message, 'error');
+            }
+        }
+        
+        // ページ読み込み時の初期化
+        window.onload = function() {
+            log('デバッグコンソールが初期化されました', 'success');
+            log('左のボタンをクリックして各種デバッグ機能を実行してください', 'info');
+            
+            // iframeの読み込み完了を待つ
+            appFrame.onload = function() {
+                log('アプリケーションの読み込みが完了しました', 'success');
+                collectConsoleLogs();
+            };
+        };
+    </script>
+</body>
+</html>

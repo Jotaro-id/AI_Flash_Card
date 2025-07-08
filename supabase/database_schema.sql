@@ -7,8 +7,8 @@ CREATE TABLE public.word_book_cards (
   word_card_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT word_book_cards_pkey PRIMARY KEY (id),
-  CONSTRAINT word_book_cards_word_card_id_fkey FOREIGN KEY (word_card_id) REFERENCES public.word_cards(id),
-  CONSTRAINT word_book_cards_word_book_id_fkey FOREIGN KEY (word_book_id) REFERENCES public.word_books(id)
+  CONSTRAINT word_book_cards_word_book_id_fkey FOREIGN KEY (word_book_id) REFERENCES public.word_books(id),
+  CONSTRAINT word_book_cards_word_card_id_fkey FOREIGN KEY (word_card_id) REFERENCES public.word_cards(id)
 );
 CREATE TABLE public.word_books (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -17,6 +17,7 @@ CREATE TABLE public.word_books (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   user_id uuid,
+  target_language character varying DEFAULT 'en'::character varying,
   CONSTRAINT word_books_pkey PRIMARY KEY (id),
   CONSTRAINT word_books_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -36,6 +37,11 @@ CREATE TABLE public.word_cards (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   user_id uuid,
+  ai_generated_info jsonb,
+  english_equivalent text,
+  japanese_equivalent text,
+  usage_notes text,
+  word_class text,
   CONSTRAINT word_cards_pkey PRIMARY KEY (id),
   CONSTRAINT word_cards_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

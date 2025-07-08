@@ -1,23 +1,24 @@
 import { supabase } from '../lib/supabase';
 import { VocabularyFile, Word, SupportedLanguage } from '../types';
 import { withRetry, handleSupabaseError } from '../utils/supabaseHelpers';
+import { logger } from '../utils/logger';
 
 // 単語帳の取得
 export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
-  console.log('fetchVocabularyFiles: 開始');
+  logger.info('fetchVocabularyFiles: 開始');
   
   const { data: { user } } = await supabase.auth.getUser();
-  console.log('fetchVocabularyFiles: ユーザー情報', user ? 'ユーザーあり' : 'ユーザーなし');
+  logger.info('fetchVocabularyFiles: ユーザー情報', { hasUser: !!user, userId: user?.id });
   
   const userId = user?.id;
   
   if (!userId) {
-    console.warn('fetchVocabularyFiles: ユーザーIDが取得できません');
+    logger.warn('fetchVocabularyFiles: ユーザーIDが取得できません');
     return [];
   }
 
   try {
-    console.log('fetchVocabularyFiles: Supabaseクエリを実行中...');
+    logger.info('fetchVocabularyFiles: Supabaseクエリを実行中...');
     
     // 再試行ロジック付きでクエリを実行
     const result = await withRetry(
@@ -28,7 +29,7 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
           .select('*')
           .eq('user_id', userId);
         
-        console.log('fetchVocabularyFiles: 単純クエリ結果', { simpleData, simpleError });
+        logger.debug('fetchVocabularyFiles: 単純クエリ結果', { simpleData, simpleError });
         
         if (simpleError) throw simpleError;
         
@@ -44,7 +45,7 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        console.log('fetchVocabularyFiles: クエリ結果', { data, error });
+        logger.debug('fetchVocabularyFiles: クエリ結果', { dataLength: data?.length, error });
         
         if (error) throw error;
         
@@ -53,27 +54,26 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
       {
         maxRetries: 3,
         onRetry: (attempt, error) => {
-          console.log(`fetchVocabularyFiles: 再試行 ${attempt}/3`, error.message);
+          logger.warn(`fetchVocabularyFiles: 再試行 ${attempt}/3`, { message: error.message });
         }
       }
     );
     
     const data = result;
 
-    console.log('fetchVocabularyFiles: 取得したデータ数', data ? data.length : 0);
+    logger.info('fetchVocabularyFiles: 取得したデータ数', { count: data ? data.length : 0 });
     if (data && data.length > 0) {
-      console.log('fetchVocabularyFiles: 最初のデータサンプル', {
+      logger.debug('fetchVocabularyFiles: 最初のデータサンプル', {
         id: data[0].id,
         name: data[0].name,
         target_language: data[0].target_language,
-        word_book_cards: data[0].word_book_cards,
         word_book_cards_length: data[0].word_book_cards?.length
       });
     }
 
     // データ形式を変換
     const transformedResult = (data || []).map(book => {
-    console.log('fetchVocabularyFiles: 変換中', {
+    logger.debug('fetchVocabularyFiles: 変換中', {
       bookId: book.id,
       bookName: book.name,
       target_language: book.target_language,
@@ -94,12 +94,12 @@ export const fetchVocabularyFiles = async (): Promise<VocabularyFile[]> => {
     };
   });
   
-    console.log('fetchVocabularyFiles: 変換後のデータ数', transformedResult.length);
-    console.log('fetchVocabularyFiles: 完了', transformedResult);
+    logger.info('fetchVocabularyFiles: 変換後のデータ数', { count: transformedResult.length });
+    logger.debug('fetchVocabularyFiles: 完了', transformedResult);
     return transformedResult;
   } catch (error) {
     handleSupabaseError(error);
-    console.error('fetchVocabularyFiles: 最終的なエラー', error);
+    logger.error('fetchVocabularyFiles: 最終的なエラー', error);
     throw new Error('単語帳の取得に失敗しました。ネットワーク接続を確認してください。');
   }
 };
@@ -114,8 +114,7 @@ export const createVocabularyFile = async (
   const userId = user?.id;
   
   if (!userId) {
-    console.warn('fetchVocabularyFiles: ユーザーIDが取得できません');
-    return [];
+    throw new Error('createVocabularyFile: ユーザーIDが取得できません。ログインが必要です。');
   }
 
   try {
@@ -138,7 +137,7 @@ export const createVocabularyFile = async (
       {
         maxRetries: 3,
         onRetry: (attempt, error) => {
-          console.log(`createVocabularyFile: 再試行 ${attempt}/3`, error.message);
+          logger.warn(`createVocabularyFile: 再試行 ${attempt}/3`, { message: error.message });
         }
       }
     );
@@ -154,49 +153,49 @@ export const createVocabularyFile = async (
     };
   } catch (error) {
     handleSupabaseError(error);
-    console.error('createVocabularyFile: エラー', error);
+    logger.error('createVocabularyFile: エラー', error);
     throw new Error('単語帳の作成に失敗しました。ネットワーク接続を確認してください。');
   }
 };
 
 // 単語帳の削除（関連データを含む完全削除）
 export const deleteVocabularyFile = async (fileId: string): Promise<void> => {
-  console.log('deleteVocabularyFile: 削除開始', fileId);
+  logger.info('deleteVocabularyFile: 削除開始', { fileId });
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('ユーザーが認証されていません');
 
   try {
     // 1. 単語帳に関連する word_book_cards を取得
-    console.log('deleteVocabularyFile: 関連するword_book_cardsを確認中...');
+    logger.info('deleteVocabularyFile: 関連するword_book_cardsを確認中...');
     const { data: wordBookCards, error: fetchError } = await supabase
       .from('word_book_cards')
       .select('word_card_id')
       .eq('word_book_id', fileId);
 
     if (fetchError) {
-      console.error('deleteVocabularyFile: word_book_cards取得エラー', fetchError);
+      logger.error('deleteVocabularyFile: word_book_cards取得エラー', fetchError);
       throw fetchError;
     }
 
-    console.log('deleteVocabularyFile: 関連するword_book_cards', wordBookCards);
+    logger.debug('deleteVocabularyFile: 関連するword_book_cards', { count: wordBookCards?.length || 0 });
 
     // 2. word_book_cards から関連レコードを削除
     if (wordBookCards && wordBookCards.length > 0) {
-      console.log('deleteVocabularyFile: word_book_cardsを削除中...');
+      logger.info('deleteVocabularyFile: word_book_cardsを削除中...');
       const { error: deleteCardsError } = await supabase
         .from('word_book_cards')
         .delete()
         .eq('word_book_id', fileId);
 
       if (deleteCardsError) {
-        console.error('deleteVocabularyFile: word_book_cards削除エラー', deleteCardsError);
+        logger.error('deleteVocabularyFile: word_book_cards削除エラー', deleteCardsError);
         throw deleteCardsError;
       }
 
       // 3. 関連する word_cards を削除（他の単語帳で使用されていない場合のみ）
       for (const wbc of wordBookCards) {
-        console.log('deleteVocabularyFile: word_cardの削除を確認中...', wbc.word_card_id);
+        logger.debug('deleteVocabularyFile: word_cardの削除を確認中...', { wordCardId: wbc.word_card_id });
         
         // 他の単語帳で使用されているかチェック
         const { data: otherUsage, error: checkError } = await supabase
@@ -206,13 +205,13 @@ export const deleteVocabularyFile = async (fileId: string): Promise<void> => {
           .limit(1);
 
         if (checkError) {
-          console.error('deleteVocabularyFile: 他の使用状況チェックエラー', checkError);
+          logger.error('deleteVocabularyFile: 他の使用状況チェックエラー', checkError);
           throw checkError;
         }
 
         // 他で使用されていない場合のみ削除
         if (!otherUsage || otherUsage.length === 0) {
-          console.log('deleteVocabularyFile: word_cardを削除中...', wbc.word_card_id);
+          logger.info('deleteVocabularyFile: word_cardを削除中...', { wordCardId: wbc.word_card_id });
           const { error: deleteWordError } = await supabase
             .from('word_cards')
             .delete()
@@ -220,17 +219,17 @@ export const deleteVocabularyFile = async (fileId: string): Promise<void> => {
             .eq('user_id', user.id); // セキュリティのため、user_idも確認
 
           if (deleteWordError) {
-            console.error('deleteVocabularyFile: word_card削除エラー', deleteWordError);
+            logger.error('deleteVocabularyFile: word_card削除エラー', deleteWordError);
             throw deleteWordError;
           }
         } else {
-          console.log('deleteVocabularyFile: word_cardは他の単語帳で使用中のため保持', wbc.word_card_id);
+          logger.debug('deleteVocabularyFile: word_cardは他の単語帳で使用中のため保持', { wordCardId: wbc.word_card_id });
         }
       }
     }
 
     // 4. 最後に word_books を削除
-    console.log('deleteVocabularyFile: word_booksを削除中...');
+    logger.info('deleteVocabularyFile: word_booksを削除中...');
     const { error: deleteBookError } = await supabase
       .from('word_books')
       .delete()
@@ -238,13 +237,13 @@ export const deleteVocabularyFile = async (fileId: string): Promise<void> => {
       .eq('user_id', user.id); // セキュリティのため、user_idも確認
 
     if (deleteBookError) {
-      console.error('deleteVocabularyFile: word_books削除エラー', deleteBookError);
+      logger.error('deleteVocabularyFile: word_books削除エラー', deleteBookError);
       throw deleteBookError;
     }
 
-    console.log('deleteVocabularyFile: 削除完了', fileId);
+    logger.info('deleteVocabularyFile: 削除完了', { fileId });
   } catch (error) {
-    console.error('deleteVocabularyFile: 削除処理でエラー発生', error);
+    logger.error('deleteVocabularyFile: 削除処理でエラー発生', error);
     throw new Error(`ファイルの削除に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
@@ -299,14 +298,14 @@ export const deleteWordFromFile = async (
   fileId: string,
   wordId: string
 ): Promise<void> => {
-  console.log('deleteWordFromFile: 削除開始', { fileId, wordId });
+  logger.info('deleteWordFromFile: 削除開始', { fileId, wordId });
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('ユーザーが認証されていません');
 
   try {
     // 1. word_book_cards から関連レコードを削除
-    console.log('deleteWordFromFile: word_book_cardsからの関連削除中...');
+    logger.info('deleteWordFromFile: word_book_cardsからの関連削除中...');
     const { error: deleteRelationError } = await supabase
       .from('word_book_cards')
       .delete()
@@ -314,12 +313,12 @@ export const deleteWordFromFile = async (
       .eq('word_card_id', wordId);
 
     if (deleteRelationError) {
-      console.error('deleteWordFromFile: word_book_cards削除エラー', deleteRelationError);
+      logger.error('deleteWordFromFile: word_book_cards削除エラー', deleteRelationError);
       throw deleteRelationError;
     }
 
     // 2. 他の単語帳で使用されているかチェック
-    console.log('deleteWordFromFile: 他の単語帳での使用確認中...');
+    logger.info('deleteWordFromFile: 他の単語帳での使用確認中...');
     const { data: otherUsage, error: checkError } = await supabase
       .from('word_book_cards')
       .select('id')
@@ -327,13 +326,13 @@ export const deleteWordFromFile = async (
       .limit(1);
 
     if (checkError) {
-      console.error('deleteWordFromFile: 使用状況チェックエラー', checkError);
+      logger.error('deleteWordFromFile: 使用状況チェックエラー', checkError);
       throw checkError;
     }
 
     // 3. 他で使用されていない場合のみword_cardsからも削除
     if (!otherUsage || otherUsage.length === 0) {
-      console.log('deleteWordFromFile: word_cardsからの削除中...', wordId);
+      logger.info('deleteWordFromFile: word_cardsからの削除中...', { wordId });
       const { error: deleteWordError } = await supabase
         .from('word_cards')
         .delete()
@@ -341,16 +340,16 @@ export const deleteWordFromFile = async (
         .eq('user_id', user.id); // セキュリティのため、user_idも確認
 
       if (deleteWordError) {
-        console.error('deleteWordFromFile: word_card削除エラー', deleteWordError);
+        logger.error('deleteWordFromFile: word_card削除エラー', deleteWordError);
         throw deleteWordError;
       }
     } else {
-      console.log('deleteWordFromFile: word_cardは他の単語帳で使用中のため保持', wordId);
+      logger.debug('deleteWordFromFile: word_cardは他の単語帳で使用中のため保持', { wordId });
     }
 
-    console.log('deleteWordFromFile: 削除完了', { fileId, wordId });
+    logger.info('deleteWordFromFile: 削除完了', { fileId, wordId });
   } catch (error) {
-    console.error('deleteWordFromFile: 削除処理でエラー発生', error);
+    logger.error('deleteWordFromFile: 削除処理でエラー発生', error);
     throw new Error(`単語の削除に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
@@ -375,28 +374,58 @@ export const updateVocabularyFile = async (
 // ローカルストレージからSupabaseへのデータ移行
 export const migrateFromLocalStorage = async (): Promise<void> => {
   const localData = localStorage.getItem('vocabulary-files');
-  if (!localData) return;
+  if (!localData) {
+    logger.info('migrateFromLocalStorage: ローカルストレージにデータがありません');
+    return;
+  }
+
+  logger.info('migrateFromLocalStorage: 移行開始');
+  logger.debug('migrateFromLocalStorage: ローカルデータ（raw）', { dataLength: localData.length });
 
   try {
     const files: VocabularyFile[] = JSON.parse(localData);
+    logger.info('migrateFromLocalStorage: パース後のファイル数', { count: files.length });
+    logger.debug('migrateFromLocalStorage: パース後のデータ', files);
     
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      logger.info(`migrateFromLocalStorage: ファイル${i + 1}/${files.length}を処理中`, {
+        name: file.name,
+        targetLanguage: file.targetLanguage,
+        wordsCount: file.words?.length || 0
+      });
+      
       // 単語帳を作成
+      logger.debug('migrateFromLocalStorage: createVocabularyFileを呼び出し中...');
       const newFile = await createVocabularyFile(
         file.name, 
         file.targetLanguage || 'en'
       );
+      logger.info('migrateFromLocalStorage: 単語帳作成成功', { fileId: newFile.id });
       
       // 各単語を追加
-      for (const word of file.words) {
-        await addWordToFile(newFile.id, word);
+      if (file.words && file.words.length > 0) {
+        for (let j = 0; j < file.words.length; j++) {
+          const word = file.words[j];
+          logger.debug(`migrateFromLocalStorage: 単語${j + 1}/${file.words.length}を追加中`, {
+            word: word.word,
+            hasAiGenerated: !!word.aiGenerated
+          });
+          await addWordToFile(newFile.id, word);
+        }
       }
     }
     
     // 移行成功後、ローカルストレージをクリア
+    logger.info('migrateFromLocalStorage: 移行成功、ローカルストレージをクリア');
     localStorage.removeItem('vocabulary-files');
   } catch (error) {
-    console.error('データ移行エラー:', error);
+    logger.error('データ移行エラー', error);
+    logger.error('エラーの詳細', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      error: error
+    });
     throw error;
   }
 };
@@ -404,11 +433,11 @@ export const migrateFromLocalStorage = async (): Promise<void> => {
 // 開発環境用のテストデータ作成
 export const createDevTestData = async (): Promise<void> => {
   if (!import.meta.env.DEV) {
-    console.warn('createDevTestData: 本番環境では実行できません');
+    logger.warn('createDevTestData: 本番環境では実行できません');
     return;
   }
   
-  console.log('createDevTestData: 開発環境用テストデータを作成中...');
+  logger.info('createDevTestData: 開発環境用テストデータを作成中...');
   
   try {
     // ダミーユーザーIDを使用して直接データを挿入
@@ -423,7 +452,7 @@ export const createDevTestData = async (): Promise<void> => {
     });
     
     if (bookError) {
-      console.log('RPC関数が存在しないため、直接挿入を試行...');
+      logger.info('RPC関数が存在しないため、直接挿入を試行...');
       
       // RPC関数がない場合は直接挿入
       const { data: directBook, error: directError } = await supabase
@@ -438,75 +467,74 @@ export const createDevTestData = async (): Promise<void> => {
         .single();
       
       if (directError) {
-        console.error('createDevTestData: 直接挿入エラー', directError);
+        logger.error('createDevTestData: 直接挿入エラー', directError);
         return;
       }
       
-      console.log('createDevTestData: テスト単語帳作成成功', directBook);
+      logger.info('createDevTestData: テスト単語帳作成成功', directBook);
     } else {
-      console.log('createDevTestData: RPC関数でテスト単語帳作成成功', testBook);
+      logger.info('createDevTestData: RPC関数でテスト単語帳作成成功', testBook);
     }
     
   } catch (error) {
-    console.error('createDevTestData: エラー', error);
+    logger.error('createDevTestData: エラー', error);
   }
 };
 
 // デバッグ用：Supabaseのデータを直接確認
 export const debugSupabaseData = async (): Promise<Record<string, unknown>> => {
-  console.log('debugSupabaseData: 開始');
-  console.log('debugSupabaseData: 環境変数確認', {
+  logger.info('debugSupabaseData: 開始');
+  logger.info('debugSupabaseData: 環境変数確認', {
     hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
     hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
     url: import.meta.env.VITE_SUPABASE_URL
   });
   
   const { data: { user } } = await supabase.auth.getUser();
-  console.log('debugSupabaseData: ユーザー情報', user);
-  console.log('debugSupabaseData: ユーザーID', user?.id);
+  logger.info('debugSupabaseData: ユーザー情報', { hasUser: !!user, userId: user?.id });
   
   if (!user) {
-    console.log('debugSupabaseData: ユーザーが認証されていません');
+    logger.warn('debugSupabaseData: ユーザーが認証されていません');
     return { error: 'ユーザーが認証されていません' };
   }
   
   // 単語帳テーブルを直接確認
-  console.log('debugSupabaseData: word_booksテーブルクエリ実行中...');
+  logger.info('debugSupabaseData: word_booksテーブルクエリ実行中...');
   const { data: wordBooks, error: wordBooksError } = await supabase
     .from('word_books')
     .select('*')
     .eq('user_id', user.id);
     
-  console.log('debugSupabaseData: word_books', { wordBooks, wordBooksError });
+  logger.debug('debugSupabaseData: word_books', { count: wordBooks?.length, error: wordBooksError });
   
   // テーブルの存在確認
-  console.log('debugSupabaseData: テーブル存在確認...');
-  const { data: tableCheck, error: tableCheckError } = await supabase
+  logger.info('debugSupabaseData: テーブル存在確認...');
+  const { error: tableCheckError } = await supabase
     .from('word_books')
     .select('*')
     .limit(0);
     
-  console.log('debugSupabaseData: テーブル存在確認結果', { tableCheck, tableCheckError });
+  logger.debug('debugSupabaseData: テーブル存在確認結果', { hasTable: !tableCheckError, error: tableCheckError });
   
   // 単語カードテーブルを直接確認
-  console.log('debugSupabaseData: word_cardsテーブルクエリ実行中...');
+  logger.info('debugSupabaseData: word_cardsテーブルクエリ実行中...');
   const { data: wordCards, error: wordCardsError } = await supabase
     .from('word_cards')
     .select('*')
     .eq('user_id', user.id);
     
-  console.log('debugSupabaseData: word_cards', { wordCards, wordCardsError });
+  logger.debug('debugSupabaseData: word_cards', { count: wordCards?.length, error: wordCardsError });
   
   // 関連テーブルを直接確認
-  console.log('debugSupabaseData: word_book_cardsテーブルクエリ実行中...');
+  logger.info('debugSupabaseData: word_book_cardsテーブルクエリ実行中...');
   const { data: wordBookCards, error: wordBookCardsError } = await supabase
     .from('word_book_cards')
     .select('*');
     
-  console.log('debugSupabaseData: word_book_cards', { wordBookCards, wordBookCardsError });
+  logger.debug('debugSupabaseData: word_book_cards', { count: wordBookCards?.length, error: wordBookCardsError });
   
   // 簡単なテストレコードの作成を試みる
-  console.log('debugSupabaseData: テストレコード作成試行...');
+  logger.info('debugSupabaseData: テストレコード作成試行...');
   const { data: testRecord, error: testError } = await supabase
     .from('word_books')
     .insert({
@@ -517,16 +545,16 @@ export const debugSupabaseData = async (): Promise<Record<string, unknown>> => {
     })
     .select();
     
-  console.log('debugSupabaseData: テストレコード作成結果', { testRecord, testError });
+  logger.debug('debugSupabaseData: テストレコード作成結果', { success: !!testRecord, error: testError });
   
   // 作成したテストレコードを削除
   if (testRecord && testRecord.length > 0) {
-    console.log('debugSupabaseData: テストレコード削除中...');
+    logger.info('debugSupabaseData: テストレコード削除中...');
     const { error: deleteError } = await supabase
       .from('word_books')
       .delete()
       .eq('id', testRecord[0].id);
-    console.log('debugSupabaseData: テストレコード削除結果', { deleteError });
+    logger.debug('debugSupabaseData: テストレコード削除結果', { success: !deleteError, error: deleteError });
   }
   
   return {

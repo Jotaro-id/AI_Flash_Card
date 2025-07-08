@@ -18,13 +18,16 @@ import {
 } from './services/supabaseService';
 import { runSupabaseDiagnostics, DiagnosticResult } from './utils/supabaseDiagnostics';
 import { runDetailedSupabaseDiagnostics } from './utils/performanceDiagnostics';
+import { logger } from './utils/logger';
 
 type AppState = 'file-manager' | 'word-manager' | 'flashcards';
 
 function App() {
-  console.log('App component rendering...');
-  console.log('Environment check - VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set');
-  console.log('Environment check - VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
+  logger.info('App component rendering...');
+  logger.info('Environment check', {
+    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set',
+    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set'
+  });
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email?: string; id: string } | null>(null);
@@ -41,7 +44,7 @@ function App() {
   
   // filesステートの変更を監視
   useEffect(() => {
-    console.log('App: filesステートが更新されました', {
+    logger.debug('App: filesステートが更新されました', {
       filesCount: files.length,
       files
     });
@@ -67,23 +70,25 @@ function App() {
         };
       };
       
-      console.log('デバッグ関数とSupabaseクライアントをwindowオブジェクトに追加しました');
-      console.log('利用可能なデバッグ関数:');
-      console.log('- window.debugSupabaseData()');
-      console.log('- window.runSupabaseDiagnostics()');
-      console.log('- window.getSupabaseConfig()');
-      console.log('- window.supabase (Supabaseクライアント)');
+      logger.info('デバッグ関数とSupabaseクライアントをwindowオブジェクトに追加しました');
+      logger.info('利用可能なデバッグ関数:', [
+        'window.debugSupabaseData()',
+        'window.runSupabaseDiagnostics()',
+        'window.getSupabaseConfig()',
+        'window.supabase (Supabaseクライアント)',
+        'window.aiFlashcardLogger (ログユーティリティ)'
+      ]);
     }
   }, []);
 
   // 認証状態をチェック（開発時は認証をスキップ）
   useEffect(() => {
-    console.log('App component mounted. Starting auth check...');
+    logger.info('App component mounted. Starting auth check...');
     
     // 10秒後にタイムアウト
     const timeoutId = setTimeout(() => {
       if (isLoading) {
-        console.log('Loading timeout - showing error state');
+        logger.warn('Loading timeout - showing error state');
         setLoadingTimeout(true);
         setIsLoading(false);
       }
@@ -91,27 +96,47 @@ function App() {
     
     const checkAuth = async () => {
       try {
-        console.log('Checking Supabase session...');
+        logger.info('Checking Supabase session...');
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('Session check result:', session);
+        logger.info('Session check result', { hasSession: !!session, userId: session?.user?.id });
         
         if (session) {
           setIsAuthenticated(true);
           setCurrentUser({ email: session.user.email, id: session.user.id });
-          console.log('セッション確認済み:', { userId: session.user.id, email: session.user.email });
-          // デバッグ診断を実行
-          await debugSupabaseData();
-          // ローカルストレージからのデータ移行を試みる
-          await migrateFromLocalStorage();
-          await loadVocabularyFiles();
+          logger.info('セッション確認済み', { userId: session.user.id, email: session.user.email });
+          
+          try {
+            // デバッグ診断を実行
+            logger.info('debugSupabaseDataを実行中...');
+            await debugSupabaseData();
+            logger.info('debugSupabaseData完了');
+            
+            // ローカルストレージからのデータ移行を試みる
+            logger.info('migrateFromLocalStorageを実行中...');
+            await migrateFromLocalStorage();
+            logger.info('migrateFromLocalStorage完了');
+            
+            // 単語帳を読み込む
+            logger.info('loadVocabularyFilesを実行中...');
+            await loadVocabularyFiles();
+            logger.info('loadVocabularyFiles完了');
+          } catch (innerError) {
+            logger.error('セッション確認後の処理でエラー', innerError);
+            logger.error('詳細', {
+              phase: 'session-verified-processing',
+              error: innerError,
+              message: innerError instanceof Error ? innerError.message : 'Unknown error',
+              stack: innerError instanceof Error ? innerError.stack : 'No stack trace'
+            });
+          }
         } else {
-          console.log('No session found. User needs to authenticate.');
+          logger.info('No session found. User needs to authenticate.');
           setIsAuthenticated(false);
           setCurrentUser(null);
         }
       } catch (error) {
-        console.error('認証チェックエラー:', error);
-        console.error('Error details:', {
+        logger.error('認証チェックエラー', error);
+        logger.error('Error details', {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : 'No stack trace'
         });
@@ -119,7 +144,7 @@ function App() {
         // エラー時は認証されていない状態とする
         setIsAuthenticated(false);
       } finally {
-        console.log('Finished auth check. Setting isLoading to false.');
+        logger.info('Finished auth check. Setting isLoading to false.');
         clearTimeout(timeoutId);
         setIsLoading(false);
       }
@@ -129,11 +154,11 @@ function App() {
 
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email);
+      logger.info('Auth state changed', { event, email: session?.user?.email });
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setCurrentUser({ email: session.user.email, id: session.user.id });
-        console.log('SIGNED_INイベント発生:', { userId: session.user.id, email: session.user.email });
+        logger.info('SIGNED_INイベント発生', { userId: session.user.id, email: session.user.email });
         // デバッグ診断を実行
         await debugSupabaseData();
         // ローカルストレージからのデータ移行を試みる
@@ -158,20 +183,17 @@ function App() {
   // Supabaseから単語帳を読み込む
   const loadVocabularyFiles = async () => {
     try {
-      console.log('loadVocabularyFiles: 開始');
+      logger.info('loadVocabularyFiles: 開始');
       const loadedFiles = await fetchVocabularyFiles();
-      console.log('loadVocabularyFiles: 読み込み完了', loadedFiles);
-      console.log('loadVocabularyFiles: 読み込んだファイル数', loadedFiles.length);
-      if (loadedFiles.length > 0) {
-        console.log('loadVocabularyFiles: 最初のファイル', loadedFiles[0]);
-      }
+      logger.info('loadVocabularyFiles: 読み込み完了', {
+        fileCount: loadedFiles.length,
+        firstFile: loadedFiles.length > 0 ? loadedFiles[0] : null
+      });
       setFiles(loadedFiles);
-      console.log('loadVocabularyFiles: state更新完了');
-      // 現在のfilesステートも確認
-      console.log('loadVocabularyFiles: 現在のfiles state', files);
+      logger.info('loadVocabularyFiles: state更新完了');
     } catch (error) {
-      console.error('単語帳の読み込みエラー:', error);
-      console.error('エラー詳細:', {
+      logger.error('単語帳の読み込みエラー', error);
+      logger.error('エラー詳細', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
@@ -185,8 +207,8 @@ function App() {
       const newFile = await createVocabularyFile(name, targetLanguage || 'en');
       setFiles([...files, newFile]);
     } catch (error) {
-      console.error('単語帳作成エラー:', error);
-      console.error('Error details:', {
+      logger.error('単語帳作成エラー', error);
+      logger.error('Error details', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
@@ -196,14 +218,14 @@ function App() {
 
   const handleDeleteFile = async (id: string) => {
     try {
-      console.log('handleDeleteFile: 削除開始', id);
+      logger.info('handleDeleteFile: 削除開始', { id });
       await deleteVocabularyFile(id);
-      console.log('handleDeleteFile: データベース削除完了');
+      logger.info('handleDeleteFile: データベース削除完了');
       
       // データベースから削除成功後、UIステートを更新
       const updatedFiles = files.filter(file => file.id !== id);
       setFiles(updatedFiles);
-      console.log('handleDeleteFile: UIステート更新完了', {
+      logger.info('handleDeleteFile: UIステート更新完了', {
         削除前ファイル数: files.length,
         削除後ファイル数: updatedFiles.length,
         削除されたID: id
@@ -212,8 +234,8 @@ function App() {
       // 成功メッセージを表示
       alert('ファイルを削除しました');
     } catch (error) {
-      console.error('単語帳削除エラー:', error);
-      console.error('エラー詳細:', {
+      logger.error('単語帳削除エラー', error);
+      logger.error('エラー詳細', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
@@ -234,7 +256,7 @@ function App() {
       ));
       setCurrentFile(updatedFile);
     } catch (error) {
-      console.error('単語帳更新エラー:', error);
+      logger.error('単語帳更新エラー', error);
     }
   };
 
@@ -242,7 +264,7 @@ function App() {
     try {
       await signOut();
     } catch (error) {
-      console.error('サインアウトエラー:', error);
+      logger.error('サインアウトエラー', error);
     }
   };
 
@@ -301,7 +323,7 @@ function App() {
       const results = await runSupabaseDiagnostics();
       setDiagnosticResults(results);
     } catch (error) {
-      console.error('診断実行エラー:', error);
+      logger.error('診断実行エラー', error);
     } finally {
       setIsRunningDiagnostics(false);
     }
@@ -428,7 +450,7 @@ function App() {
   }
 
   if (appState === 'file-manager') {
-    console.log('App: FileManagerをレンダリング', {
+    logger.debug('App: FileManagerをレンダリング', {
       filesCount: files.length,
       files,
       appState

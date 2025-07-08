@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI単語帳 - ログ確認テスト</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .button {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+        .log-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+        }
+        .error {
+            color: #dc2626;
+        }
+        .warn {
+            color: #d97706;
+        }
+        .info {
+            color: #2563eb;
+        }
+        .debug {
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI単語帳 - ログ確認テスト</h1>
+        
+        <div>
+            <button class="button" onclick="openApp()">アプリを開く</button>
+            <button class="button" onclick="getLogs()">ログを取得</button>
+            <button class="button" onclick="getLocalStorage()">LocalStorageを確認</button>
+            <button class="button" onclick="clearLogs()">ログをクリア</button>
+            <button class="button" onclick="downloadLogs()">ログをダウンロード</button>
+        </div>
+        
+        <div class="log-container">
+            <pre id="logOutput">ログがここに表示されます...</pre>
+        </div>
+    </div>
+    
+    <script>
+        const logOutput = document.getElementById('logOutput');
+        
+        function openApp() {
+            window.open('http://localhost:5173', '_blank');
+            logOutput.textContent = 'アプリケーションを新しいタブで開きました。アプリで操作を行った後、「ログを取得」ボタンをクリックしてください。';
+        }
+        
+        function getLogs() {
+            try {
+                const logs = localStorage.getItem('ai-flashcard-logs');
+                if (logs) {
+                    const parsedLogs = JSON.parse(logs);
+                    let output = `ログ数: ${parsedLogs.length}\n\n`;
+                    
+                    parsedLogs.forEach((log, index) => {
+                        const levelClass = log.level === 0 ? 'debug' : 
+                                          log.level === 1 ? 'info' : 
+                                          log.level === 2 ? 'warn' : 'error';
+                        const levelStr = ['DEBUG', 'INFO', 'WARN', 'ERROR'][log.level];
+                        
+                        output += `[${new Date(log.timestamp).toLocaleString()}] [${levelStr}] ${log.message}\n`;
+                        if (log.data) {
+                            output += `Data: ${JSON.stringify(log.data, null, 2)}\n`;
+                        }
+                        if (log.stackTrace) {
+                            output += `Stack: ${log.stackTrace}\n`;
+                        }
+                        output += '\n';
+                    });
+                    
+                    logOutput.innerHTML = highlightLogs(output);
+                } else {
+                    logOutput.textContent = 'ログが見つかりません。アプリケーションを操作してからもう一度試してください。';
+                }
+            } catch (error) {
+                logOutput.textContent = 'エラー: ' + error.message;
+            }
+        }
+        
+        function getLocalStorage() {
+            try {
+                let output = 'LocalStorage の内容:\n\n';
+                
+                // vocabulary-files
+                const vocabFiles = localStorage.getItem('vocabulary-files');
+                if (vocabFiles) {
+                    output += 'vocabulary-files:\n';
+                    output += JSON.stringify(JSON.parse(vocabFiles), null, 2) + '\n\n';
+                } else {
+                    output += 'vocabulary-files: 見つかりません\n\n';
+                }
+                
+                // ai-flashcard-logs の概要
+                const logs = localStorage.getItem('ai-flashcard-logs');
+                if (logs) {
+                    const parsedLogs = JSON.parse(logs);
+                    output += `ai-flashcard-logs: ${parsedLogs.length} 件のログ\n\n`;
+                }
+                
+                // その他のキー
+                output += 'その他のキー:\n';
+                Object.keys(localStorage).forEach(key => {
+                    if (key !== 'vocabulary-files' && key !== 'ai-flashcard-logs') {
+                        output += `- ${key}\n`;
+                    }
+                });
+                
+                logOutput.textContent = output;
+            } catch (error) {
+                logOutput.textContent = 'エラー: ' + error.message;
+            }
+        }
+        
+        function clearLogs() {
+            localStorage.removeItem('ai-flashcard-logs');
+            logOutput.textContent = 'ログをクリアしました。';
+        }
+        
+        function downloadLogs() {
+            try {
+                const logs = localStorage.getItem('ai-flashcard-logs');
+                if (logs) {
+                    const parsedLogs = JSON.parse(logs);
+                    let output = `AI単語帳 ログファイル\n`;
+                    output += `生成日時: ${new Date().toLocaleString()}\n`;
+                    output += `ログ数: ${parsedLogs.length}\n\n`;
+                    
+                    parsedLogs.forEach((log) => {
+                        const levelStr = ['DEBUG', 'INFO', 'WARN', 'ERROR'][log.level];
+                        output += `[${new Date(log.timestamp).toISOString()}] [${levelStr}] ${log.message}\n`;
+                        if (log.data) {
+                            output += `Data: ${JSON.stringify(log.data, null, 2)}\n`;
+                        }
+                        if (log.stackTrace) {
+                            output += `Stack: ${log.stackTrace}\n`;
+                        }
+                        output += '\n';
+                    });
+                    
+                    const blob = new Blob([output], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `ai-flashcard-logs-${new Date().toISOString()}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    logOutput.textContent = 'ログをダウンロードしました。';
+                } else {
+                    logOutput.textContent = 'ダウンロードするログがありません。';
+                }
+            } catch (error) {
+                logOutput.textContent = 'エラー: ' + error.message;
+            }
+        }
+        
+        function highlightLogs(text) {
+            return text
+                .replace(/\[ERROR\]/g, '<span class="error">[ERROR]</span>')
+                .replace(/\[WARN\]/g, '<span class="warn">[WARN]</span>')
+                .replace(/\[INFO\]/g, '<span class="info">[INFO]</span>')
+                .replace(/\[DEBUG\]/g, '<span class="debug">[DEBUG]</span>');
+        }
+        
+        // ページ読み込み時に自動でログを取得
+        window.onload = function() {
+            getLogs();
+        };
+    </script>
+</body>
+</html>
