@@ -13,7 +13,7 @@ interface WordDetailModalProps {
   targetLanguage?: string;
 }
 
-export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating, targetLanguage = 'en' }) => {
+export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating }) => {
   const [showJapaneseTranslation, setShowJapaneseTranslation] = useState(false);
   const [showEnglishTranslation, setShowEnglishTranslation] = useState(false);
 
@@ -200,13 +200,6 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
               </div>
             </div>
           )}
-
-          {/* 文法変化表 */}
-          <GrammaticalChangesTable 
-            grammaticalChanges={aiInfo.grammaticalChanges}
-            wordClass={aiInfo.wordClass}
-            targetLanguage={targetLanguage}
-          />
 
           {/* 使用上の注意 */}
           <div className="mb-6">

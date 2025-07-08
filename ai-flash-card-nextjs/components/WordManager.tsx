@@ -867,7 +867,6 @@ export const WordManager: React.FC<WordManagerProps> = ({
           onClose={handleCloseDetailModal}
           onRegenerate={() => handleRegenerateWordInfo(selectedWord)}
           isRegenerating={loadingWords.has(selectedWord.id)}
-          targetLanguage={file.targetLanguage}
         />
       )}
       

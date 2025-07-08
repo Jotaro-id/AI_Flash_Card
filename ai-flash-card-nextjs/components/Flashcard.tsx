@@ -4,7 +4,6 @@ import { Word, ColorTheme, SupportedLanguage } from '../types';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { speechService } from '../services/speechService';
-import { GrammaticalChangesTable } from './GrammaticalChangesTable';
 
 interface FlashcardProps {
   word: Word;
@@ -161,13 +160,6 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                   </div>
                 </div>
               </div>
-
-              {/* 文法変化表 */}
-              <GrammaticalChangesTable 
-                grammaticalChanges={word.aiGenerated.grammaticalChanges}
-                wordClass={word.aiGenerated.wordClass}
-                targetLanguage={targetLanguage}
-              />
 
               {/* 多言語翻訳セクション */}
               {word.aiGenerated.translations && (

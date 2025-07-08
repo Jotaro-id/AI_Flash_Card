@@ -24,48 +24,6 @@ export interface AIWordInfo {
   wordClass: 'noun' | 'verb' | 'adjective' | 'adverb' | 'other';
   tenseInfo?: string;
   additionalInfo?: string;
-  // 文法変化情報
-  grammaticalChanges?: {
-    // 動詞の活用
-    verbConjugations?: {
-      present?: string;
-      past?: string;
-      future?: string;
-      presentPerfect?: string;
-      pastPerfect?: string;
-      futurePerfect?: string;
-      continuous?: string;
-      conditional?: string;
-      subjunctive?: string;
-      imperative?: string;
-      gerund?: string;
-      pastParticiple?: string;
-      // 各言語固有の活用形
-      languageSpecific?: Record<string, string>;
-    };
-    // 名詞・形容詞の性数変化
-    genderNumberChanges?: {
-      masculine?: {
-        singular?: string;
-        plural?: string;
-      };
-      feminine?: {
-        singular?: string;
-        plural?: string;
-      };
-      neuter?: {
-        singular?: string;
-        plural?: string;
-      };
-      // 言語によって異なる格変化
-      cases?: Record<string, string>;
-    };
-    // 形容詞の比較級・最上級
-    comparativeForms?: {
-      comparative?: string;
-      superlative?: string;
-    };
-  };
   // 段階的表示のための新しい例文構造
   enhancedExample?: {
     originalLanguage: SupportedLanguage;

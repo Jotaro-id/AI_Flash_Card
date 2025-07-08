@@ -120,9 +120,9 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
   }
 };
 
-// Gemini用のプロンプトを作成（最適化版）
+// Gemini用のプロンプトを作成（文法変化情報付き）
 const createWordAnalysisPrompt = (word: string): string => {
-  return `単語「${word}」の解析。JSONのみで返答:
+  return `単語「${word}」の詳細解析。JSONのみで返答:
 {
   "englishEquivalent": "英語意味",
   "japaneseEquivalent": "日本語意味",
@@ -132,6 +132,47 @@ const createWordAnalysisPrompt = (word: string): string => {
   "englishExample": "英語使用例",
   "usageNotes": "使用注意",
   "wordClass": "品詞(noun/verb/adjective/adverb/other)",
+  "grammaticalChanges": {
+    "verbConjugations": {
+      "present": "現在形（原形）",
+      "past": "過去形",
+      "future": "未来形",
+      "presentPerfect": "現在完了形",
+      "pastPerfect": "過去完了形",
+      "continuous": "進行形",
+      "conditional": "条件法",
+      "subjunctive": "接続法",
+      "imperative": "命令形",
+      "gerund": "動名詞",
+      "pastParticiple": "過去分詞",
+      "languageSpecific": {
+        "present_1sg": "現在形1人称単数",
+        "present_2sg": "現在形2人称単数",
+        "present_3sg": "現在形3人称単数",
+        "present_1pl": "現在形1人称複数",
+        "present_2pl": "現在形2人称複数",
+        "present_3pl": "現在形3人称複数"
+      }
+    },
+    "genderNumberChanges": {
+      "masculine": {
+        "singular": "男性単数",
+        "plural": "男性複数"
+      },
+      "feminine": {
+        "singular": "女性単数",
+        "plural": "女性複数"
+      },
+      "neuter": {
+        "singular": "中性単数",
+        "plural": "中性複数"
+      }
+    },
+    "comparativeForms": {
+      "comparative": "比較級",
+      "superlative": "最上級"
+    }
+  },
   "enhancedExample": {
     "originalLanguage": "言語コード(en/ja/es/fr/it/de/zh/ko)",
     "originalSentence": "原語例文",
@@ -144,7 +185,13 @@ const createWordAnalysisPrompt = (word: string): string => {
     "german": "ドイツ語",
     "chinese": "中国語"
   }
-}`;
+}
+
+重要：
+- 動詞の場合は主要な時制の活用形を全て記載
+- 名詞・形容詞の場合は該当する性数変化を記載（言語により異なる）
+- 該当しない項目はnullまたは省略
+- 日本語・中国語など性数変化がない言語は除外`;
 };
 
 // AIの回答をパースしてAIWordInfo形式に変換
