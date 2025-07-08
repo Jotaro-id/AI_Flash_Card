@@ -34,7 +34,7 @@ const genAI = apiKeyStatus.isValid
   ? new GoogleGenerativeAI(apiKey) 
   : null;
 
-// Gemini 1.5 Flash-8Bモデルを使用（超高速版）
+// Gemini 1.5 Flash-8bモデルを使用（高速・安定版）
 const model = genAI?.getGenerativeModel({
   model: "gemini-1.5-flash-8b",
 });

@@ -408,6 +408,7 @@ function App() {
           word={currentFile.words[currentWordIndex]}
           currentIndex={currentWordIndex}
           totalWords={currentFile.words.length}
+          targetLanguage={currentFile.targetLanguage}
           onNext={handleNextWord}
           onPrevious={handlePreviousWord}
           onShuffle={handleShuffleWords}

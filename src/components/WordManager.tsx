@@ -740,7 +740,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
                           className="w-4 h-4 text-blue-600 bg-white/20 border-white/40 rounded focus:ring-blue-500 focus:ring-2"
                         />
                         <h3 className="text-white font-bold text-xl">{word.word}</h3>
-                        <SpeechButton text={word.word} language="en" size={18} />
+                        <SpeechButton text={word.word} language={file.targetLanguage} size={18} />
                       </div>
                       <div className="flex items-center gap-2">
                         <button

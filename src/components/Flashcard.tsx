@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, ChevronLeft, ChevronRight, Shuffle, Info } from 'lucide-react';
-import { Word, ColorTheme } from '../types';
+import { Word, ColorTheme, SupportedLanguage } from '../types';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { speechService } from '../services/speechService';
@@ -9,6 +9,7 @@ interface FlashcardProps {
   word: Word;
   currentIndex: number;
   totalWords: number;
+  targetLanguage: SupportedLanguage;
   onNext: () => void;
   onPrevious: () => void;
   onShuffle: () => void;
@@ -22,6 +23,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
   word,
   currentIndex,
   totalWords,
+  targetLanguage,
   onNext,
   onPrevious,
   onShuffle,
@@ -42,8 +44,8 @@ export const Flashcard: React.FC<FlashcardProps> = ({
         try {
           // 少し遅延を入れてからカードの単語を再生
           await new Promise(resolve => setTimeout(resolve, 500));
-          const detectedLanguage = speechService.detectLanguage(word.word);
-          await speechService.speak(word.word, detectedLanguage);
+          // ファイルの言語設定を使用
+          await speechService.speak(word.word, targetLanguage);
         } catch (error) {
           console.error('Auto speech playback failed:', error);
         }
@@ -51,7 +53,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
       
       playAudio();
     }
-  }, [word.id, word, autoPlayEnabled]); // word.idが変更されたときに実行
+  }, [word.id, word, autoPlayEnabled, targetLanguage]); // word.idが変更されたときに実行
 
   // カードがフリップされたときの自動音声再生
   useEffect(() => {
@@ -99,8 +101,8 @@ export const Flashcard: React.FC<FlashcardProps> = ({
       // 自動再生を有効にした場合、現在の単語を再生
       const playCurrentWord = async () => {
         try {
-          const detectedLanguage = speechService.detectLanguage(word.word);
-          await speechService.speak(word.word, detectedLanguage);
+          // ファイルの言語設定を使用
+          await speechService.speak(word.word, targetLanguage);
         } catch (error) {
           console.error('Manual speech playback failed:', error);
         }
@@ -123,7 +125,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
               </button>
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-bold text-white">{word.word}</h2>
-                <SpeechButton text={word.word} language="auto" size={24} />
+                <SpeechButton text={word.word} language={targetLanguage} size={24} />
                 <span className="text-white/70">- 詳細情報</span>
               </div>
               <ThemeSelector
@@ -364,7 +366,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                   <div className="w-full h-full bg-white/20 backdrop-blur-sm rounded-2xl p-8 flex flex-col items-center justify-center shadow-2xl border border-white/30">
                     <div className="flex items-center gap-4 mb-4">
                       <h2 className="text-4xl font-bold text-white text-center">{word.word}</h2>
-                      <SpeechButton text={word.word} language="auto" size={28} />
+                      <SpeechButton text={word.word} language={targetLanguage} size={28} />
                     </div>
                     <p className="text-white/70 text-center">タップして答えを表示</p>
                   </div>
