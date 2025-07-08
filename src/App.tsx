@@ -4,6 +4,7 @@ import { WordManager } from './components/WordManager';
 import { Flashcard } from './components/Flashcard';
 import { Auth } from './components/Auth';
 import { ConnectionStatus } from './components/ConnectionStatus';
+import { RateLimitStatus } from './components/RateLimitStatus';
 import { VocabularyFile, SupportedLanguage } from './types';
 import { useTheme } from './hooks/useTheme';
 // LocalStorageを使用するように変更
@@ -375,6 +376,7 @@ function App() {
           currentUser={currentUser}
         />
         <ConnectionStatus />
+        <RateLimitStatus />
       </>
     );
   }
@@ -394,6 +396,7 @@ function App() {
           onSignOut={handleSignOut}
         />
         <ConnectionStatus />
+        <RateLimitStatus />
       </>
     );
   }
@@ -414,6 +417,7 @@ function App() {
           onThemeChange={setTheme}
         />
         <ConnectionStatus />
+        <RateLimitStatus />
       </>
     );
   }

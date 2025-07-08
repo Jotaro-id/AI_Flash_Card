@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AIWordInfo, SupportedLanguage } from '../types';
 import { withExponentialBackoff } from '../utils/retry';
 import { logger } from '../utils/logger';
+import { geminiRateLimiter } from '../utils/rateLimiter';
 
 // APIキーを環境変数から取得
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -49,23 +50,25 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
   try {
     const prompt = createWordAnalysisPrompt(word);
     
-    // リトライ処理付きでAPIを呼び出し
-    const result = await withExponentialBackoff(
-      async () => {
-        const res = await model.generateContent(prompt);
-        return res;
-      },
-      {
-        maxRetries: 3,
-        initialDelay: 1000,
-        onRetry: (attempt, error) => {
-          logger.warn(`Gemini API retry attempt ${attempt}/3`, {
-            error: error.message,
-            word
-          });
+    // レート制限とリトライ処理付きでAPIを呼び出し
+    const result = await geminiRateLimiter.execute(async () => {
+      return await withExponentialBackoff(
+        async () => {
+          const res = await model.generateContent(prompt);
+          return res;
+        },
+        {
+          maxRetries: 3,
+          initialDelay: 1000,
+          onRetry: (attempt, error) => {
+            logger.warn(`Gemini API retry attempt ${attempt}/3`, {
+              error: error.message,
+              word
+            });
+          }
         }
-      }
-    );
+      );
+    });
     
     const response = await result.response;
     const aiResponse = response.text();
@@ -255,7 +258,10 @@ Requirements:
 
 Response:`;
 
-    const result = await model.generateContent(prompt);
+    // レート制限付きでAPIを呼び出し
+    const result = await geminiRateLimiter.execute(async () => {
+      return await model.generateContent(prompt);
+    });
     const response = await result.response;
     const suggestionsText = response.text();
 
