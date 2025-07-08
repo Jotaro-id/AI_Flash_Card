@@ -212,14 +212,19 @@ export const WordManager: React.FC<WordManagerProps> = ({
 
     console.log('[DEBUG] handleAddWord started with word:', newWord.trim());
 
+    const wordToAdd = newWord.trim();
     const tempId = Date.now().toString();
     const tempWord: Word = {
       id: tempId,
-      word: newWord.trim(),
+      word: wordToAdd,
       createdAt: new Date()
     };
 
     console.log('[DEBUG] Created temp word with ID:', tempId);
+
+    // すぐにinputをクリア
+    setNewWord('');
+    setIsAdding(false);
 
     // まず単語をリストに追加（ローディング状態で表示）
     const updatedFileWithLoading = {
@@ -235,7 +240,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
     try {
       // AI情報を生成
       console.log('[DEBUG] Generating AI info...');
-      const aiInfo = await generateWordInfo(newWord.trim());
+      const aiInfo = await generateWordInfo(wordToAdd);
       console.log('[DEBUG] AI info generated:', aiInfo);
       tempWord.aiGenerated = aiInfo;
       
@@ -276,8 +281,6 @@ export const WordManager: React.FC<WordManagerProps> = ({
       console.log('[DEBUG] Removed loading state for word ID:', tempId);
       return newSet;
     });
-    setNewWord('');
-    setIsAdding(false);
     console.log('[DEBUG] handleAddWord completed');
   };
 
