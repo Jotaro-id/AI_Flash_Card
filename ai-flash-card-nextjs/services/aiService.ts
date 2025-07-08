@@ -34,9 +34,15 @@ const genAI = apiKeyStatus.isValid
   ? new GoogleGenerativeAI(apiKey) 
   : null;
 
-// Gemini 1.5 Flash-8bモデルを使用（高速・安定版）
+// 使用するモデルを環境変数で選択可能に
+const modelName = process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-1.5-flash-8b";
+
+// Geminiモデルのオプション
+// - gemini-1.5-flash-8b: 最も高速だが1日50リクエスト制限
+// - gemini-1.5-flash: より高性能、同じ制限
+// - gemini-1.5-pro: 最高性能だが1日2リクエストのみ
 const model = genAI?.getGenerativeModel({
-  model: "gemini-1.5-flash-8b",
+  model: modelName,
 });
 
 // Gemini APIを使用した単語情報生成サービス
@@ -97,21 +103,38 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     
     // エラーの種類を判定してユーザーフレンドリーなメッセージを生成
     if (error instanceof Error) {
-      if (error.message.includes('429') || error.message.includes('rate limit')) {
-        throw new Error('現在サーバーが混み合っています。しばらくしてからもう一度お試しください。');
+      if (error.message.includes('429') || error.message.includes('rate limit') || error.message.includes('quota')) {
+        logger.warn('Rate limit or quota exceeded, using fallback data', {
+          message: '無料枠の制限（1日50リクエスト）に達しました。基本的な単語情報を提供します。',
+          word,
+          error: error.message
+        });
+        const fallbackInfo = generateFallbackWordInfo(word);
+        // フォールバックデータもキャッシュに保存
+        aiWordInfoCache.set(word, fallbackInfo);
+        return fallbackInfo;
       }
       if (error.message.includes('API_KEY_INVALID')) {
-        throw new Error('AI機能の設定に問題があります。管理者にお問い合わせください。');
+        logger.error('API key issue detected, using fallback data');
+        const fallbackInfo = generateFallbackWordInfo(word);
+        aiWordInfoCache.set(word, fallbackInfo);
+        return fallbackInfo;
       }
       if (error.message.includes('fetch') || error.message.includes('network')) {
-        throw new Error('ネットワーク接続を確認してください。');
+        logger.error('Network error, using fallback data');
+        const fallbackInfo = generateFallbackWordInfo(word);
+        aiWordInfoCache.set(word, fallbackInfo);
+        return fallbackInfo;
       }
       if (error.message.includes('timeout')) {
-        throw new Error('接続がタイムアウトしました。もう一度お試しください。');
+        logger.error('Timeout error, using fallback data');
+        const fallbackInfo = generateFallbackWordInfo(word);
+        aiWordInfoCache.set(word, fallbackInfo);
+        return fallbackInfo;
       }
     }
     
-    // その他のエラーの場合はフォールバックを使用
+    // その他のエラーの場合もフォールバックを使用
     logger.warn('Using fallback data due to unrecoverable API error');
     const fallbackInfo = generateFallbackWordInfo(word);
     // フォールバックデータもキャッシュに保存
