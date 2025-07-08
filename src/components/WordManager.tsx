@@ -4,7 +4,7 @@ import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
 import { UserMenu } from './UserMenu';
 import { generateWordInfo, checkSpelling } from '../services/aiService';
 import { getWordSuggestions } from '../services/wordSuggestionService';
-import { addWordToFile, deleteWordFromFile } from '../services/supabaseService';
+import { addWordToFile, deleteWordFromFile } from '../services/localStorageService';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { 

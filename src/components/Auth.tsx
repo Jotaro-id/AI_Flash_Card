@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { LogIn, UserPlus, Mail, Lock, Github, Twitter, Chrome } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock } from 'lucide-react';
+import { setCurrentUser } from '../services/localStorageService';
 
 type AuthMode = 'login' | 'signup';
 
@@ -21,68 +21,40 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     setError(null);
 
     try {
-      if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (error) throw error;
-        alert('確認メールを送信しました。メールを確認してください。');
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        console.log('ログイン成功:', { email, userId: data.user?.id });
-        onSuccess();
+      // LocalStorage版ではメールアドレスだけでログイン
+      if (!email) {
+        throw new Error('メールアドレスを入力してください');
       }
+      
+      // 簡易的なメールアドレスの検証
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('正しいメールアドレスを入力してください');
+      }
+      
+      // LocalStorageにユーザー情報を保存
+      setCurrentUser(email);
+      console.log('ログイン成功:', { email });
+      
+      // 成功コールバックを呼び出す
+      onSuccess();
     } catch (error) {
       console.error('認証エラー:', error);
-      let errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      
-      // ユーザーにわかりやすいエラーメッセージに変換
-      if (errorMessage.includes('Invalid login credentials')) {
-        errorMessage = 'メールアドレスまたはパスワードが正しくありません';
-      } else if (errorMessage.includes('Email not confirmed')) {
-        errorMessage = 'メールアドレスの確認が完了していません。確認メールをご確認ください';
-      } else if (errorMessage.includes('User already registered')) {
-        errorMessage = 'このメールアドレスは既に登録されています';
-      } else if (errorMessage.includes('Password')) {
-        errorMessage = 'パスワードは6文字以上で入力してください';
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        errorMessage = 'ネットワークエラーが発生しました。接続を確認してください';
-      }
-      
+      const errorMessage = error instanceof Error ? error.message : 'エラーが発生しました';
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'github' | 'twitter') => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-      if (error) throw error;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
-      setLoading(false);
-    }
-  };
+  // LocalStorage版ではソーシャルログインは使用できません
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 flex items-center justify-center p-4">
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">
           AI単語帳
+          <span className="text-sm font-normal block mt-2 text-gray-600">（LocalStorage版）</span>
         </h1>
 
         <div className="flex mb-6">
@@ -146,10 +118,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••"
+                placeholder="パスワードは必要ありません"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                required
-                minLength={6}
+                disabled
               />
             </div>
           </div>
@@ -163,42 +134,14 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           </button>
         </form>
 
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">または</span>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <button
-            onClick={() => handleSocialLogin('google')}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg border border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Chrome size={18} className="text-blue-500" />
-            Googleでログイン
-          </button>
-
-          <button
-            onClick={() => handleSocialLogin('github')}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Github size={18} />
-            GitHubでログイン
-          </button>
-
-          <button
-            onClick={() => handleSocialLogin('twitter')}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-blue-400 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Twitter size={18} />
-            X (Twitter)でログイン
-          </button>
+        <div className="text-center text-sm text-gray-600 mt-6">
+          <p className="mb-2">📦 LocalStorage版の特徴:</p>
+          <ul className="text-left space-y-1 text-xs max-w-sm mx-auto">
+            <li>• データはこのブラウザに保存されます</li>
+            <li>• パスワードは必要ありません</li>
+            <li>• 他のデバイスとの同期はできません</li>
+            <li>• ブラウザのデータをクリアすると失われます</li>
+          </ul>
         </div>
 
         {mode === 'signup' && (

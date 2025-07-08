@@ -6,18 +6,20 @@ import { Auth } from './components/Auth';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { VocabularyFile, SupportedLanguage } from './types';
 import { useTheme } from './hooks/useTheme';
-import { supabase } from './lib/supabase';
+// LocalStorageを使用するように変更
 import { 
   fetchVocabularyFiles, 
   createVocabularyFile, 
   deleteVocabularyFile, 
   updateVocabularyFile,
-  migrateFromLocalStorage,
-  signOut,
-  debugSupabaseData
-} from './services/supabaseService';
-import { runSupabaseDiagnostics, DiagnosticResult } from './utils/supabaseDiagnostics';
-import { runDetailedSupabaseDiagnostics } from './utils/performanceDiagnostics';
+  createSampleData,
+  logout as signOut,
+  debugLocalStorageData,
+  getCurrentUser
+} from './services/localStorageService';
+// Supabase診断ツールは使用しない
+// import { runSupabaseDiagnostics, DiagnosticResult } from './utils/supabaseDiagnostics';
+// import { runDetailedSupabaseDiagnostics } from './utils/performanceDiagnostics';
 import { logger } from './utils/logger';
 
 type AppState = 'file-manager' | 'word-manager' | 'flashcards';
@@ -34,8 +36,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  const [diagnosticResults, setDiagnosticResults] = useState<DiagnosticResult[]>([]);
-  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
+  // const [diagnosticResults, setDiagnosticResults] = useState<DiagnosticResult[]>([]);
+  const [isRunningDiagnostics] = useState(false);
   const [files, setFiles] = useState<VocabularyFile[]>([]);
   const [currentFile, setCurrentFile] = useState<VocabularyFile | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -54,13 +56,7 @@ function App() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
-      window.debugSupabaseData = debugSupabaseData;
-      // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加  
-      window.runSupabaseDiagnostics = runSupabaseDiagnostics;
-      
-      // 環境変数へのアクセス関数も追加
-      // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
-      window.runDetailedSupabaseDiagnostics = runDetailedSupabaseDiagnostics;
+      window.debugLocalStorageData = debugLocalStorageData;
       // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
       window.getSupabaseConfig = () => {
         return {
@@ -70,117 +66,54 @@ function App() {
         };
       };
       
-      logger.info('デバッグ関数とSupabaseクライアントをwindowオブジェクトに追加しました');
+      logger.info('デバッグ関数をwindowオブジェクトに追加しました');
       logger.info('利用可能なデバッグ関数:', [
-        'window.debugSupabaseData()',
-        'window.runSupabaseDiagnostics()',
-        'window.getSupabaseConfig()',
-        'window.supabase (Supabaseクライアント)',
+        'window.debugLocalStorageData()',
         'window.aiFlashcardLogger (ログユーティリティ)'
       ]);
     }
   }, []);
 
-  // 認証状態をチェック（開発時は認証をスキップ）
+  // LocalStorage版の認証チェック
   useEffect(() => {
     logger.info('App component mounted. Starting auth check...');
     
-    // 10秒後にタイムアウト
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        logger.warn('Loading timeout - showing error state');
-        setLoadingTimeout(true);
-        setIsLoading(false);
-      }
-    }, 10000);
-    
     const checkAuth = async () => {
       try {
-        logger.info('Checking Supabase session...');
-        const { data: { session } } = await supabase.auth.getSession();
-        logger.info('Session check result', { hasSession: !!session, userId: session?.user?.id });
+        logger.info('Checking LocalStorage user...');
+        const user = getCurrentUser();
         
-        if (session) {
+        if (user) {
           setIsAuthenticated(true);
-          setCurrentUser({ email: session.user.email, id: session.user.id });
-          logger.info('セッション確認済み', { userId: session.user.id, email: session.user.email });
+          setCurrentUser(user);
+          logger.info('ユーザー確認済み', { userId: user.id, email: user.email });
           
-          try {
-            // デバッグ診断を実行
-            logger.info('debugSupabaseDataを実行中...');
-            await debugSupabaseData();
-            logger.info('debugSupabaseData完了');
-            
-            // ローカルストレージからのデータ移行を試みる
-            logger.info('migrateFromLocalStorageを実行中...');
-            await migrateFromLocalStorage();
-            logger.info('migrateFromLocalStorage完了');
-            
-            // 単語帳を読み込む
-            logger.info('loadVocabularyFilesを実行中...');
-            await loadVocabularyFiles();
-            logger.info('loadVocabularyFiles完了');
-          } catch (innerError) {
-            logger.error('セッション確認後の処理でエラー', innerError);
-            logger.error('詳細', {
-              phase: 'session-verified-processing',
-              error: innerError,
-              message: innerError instanceof Error ? innerError.message : 'Unknown error',
-              stack: innerError instanceof Error ? innerError.stack : 'No stack trace'
-            });
-          }
+          // サンプルデータを作成
+          await createSampleData();
+          
+          // 単語帳を読み込む
+          logger.info('loadVocabularyFilesを実行中...');
+          await loadVocabularyFiles();
+          logger.info('loadVocabularyFiles完了');
         } else {
-          logger.info('No session found. User needs to authenticate.');
+          logger.info('No user found. Need to login.');
           setIsAuthenticated(false);
           setCurrentUser(null);
         }
       } catch (error) {
         logger.error('認証チェックエラー', error);
-        logger.error('Error details', {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : 'No stack trace'
-        });
         setAuthError(error instanceof Error ? error.message : '認証エラーが発生しました');
-        // エラー時は認証されていない状態とする
         setIsAuthenticated(false);
       } finally {
         logger.info('Finished auth check. Setting isLoading to false.');
-        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
 
     checkAuth();
+  }, []);
 
-    // 認証状態の変更を監視
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      logger.info('Auth state changed', { event, email: session?.user?.email });
-      if (event === 'SIGNED_IN' && session) {
-        setIsAuthenticated(true);
-        setCurrentUser({ email: session.user.email, id: session.user.id });
-        logger.info('SIGNED_INイベント発生', { userId: session.user.id, email: session.user.email });
-        // デバッグ診断を実行
-        await debugSupabaseData();
-        // ローカルストレージからのデータ移行を試みる
-        await migrateFromLocalStorage();
-        // データを読み込む
-        await loadVocabularyFiles();
-      } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-        setFiles([]);
-        setCurrentFile(null);
-        setAppState('file-manager');
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeoutId);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Supabaseから単語帳を読み込む
+  // LocalStorageから単語帳を読み込む
   const loadVocabularyFiles = async () => {
     try {
       logger.info('loadVocabularyFiles: 開始');
@@ -312,21 +245,13 @@ function App() {
     setIsLoading(true);
     setLoadingTimeout(false);
     setAuthError(null);
-    setDiagnosticResults([]);
+    // setDiagnosticResults([]);
     window.location.reload();
   };
 
-  // 診断実行
+  // LocalStorage版では診断機能は不要
   const handleRunDiagnostics = async () => {
-    setIsRunningDiagnostics(true);
-    try {
-      const results = await runSupabaseDiagnostics();
-      setDiagnosticResults(results);
-    } catch (error) {
-      logger.error('診断実行エラー', error);
-    } finally {
-      setIsRunningDiagnostics(false);
-    }
+    logger.info('LocalStorage版では診断機能は利用できません');
   };
 
   // ローディング中の表示
@@ -393,32 +318,6 @@ function App() {
                 {isRunningDiagnostics ? '診断中...' : '接続診断を実行'}
               </button>
               
-              {diagnosticResults.length > 0 && (
-                <div className="bg-black/20 rounded-lg p-4 max-h-60 overflow-y-auto">
-                  <h4 className="text-white font-semibold mb-2">診断結果:</h4>
-                  <div className="space-y-1 text-xs">
-                    {diagnosticResults.map((result, index) => (
-                      <div key={index} className={`flex items-start gap-2 ${
-                        result.status === 'success' ? 'text-green-300' : 
-                        result.status === 'warning' ? 'text-yellow-300' : 'text-red-300'
-                      }`}>
-                        <span className="flex-shrink-0">
-                          {result.status === 'success' ? '✅' : 
-                           result.status === 'warning' ? '⚠️' : '❌'}
-                        </span>
-                        <div>
-                          <div className="font-medium">{result.test}</div>
-                          <div className="text-white/70">{result.message}</div>
-                          {result.details && (
-                            <div className="text-white/50 mt-1">{result.details}</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
               <details className="text-left">
                 <summary className="cursor-pointer text-white/70 hover:text-white text-sm">
                   トラブルシューティング
@@ -426,15 +325,8 @@ function App() {
                 <div className="mt-3 space-y-2 text-sm text-white/70">
                   <p>• インターネット接続を確認してください</p>
                   <p>• ブラウザのキャッシュをクリアしてください</p>
-                  <p>• 環境変数が正しく設定されているか確認してください</p>
-                  <p>• Supabaseのテーブルとカラムが作成されているか確認してください</p>
-                  <p className="mt-3">環境変数の状態:</p>
-                  <p className="font-mono text-xs">
-                    VITE_SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL ? '✓ 設定済み' : '✗ 未設定'}
-                  </p>
-                  <p className="font-mono text-xs">
-                    VITE_SUPABASE_ANON_KEY: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ 設定済み' : '✗ 未設定'}
-                  </p>
+                  <p>• LocalStorage版ではローカルにデータが保存されます</p>
+                  <p>• ブラウザのLocalStorageが有効になっていることを確認してください</p>
                 </div>
               </details>
             </div>
@@ -446,7 +338,10 @@ function App() {
 
   // 未認証の場合は認証画面を表示
   if (!isAuthenticated) {
-    return <Auth onSuccess={() => setIsAuthenticated(true)} />;
+    return <Auth onSuccess={() => {
+      setIsAuthenticated(true);
+      window.location.reload(); // LocalStorageからユーザー情報を再読み込み
+    }} />;
   }
 
   if (appState === 'file-manager') {
