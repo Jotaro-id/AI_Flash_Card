@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2, Settings, EyeOff } from 'lucide-react';
+import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2, Settings, EyeOff, RefreshCw } from 'lucide-react';
 import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
 import { UserMenu } from './UserMenu';
 import { generateWordInfo, checkSpelling } from '../services/aiService';
 import { getWordSuggestions } from '../services/wordSuggestionService';
-import { addWordToFile, deleteWordFromFile } from '../services/localStorageService';
+import { addWordToFile, deleteWordFromFile, updateVocabularyFile } from '../services/localStorageService';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { 
@@ -434,6 +434,53 @@ export const WordManager: React.FC<WordManagerProps> = ({
     setWordToDelete(null);
   };
 
+  // 単語情報を再生成
+  const handleRegenerateWordInfo = async (word: Word) => {
+    console.log('[DEBUG] Regenerating word info for:', word.word);
+    
+    // ローディング状態を設定
+    setLoadingWords(prev => new Set([...prev, word.id]));
+    setLoadingTexts(prev => ({ ...prev, [word.id]: 'AI情報を再生成中...' }));
+    
+    try {
+      // AI情報を再生成
+      const aiInfo = await generateWordInfo(word.word);
+      console.log('[DEBUG] Regenerated AI info:', aiInfo);
+      
+      // 単語情報を更新
+      const updatedWord = { ...word, aiGenerated: aiInfo };
+      const updatedFile = {
+        ...file,
+        words: file.words.map(w => w.id === word.id ? updatedWord : w)
+      };
+      
+      // ファイルを更新
+      await updateVocabularyFile(updatedFile);
+      onUpdateFile(updatedFile);
+      
+      console.log('[DEBUG] Word info regenerated successfully');
+    } catch (error) {
+      console.error('[DEBUG] Failed to regenerate word info:', error);
+      let errorMessage = '単語情報の再生成に失敗しました。';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      alert(errorMessage);
+    } finally {
+      // ローディング状態を解除
+      setLoadingWords(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(word.id);
+        return newSet;
+      });
+      setLoadingTexts(prev => {
+        const newTexts = { ...prev };
+        delete newTexts[word.id];
+        return newTexts;
+      });
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-gradient-to-br ${currentTheme.wordManager} p-4`}>
       <div className="max-w-6xl mx-auto">
@@ -757,6 +804,14 @@ export const WordManager: React.FC<WordManagerProps> = ({
                         >
                           <Download size={16} />
                         </button>
+                        <button
+                          onClick={() => handleRegenerateWordInfo(word)}
+                          className="bg-blue-500/80 hover:bg-blue-600 text-white p-1 rounded-lg transition-all duration-200 hover:scale-105"
+                          title="AI情報を再生成"
+                          disabled={loadingWords.has(word.id)}
+                        >
+                          <RefreshCw size={16} className={loadingWords.has(word.id) ? 'animate-spin' : ''} />
+                        </button>
                         {word.aiGenerated && (
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getWordClassColor(word.aiGenerated.wordClass)}`}>
                             {word.aiGenerated.wordClass}
@@ -810,6 +865,8 @@ export const WordManager: React.FC<WordManagerProps> = ({
           word={selectedWord}
           isOpen={isDetailModalOpen}
           onClose={handleCloseDetailModal}
+          onRegenerate={() => handleRegenerateWordInfo(selectedWord)}
+          isRegenerating={loadingWords.has(selectedWord.id)}
         />
       )}
       

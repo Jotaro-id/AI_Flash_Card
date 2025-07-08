@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff } from 'lucide-react';
+import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { Word, supportedLanguages } from '../types';
 import { SpeechButton } from './SpeechButton';
 
@@ -7,9 +7,11 @@ interface WordDetailModalProps {
   word: Word;
   isOpen: boolean;
   onClose: () => void;
+  onRegenerate?: () => void;
+  isRegenerating?: boolean;
 }
 
-export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose }) => {
+export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating }) => {
   const [showJapaneseTranslation, setShowJapaneseTranslation] = useState(false);
   const [showEnglishTranslation, setShowEnglishTranslation] = useState(false);
 
@@ -44,12 +46,24 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
                 </span>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
-            >
-              <X size={24} />
-            </button>
+            <div className="flex items-center gap-2">
+              {onRegenerate && (
+                <button
+                  onClick={onRegenerate}
+                  disabled={isRegenerating}
+                  className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/20 rounded-lg"
+                  title="AI情報を再生成"
+                >
+                  <RefreshCw size={20} className={isRegenerating ? 'animate-spin' : ''} />
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/20 rounded-lg"
+              >
+                <X size={24} />
+              </button>
+            </div>
           </div>
         </div>
 
