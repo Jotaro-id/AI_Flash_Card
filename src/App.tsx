@@ -27,6 +27,7 @@ function App() {
   console.log('Environment check - VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email?: string; id: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -96,6 +97,7 @@ function App() {
         
         if (session) {
           setIsAuthenticated(true);
+          setCurrentUser({ email: session.user.email, id: session.user.id });
           console.log('セッション確認済み:', { userId: session.user.id, email: session.user.email });
           // デバッグ診断を実行
           await debugSupabaseData();
@@ -105,6 +107,7 @@ function App() {
         } else {
           console.log('No session found. User needs to authenticate.');
           setIsAuthenticated(false);
+          setCurrentUser(null);
         }
       } catch (error) {
         console.error('認証チェックエラー:', error);
@@ -129,6 +132,7 @@ function App() {
       console.log('Auth state changed:', event, session?.user?.email);
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
+        setCurrentUser({ email: session.user.email, id: session.user.id });
         console.log('SIGNED_INイベント発生:', { userId: session.user.id, email: session.user.email });
         // デバッグ診断を実行
         await debugSupabaseData();
@@ -138,6 +142,7 @@ function App() {
         await loadVocabularyFiles();
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
+        setCurrentUser(null);
         setFiles([]);
         setCurrentFile(null);
         setAppState('file-manager');
@@ -439,6 +444,7 @@ function App() {
           currentTheme={currentTheme}
           availableThemes={availableThemes}
           onThemeChange={setTheme}
+          currentUser={currentUser}
         />
         <ConnectionStatus />
       </>
@@ -456,6 +462,8 @@ function App() {
           currentTheme={currentTheme}
           availableThemes={availableThemes}
           onThemeChange={setTheme}
+          currentUser={currentUser}
+          onSignOut={handleSignOut}
         />
         <ConnectionStatus />
       </>

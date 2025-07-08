@@ -463,6 +463,7 @@ export const debugSupabaseData = async (): Promise<Record<string, unknown>> => {
   
   const { data: { user } } = await supabase.auth.getUser();
   console.log('debugSupabaseData: ユーザー情報', user);
+  console.log('debugSupabaseData: ユーザーID', user?.id);
   
   if (!user) {
     console.log('debugSupabaseData: ユーザーが認証されていません');

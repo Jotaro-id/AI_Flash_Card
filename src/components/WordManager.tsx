@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2 } from 'lucide-react';
 import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
+import { UserMenu } from './UserMenu';
 import { generateWordInfo, checkSpelling } from '../services/aiService';
 import { getWordSuggestions } from '../services/wordSuggestionService';
 import { addWordToFile, deleteWordFromFile } from '../services/supabaseService';
@@ -24,6 +25,8 @@ interface WordManagerProps {
   currentTheme: ColorTheme;
   availableThemes: ColorTheme[];
   onThemeChange: (themeId: string) => void;
+  currentUser?: { email?: string; id: string } | null;
+  onSignOut?: () => void;
 }
 
 // 動的ローディングメッセージ定数
@@ -41,7 +44,9 @@ export const WordManager: React.FC<WordManagerProps> = ({
   onStartFlashcards,
   currentTheme,
   availableThemes,
-  onThemeChange
+  onThemeChange,
+  currentUser,
+  onSignOut
 }) => {
   const [newWord, setNewWord] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -399,6 +404,10 @@ export const WordManager: React.FC<WordManagerProps> = ({
                 isOpen={isThemeSelectorOpen}
                 onToggle={() => setIsThemeSelectorOpen(!isThemeSelectorOpen)}
               />
+              
+              {currentUser && onSignOut && (
+                <UserMenu user={currentUser} onSignOut={onSignOut} />
+              )}
               
               {/* JSONエクスポートメニュー */}
               <div className="relative">

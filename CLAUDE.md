@@ -14,6 +14,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **部下にあまりに連続的な指示を出さないこと（レートリミットに達してしまうため）**
 
+## コーディング原則
+
+- YAGNI（You Aren't Gonna Need It）：今必要じゃない機能は作らない
+- DRY（Don't Repeat Yourself）：同じコードを繰り返さない、重複コードは必ず関数化・モジュール化すること
+- KISS（Keep It Simple Stupid）：シンプルに保つ、複雑な解決策より単純な解決策を優先
+
 ## Project Overview
 
 AI単語帳 (AI Flash Card) - AIを活用した多言語単語学習アプリケーション。Vite + React + TypeScriptとSupabaseを使用して構築されています。ユーザーが単語を効率的に学習できるよう、AIが単語情報（英語、日本語、スペイン語、フランス語、ドイツ語、中国語、韓国語の発音、例文、注意事項など）を網羅的に提供します。

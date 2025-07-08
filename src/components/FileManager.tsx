@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, FileText, Trash2, Globe, LogOut } from 'lucide-react';
+import { Plus, FileText, Trash2, Globe } from 'lucide-react';
 import { VocabularyFile, ColorTheme, supportedLanguages, SupportedLanguage } from '../types';
 import { ThemeSelector } from './ThemeSelector';
+import { UserMenu } from './UserMenu';
 
 interface FileManagerProps {
   files: VocabularyFile[];
@@ -12,6 +13,7 @@ interface FileManagerProps {
   currentTheme: ColorTheme;
   availableThemes: ColorTheme[];
   onThemeChange: (themeId: string) => void;
+  currentUser?: { email?: string; id: string } | null;
 }
 
 export const FileManager: React.FC<FileManagerProps> = ({
@@ -22,7 +24,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
   onSignOut,
   currentTheme,
   availableThemes,
-  onThemeChange
+  onThemeChange,
+  currentUser
 }) => {
   console.log('FileManager: レンダリング開始', { 
     filesCount: files.length, 
@@ -67,14 +70,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 isOpen={isThemeSelectorOpen}
                 onToggle={() => setIsThemeSelectorOpen(!isThemeSelectorOpen)}
               />
-              {onSignOut && (
-                <button
-                  onClick={onSignOut}
-                  className="bg-red-500/20 hover:bg-red-500/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 hover:scale-105"
-                >
-                  <LogOut size={20} />
-                  サインアウト
-                </button>
+              {currentUser && onSignOut && (
+                <UserMenu user={currentUser} onSignOut={onSignOut} />
               )}
               <button
                 onClick={() => setIsCreating(true)}

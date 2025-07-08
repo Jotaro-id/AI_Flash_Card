@@ -1,0 +1,10 @@
+{
+  "navigate": "http://localhost:5173/",
+  "screenshot": true,
+  "console": true,
+  "devtools": true,
+  "evaluate": [
+    "await window.supabase.auth.getSession()",
+    "await window.supabase.auth.getUser()"
+  ]
+}
