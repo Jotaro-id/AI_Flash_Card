@@ -112,7 +112,7 @@ export default function Home() {
     }
   };
 
-  const handleLogin = async (email: string, password: string) => {
+  const handleLogin = async (email: string, _password: string) => {
     logger.info('Logging in...', { email });
     setIsAuthenticated(true);
     setCurrentUser({ email, id: email });
@@ -250,7 +250,7 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <select
               value={currentTheme}
-              onChange={(e) => setTheme(e.target.value as any)}
+              onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}
               className={`px-3 py-1 rounded-lg ${
                 currentTheme === 'light' 
                   ? 'bg-white text-gray-900 border border-gray-300' 
