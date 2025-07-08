@@ -174,7 +174,7 @@ export const deleteWordFromFile = async (
 // 単語帳の更新
 export const updateVocabularyFile = async (
   file: VocabularyFile
-): Promise<void> => {
+): Promise<VocabularyFile> => {
   logger.info('updateVocabularyFile (localStorage): 開始', { fileId: file.id });
   console.log('[DEBUG LocalStorage] updateVocabularyFile called with:', {
     fileId: file.id,
@@ -201,6 +201,7 @@ export const updateVocabularyFile = async (
   console.log('[DEBUG LocalStorage] New words count:', file.words.length);
   
   logger.info('updateVocabularyFile (localStorage): 完了');
+  return file;
 };
 
 // デバッグ用：ローカルストレージのデータを確認

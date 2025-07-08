@@ -5,7 +5,7 @@ import { setCurrentUser } from '@/services/localStorageService';
 type AuthMode = 'login' | 'signup';
 
 interface AuthProps {
-  onSuccess: () => void;
+  onSuccess: (email: string) => void;
 }
 
 export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
@@ -37,7 +37,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       console.log('ログイン成功:', { email });
       
       // 成功コールバックを呼び出す
-      onSuccess();
+      onSuccess(email);
     } catch (error) {
       console.error('認証エラー:', error);
       const errorMessage = error instanceof Error ? error.message : 'エラーが発生しました';

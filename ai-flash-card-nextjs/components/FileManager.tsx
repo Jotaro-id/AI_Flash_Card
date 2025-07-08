@@ -3,6 +3,8 @@ import { Plus, FileText, Trash2, Globe } from 'lucide-react';
 import { VocabularyFile, ColorTheme, supportedLanguages, SupportedLanguage } from '@/types';
 import { ThemeSelector } from './ThemeSelector';
 import { UserMenu } from './UserMenu';
+import { RateLimitStatus } from './RateLimitStatus';
+import { ConnectionStatus } from './ConnectionStatus';
 
 interface FileManagerProps {
   files: VocabularyFile[];
@@ -14,6 +16,7 @@ interface FileManagerProps {
   availableThemes: ColorTheme[];
   onThemeChange: (themeId: string) => void;
   currentUser?: { email?: string; id: string } | null;
+  onDebug?: () => void;
 }
 
 export const FileManager: React.FC<FileManagerProps> = ({
@@ -25,7 +28,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
   currentTheme,
   availableThemes,
   onThemeChange,
-  currentUser
+  currentUser,
+  onDebug
 }) => {
   console.log('FileManager: レンダリング開始', { 
     filesCount: files.length, 
@@ -57,7 +61,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${currentTheme.fileManager} p-4`}>
+    <div className={`min-h-screen bg-gradient-to-br ${currentTheme.fileManager || 'from-purple-400 via-pink-500 to-red-500'} p-4`}>
       <div className="max-w-4xl mx-auto">
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 shadow-2xl">
           <div className="flex items-center justify-between mb-8">
@@ -70,8 +74,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 isOpen={isThemeSelectorOpen}
                 onToggle={() => setIsThemeSelectorOpen(!isThemeSelectorOpen)}
               />
+              <RateLimitStatus />
+              <ConnectionStatus />
               {currentUser && onSignOut && (
                 <UserMenu user={currentUser} onSignOut={onSignOut} />
+              )}
+              {onDebug && (
+                <button
+                  onClick={onDebug}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  title="LocalStorageのデータをコンソールに出力"
+                >
+                  Debug
+                </button>
               )}
               <button
                 onClick={() => setIsCreating(true)}

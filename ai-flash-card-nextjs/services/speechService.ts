@@ -1,19 +1,24 @@
 export class SpeechService {
-  private synth: SpeechSynthesis;
+  private synth: SpeechSynthesis | null = null;
   private voices: SpeechSynthesisVoice[] = [];
 
   constructor() {
-    this.synth = window.speechSynthesis;
-    this.loadVoices();
-    
-    // ボイスが非同期で読み込まれる場合があるため
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-      speechSynthesis.onvoiceschanged = () => this.loadVoices();
+    // ブラウザ環境でのみ初期化
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      this.synth = window.speechSynthesis;
+      this.loadVoices();
+      
+      // ボイスが非同期で読み込まれる場合があるため
+      if (this.synth.onvoiceschanged !== undefined) {
+        this.synth.onvoiceschanged = () => this.loadVoices();
+      }
     }
   }
 
   private loadVoices() {
-    this.voices = this.synth.getVoices();
+    if (this.synth) {
+      this.voices = this.synth.getVoices();
+    }
   }
 
   private getLanguageCode(language: string): string {
@@ -69,6 +74,11 @@ export class SpeechService {
 
   public speak(text: string, language: 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko' = 'en'): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (!this.synth) {
+        reject(new Error('Speech synthesis is not available'));
+        return;
+      }
+      
       // 既存の音声を停止
       this.synth.cancel();
 
@@ -107,11 +117,13 @@ export class SpeechService {
   }
 
   public stop() {
-    this.synth.cancel();
+    if (this.synth) {
+      this.synth.cancel();
+    }
   }
 
   public isSupported(): boolean {
-    return 'speechSynthesis' in window;
+    return typeof window !== 'undefined' && 'speechSynthesis' in window;
   }
 
   public getAvailableLanguages(): string[] {
@@ -173,5 +185,11 @@ export class SpeechService {
   }
 }
 
-// シングルトンインスタンス
-export const speechService = new SpeechService();
+// シングルトンインスタンス（ブラウザ環境でのみ初期化）
+let speechServiceInstance: SpeechService | null = null;
+
+if (typeof window !== 'undefined') {
+  speechServiceInstance = new SpeechService();
+}
+
+export const speechService = speechServiceInstance || new SpeechService();

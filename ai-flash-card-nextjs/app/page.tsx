@@ -3,10 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { FileManager } from '@/components/FileManager';
 import { WordManager } from '@/components/WordManager';
-import { Flashcard } from '@/components/Flashcard';
+import { FlashcardContainer } from '@/components/FlashcardContainer';
 import { Auth } from '@/components/Auth';
-import { ConnectionStatus } from '@/components/ConnectionStatus';
-import { RateLimitStatus } from '@/components/RateLimitStatus';
 import { VocabularyFile, SupportedLanguage } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 // LocalStorageを使用するように変更
@@ -36,7 +34,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  const [isRunningDiagnostics] = useState(false);
   const [files, setFiles] = useState<VocabularyFile[]>([]);
   const [currentFile, setCurrentFile] = useState<VocabularyFile | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -112,7 +109,7 @@ export default function Home() {
     }
   };
 
-  const handleLogin = async (email: string, _password: string) => {
+  const handleLogin = async (email: string) => {
     logger.info('Logging in...', { email });
     setIsAuthenticated(true);
     setCurrentUser({ email, id: email });
@@ -134,7 +131,7 @@ export default function Home() {
     }
   };
 
-  const handleCreateFile = async (name: string, targetLanguage: SupportedLanguage) => {
+  const handleCreateFile = async (name: string, targetLanguage: SupportedLanguage = 'en') => {
     logger.info('Creating new file', { name, targetLanguage });
     try {
       const newFile = await createVocabularyFile(name, targetLanguage);
@@ -233,7 +230,7 @@ export default function Home() {
     logger.debug('Rendering auth component...');
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 to-purple-900">
-        <Auth onLogin={handleLogin} />
+        <Auth onSuccess={handleLogin} />
       </div>
     );
   }
@@ -241,60 +238,7 @@ export default function Home() {
   logger.debug('Rendering main app state:', { appState });
   
   return (
-    <div className={`min-h-screen ${currentTheme === 'light' ? 'bg-gray-100' : 'bg-gradient-to-br from-blue-900 to-purple-900'}`}>
-      <div className="container mx-auto p-4 max-w-7xl">
-        <header className="flex justify-between items-center mb-6">
-          <h1 className={`text-3xl font-bold ${currentTheme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-            AI単語帳
-          </h1>
-          <div className="flex items-center gap-4">
-            <select
-              value={currentTheme}
-              onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}
-              className={`px-3 py-1 rounded-lg ${
-                currentTheme === 'light' 
-                  ? 'bg-white text-gray-900 border border-gray-300' 
-                  : 'bg-white/10 text-white backdrop-blur-sm'
-              }`}
-            >
-              {availableThemes.map(theme => (
-                <option key={theme} value={theme}>
-                  {theme === 'light' ? 'ライト' : 'ダーク'}
-                </option>
-              ))}
-            </select>
-            <RateLimitStatus />
-            <ConnectionStatus />
-            {currentUser && (
-              <span className={`${currentTheme === 'light' ? 'text-gray-700' : 'text-white/80'}`}>
-                {currentUser.email || 'ゲスト'}
-              </span>
-            )}
-            <button
-              onClick={handleLogout}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentTheme === 'light'
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-red-600 text-white hover:bg-red-700'
-              }`}
-            >
-              ログアウト
-            </button>
-            {!isRunningDiagnostics && (
-              <button
-                onClick={handleDiagnosticsClick}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  currentTheme === 'light'
-                    ? 'bg-gray-500 text-white hover:bg-gray-600'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-                title="LocalStorageのデータをコンソールに出力"
-              >
-                Debug
-              </button>
-            )}
-          </div>
-        </header>
+    <div className="min-h-screen">{/* ヘッダーは各コンポーネント内で管理 */}
 
         {appState === 'file-manager' && (
           <FileManager
@@ -302,6 +246,12 @@ export default function Home() {
             onCreateFile={handleCreateFile}
             onDeleteFile={handleDeleteFile}
             onSelectFile={handleSelectFile}
+            onSignOut={handleLogout}
+            currentTheme={currentTheme}
+            availableThemes={availableThemes}
+            onThemeChange={setTheme}
+            currentUser={currentUser}
+            onDebug={handleDiagnosticsClick}
           />
         )}
 
@@ -309,20 +259,24 @@ export default function Home() {
           <WordManager
             file={currentFile}
             onBack={handleBack}
-            onStudy={handleStudyWords}
             onUpdateFile={handleUpdateFile}
+            onStartFlashcards={handleStudyWords}
+            currentTheme={currentTheme}
+            availableThemes={availableThemes}
+            onThemeChange={setTheme}
+            currentUser={currentUser}
+            onSignOut={handleLogout}
           />
         )}
 
         {appState === 'flashcards' && currentFile && (
-          <Flashcard
+          <FlashcardContainer
             file={currentFile}
             currentIndex={currentWordIndex}
             onIndexChange={setCurrentWordIndex}
             onBack={() => setAppState('word-manager')}
           />
         )}
-      </div>
     </div>
   );
 }
