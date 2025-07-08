@@ -1,14 +1,34 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AIWordInfo, SupportedLanguage } from '../types';
+import { withExponentialBackoff } from '../utils/retry';
+import { logger } from '../utils/logger';
 
 // APIキーを環境変数から取得
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-if (!apiKey || apiKey === 'your_api_key_here') {
-  console.warn("VITE_GEMINI_API_KEY is not properly configured in .env.local file");
+
+// APIキーの状態を管理
+export const apiKeyStatus = {
+  isConfigured: false,
+  isValid: false,
+  message: ''
+};
+
+// APIキーの検証
+if (!apiKey) {
+  apiKeyStatus.message = "VITE_GEMINI_API_KEY is not set in .env.local file";
+  logger.warn(apiKeyStatus.message);
+} else if (apiKey === 'your_api_key_here') {
+  apiKeyStatus.message = "VITE_GEMINI_API_KEY is set to default value. Please update it with your actual API key.";
+  logger.warn(apiKeyStatus.message);
+} else {
+  apiKeyStatus.isConfigured = true;
+  apiKeyStatus.isValid = true;
+  apiKeyStatus.message = "API key is configured";
+  logger.info(apiKeyStatus.message);
 }
 
 // Google Generative AIクライアントの初期化
-const genAI = apiKey && apiKey !== 'your_api_key_here' 
+const genAI = apiKeyStatus.isValid
   ? new GoogleGenerativeAI(apiKey) 
   : null;
 
@@ -21,26 +41,60 @@ const model = genAI?.getGenerativeModel({
 export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
   // APIキーが設定されていない場合はフォールバックを使用
   if (!model) {
-    console.warn('Gemini API is not configured. Using fallback data.');
+    logger.warn('Gemini API is not configured. Using fallback data.');
+    logger.info('API key status:', apiKeyStatus);
     return generateFallbackWordInfo(word);
   }
 
   try {
     const prompt = createWordAnalysisPrompt(word);
     
-    const result = await model.generateContent(prompt);
+    // リトライ処理付きでAPIを呼び出し
+    const result = await withExponentialBackoff(
+      async () => {
+        const res = await model.generateContent(prompt);
+        return res;
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 1000,
+        onRetry: (attempt, error) => {
+          logger.warn(`Gemini API retry attempt ${attempt}/3`, {
+            error: error.message,
+            word
+          });
+        }
+      }
+    );
+    
     const response = await result.response;
     const aiResponse = response.text();
     
     const wordInfo = parseAIResponse(aiResponse, word);
+    logger.info('Successfully generated word info', { word });
     return wordInfo;
 
   } catch (error) {
-    console.error('Gemini API error:', error);
-    // レート制限やエラーの詳細をログ出力
-    if (error.response?.status === 429) {
-      console.error('Rate limit exceeded. Please try again later.');
+    logger.error('Gemini API error:', error);
+    
+    // エラーの種類を判定してユーザーフレンドリーなメッセージを生成
+    if (error instanceof Error) {
+      if (error.message.includes('429') || error.message.includes('rate limit')) {
+        throw new Error('現在サーバーが混み合っています。しばらくしてからもう一度お試しください。');
+      }
+      if (error.message.includes('API_KEY_INVALID')) {
+        throw new Error('AI機能の設定に問題があります。管理者にお問い合わせください。');
+      }
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        throw new Error('ネットワーク接続を確認してください。');
+      }
+      if (error.message.includes('timeout')) {
+        throw new Error('接続がタイムアウトしました。もう一度お試しください。');
+      }
     }
+    
+    // その他のエラーの場合はフォールバックを使用
+    logger.warn('Using fallback data due to unrecoverable API error');
     return generateFallbackWordInfo(word);
   }
 };

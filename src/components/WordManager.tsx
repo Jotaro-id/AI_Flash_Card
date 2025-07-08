@@ -16,6 +16,7 @@ import {
 import { useDebounce } from '../hooks/useDebounce';
 import { WordDetailModal } from './WordDetailModal';
 import { SpellingSuggestions } from './SpellingSuggestions';
+import { ApiStatusIndicator } from './ApiStatusIndicator';
 
 interface WordManagerProps {
   file: VocabularyFile;
@@ -220,7 +221,14 @@ export const WordManager: React.FC<WordManagerProps> = ({
         words: file.words.filter(w => w.id !== tempId)
       };
       onUpdateFile(revertedFile);
-      alert('単語の追加に失敗しました');
+      
+      // エラーメッセージを表示（aiServiceから返されるユーザーフレンドリーなメッセージを使用）
+      let errorMessage = '単語の追加に失敗しました。';
+      if (error instanceof Error) {
+        // aiServiceから返されるエラーメッセージをそのまま使用
+        errorMessage = error.message;
+      }
+      alert(errorMessage);
     }
 
     // ローディング状態を解除
@@ -737,6 +745,9 @@ export const WordManager: React.FC<WordManagerProps> = ({
           </div>
         </div>
       )}
+      
+      {/* APIステータスインジケーター */}
+      <ApiStatusIndicator />
     </div>
   );
 };

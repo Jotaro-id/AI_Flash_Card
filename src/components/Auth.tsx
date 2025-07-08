@@ -29,7 +29,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         if (error) throw error;
         alert('確認メールを送信しました。メールを確認してください。');
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });

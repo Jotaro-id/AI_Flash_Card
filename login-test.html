@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログインテスト</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .error { color: #dc2626; }
+        .success { color: #059669; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ログインテスト</h1>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">メールアドレス:</label>
+                <input type="email" id="email" value="ttttroyaanderson@gmail.com" required>
+            </div>
+            <div class="form-group">
+                <label for="password">パスワード:</label>
+                <input type="password" id="password" value="testtestuser" required>
+            </div>
+            <button type="submit">ログイン</button>
+        </form>
+        
+        <div id="log" class="log">
+            <div class="log-entry info">ログテスト開始...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Supabaseクライアントの初期化
+        const supabaseUrl = 'https://khdvwihkgznldutbjrtv.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoZHZ3aWhwK2d6bmxkdXRianJ0diIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzM1ODA4MTU3LCJleHAiOjIwNTEzODQxNTd9.v7W42b_jOtde-EILuS9oG4S3hJBN6kChtH1T5vBa3io';
+        
+        addLog('Supabaseクライアントを初期化中...', 'info');
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        addLog('Supabaseクライアント初期化完了', 'success');
+
+        // 現在のセッション状態を確認
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
+            if (error) {
+                addLog(`セッション取得エラー: ${error.message}`, 'error');
+            } else if (session) {
+                addLog(`既存のセッションを検出: ${session.user.email}`, 'info');
+            } else {
+                addLog('現在のセッションなし', 'info');
+            }
+        });
+
+        // 認証状態の変更を監視
+        supabase.auth.onAuthStateChange((event, session) => {
+            addLog(`認証イベント: ${event}`, 'info');
+            if (session) {
+                addLog(`ユーザー: ${session.user.email}`, 'success');
+                addLog(`アクセストークン: ${session.access_token.substring(0, 20)}...`, 'info');
+            }
+        });
+
+        // ログインフォームの処理
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            addLog(`ログイン試行: ${email}`, 'info');
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password,
+                });
+
+                if (error) {
+                    addLog(`ログインエラー: ${error.message}`, 'error');
+                    addLog(`エラーステータス: ${error.status || 'N/A'}`, 'error');
+                    addLog(`エラー詳細: ${JSON.stringify(error)}`, 'error');
+                } else {
+                    addLog('ログイン成功！', 'success');
+                    addLog(`ユーザーID: ${data.user.id}`, 'info');
+                    addLog(`メール: ${data.user.email}`, 'info');
+                    addLog(`セッション有効期限: ${new Date(data.session.expires_at * 1000).toLocaleString()}`, 'info');
+                    
+                    // データ取得テスト
+                    addLog('単語帳データを取得中...', 'info');
+                    const { data: wordBooks, error: fetchError } = await supabase
+                        .from('word_books')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (fetchError) {
+                        addLog(`データ取得エラー: ${fetchError.message}`, 'error');
+                    } else {
+                        addLog(`単語帳数: ${wordBooks.length}`, 'success');
+                        wordBooks.forEach(book => {
+                            addLog(`- ${book.title} (${book.id})`, 'info');
+                        });
+                    }
+                }
+            } catch (err) {
+                addLog(`予期しないエラー: ${err.message}`, 'error');
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>

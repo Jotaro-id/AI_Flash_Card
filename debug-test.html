@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Flash Card Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .result-box {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Flash Card アプリケーション デバッグテスト</h1>
+    
+    <div class="result-box">
+        <h2>テスト手順</h2>
+        <ol>
+            <li>このファイルをブラウザで開く</li>
+            <li>「アプリを開く」ボタンをクリックして http://localhost:5173 を新しいタブで開く</li>
+            <li>アプリケーションが読み込まれたら、「デバッグ情報を取得」ボタンをクリック</li>
+            <li>ブラウザのコンソール（F12キー → Console タブ）を確認</li>
+        </ol>
+    </div>
+
+    <div>
+        <button onclick="openApp()">アプリを開く</button>
+        <button onclick="runDebugCommands()">デバッグ情報を取得</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function openApp() {
+            window.open('http://localhost:5173', '_blank');
+        }
+
+        function runDebugCommands() {
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+            
+            // デバッグコマンドのリスト
+            const commands = [
+                {
+                    name: 'アプリケーションログ',
+                    code: 'window.aiFlashcardLogger?.getLogs() || "ロガーが見つかりません"'
+                },
+                {
+                    name: 'ローカルストレージ (vocabulary-files)',
+                    code: 'localStorage.getItem("vocabulary-files") || "データなし"'
+                },
+                {
+                    name: 'Supabaseセッション',
+                    code: 'window.supabase?.auth?.getSession ? window.supabase.auth.getSession() : "Supabaseが見つかりません"'
+                },
+                {
+                    name: 'コンソールエラー',
+                    code: `
+                        const errors = [];
+                        const originalError = console.error;
+                        console.error = function(...args) {
+                            errors.push(args.join(' '));
+                            originalError.apply(console, args);
+                        };
+                        setTimeout(() => {
+                            console.error = originalError;
+                        }, 5000);
+                        "コンソールで確認してください"
+                    `
+                }
+            ];
+
+            commands.forEach(cmd => {
+                const box = document.createElement('div');
+                box.className = 'result-box';
+                box.innerHTML = `
+                    <h3>${cmd.name}</h3>
+                    <p>実行コマンド:</p>
+                    <pre>${cmd.code}</pre>
+                    <p>ブラウザのコンソール（F12 → Console）で以下を実行してください：</p>
+                    <pre>${cmd.code}</pre>
+                `;
+                results.appendChild(box);
+            });
+
+            // ネットワークエラーの確認方法
+            const networkBox = document.createElement('div');
+            networkBox.className = 'result-box';
+            networkBox.innerHTML = `
+                <h3>ネットワークエラーの確認</h3>
+                <ol>
+                    <li>F12キーを押して開発者ツールを開く</li>
+                    <li>「Network」タブを選択</li>
+                    <li>ステータスが400番台のリクエストを探す</li>
+                    <li>エラーのあるリクエストをクリックして詳細を確認</li>
+                </ol>
+            `;
+            results.appendChild(networkBox);
+
+            // スクリーンショットの取得方法
+            const screenshotBox = document.createElement('div');
+            screenshotBox.className = 'result-box';
+            screenshotBox.innerHTML = `
+                <h3>スクリーンショットの取得</h3>
+                <p>Windows: Win + Shift + S</p>
+                <p>Mac: Cmd + Shift + 4</p>
+                <p>Linux: Print Screen または gnome-screenshot</p>
+            `;
+            results.appendChild(screenshotBox);
+        }
+    </script>
+</body>
+</html>
