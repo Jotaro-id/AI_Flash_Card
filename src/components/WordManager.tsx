@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2, Settings, EyeOff } from 'lucide-react';
 import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
 import { UserMenu } from './UserMenu';
 import { generateWordInfo, checkSpelling } from '../services/aiService';
@@ -17,6 +17,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { WordDetailModal } from './WordDetailModal';
 import { SpellingSuggestions } from './SpellingSuggestions';
 import { ApiStatusIndicator } from './ApiStatusIndicator';
+import { useSettings } from '../hooks/useSettings';
 
 interface WordManagerProps {
   file: VocabularyFile;
@@ -58,6 +59,21 @@ export const WordManager: React.FC<WordManagerProps> = ({
       words: file.words.map(w => ({ id: w.id, word: w.word }))
     });
   }, [file]);
+  
+  // 設定メニューの外側をクリックしたときに閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.settings-menu') && !target.closest('button[title="設定"]')) {
+        setIsSettingsOpen(false);
+      }
+    };
+
+    if (isSettingsOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [isSettingsOpen]);
   const [newWord, setNewWord] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,6 +82,10 @@ export const WordManager: React.FC<WordManagerProps> = ({
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // 設定フックを使用
+  const { settings, setSetting } = useSettings();
   
   // サジェスチョン機能の状態
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -130,7 +150,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
   // サジェスチョンの取得
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (!debouncedWord.trim() || !file.targetLanguage) {
+      if (!debouncedWord.trim() || !file.targetLanguage || !settings.showSuggestions) {
         setSuggestions([]);
         setShowSuggestions(false);
         return;
@@ -152,12 +172,12 @@ export const WordManager: React.FC<WordManagerProps> = ({
     };
 
     fetchSuggestions();
-  }, [debouncedWord, file.targetLanguage]);
+  }, [debouncedWord, file.targetLanguage, settings.showSuggestions]);
   
   // スペルチェック機能
   useEffect(() => {
     const checkSpellingAsync = async () => {
-      if (!debouncedWord.trim() || debouncedWord.length < 3) {
+      if (!debouncedWord.trim() || debouncedWord.length < 3 || !settings.showSpellingSuggestions) {
         setSpellingSuggestions([]);
         setShowSpellingSuggestions(false);
         return;
@@ -184,7 +204,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
     };
 
     checkSpellingAsync();
-  }, [debouncedWord, file.targetLanguage]);
+  }, [debouncedWord, file.targetLanguage, settings.showSpellingSuggestions]);
 
   const handleAddWord = async () => {
     if (!newWord.trim()) return;
@@ -426,6 +446,60 @@ export const WordManager: React.FC<WordManagerProps> = ({
               <span className="text-white/70">({file.words.length} 単語)</span>
             </div>
             <div className="flex gap-3">
+              {/* 設定メニュー */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-all duration-200 hover:scale-105"
+                  title="設定"
+                >
+                  <Settings size={20} />
+                </button>
+                
+                {isSettingsOpen && (
+                  <div className="settings-menu absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50 border border-gray-200">
+                    <div className="p-4">
+                      <h3 className="font-bold text-gray-900 mb-4">入力補助設定</h3>
+                      
+                      <div className="space-y-3">
+                        <label className="flex items-center justify-between cursor-pointer">
+                          <span className="text-gray-700">変換候補を表示</span>
+                          <button
+                            onClick={() => setSetting('showSuggestions', !settings.showSuggestions)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              settings.showSuggestions ? 'bg-blue-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              settings.showSuggestions ? 'translate-x-6' : 'translate-x-1'
+                            }`} />
+                          </button>
+                        </label>
+                        
+                        <label className="flex items-center justify-between cursor-pointer">
+                          <span className="text-gray-700">スペル補正を表示</span>
+                          <button
+                            onClick={() => setSetting('showSpellingSuggestions', !settings.showSpellingSuggestions)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              settings.showSpellingSuggestions ? 'bg-blue-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              settings.showSpellingSuggestions ? 'translate-x-6' : 'translate-x-1'
+                            }`} />
+                          </button>
+                        </label>
+                      </div>
+                      
+                      <div className="mt-4 text-sm text-gray-500">
+                        <p>• 変換候補: 単語を入力中に類似の単語を表示</p>
+                        <p>• スペル補正: スペルミスの可能性がある場合に修正候補を表示</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <ThemeSelector
                 currentTheme={currentTheme}
                 availableThemes={availableThemes}
@@ -527,6 +601,14 @@ export const WordManager: React.FC<WordManagerProps> = ({
                     </div>
                   )}
                 </div>
+                
+                {/* 設定状態の表示 */}
+                {!settings.showSuggestions && !settings.showSpellingSuggestions && (
+                  <div className="mt-2 text-white/60 text-sm flex items-center gap-2">
+                    <EyeOff size={14} />
+                    <span>入力補助がオフになっています</span>
+                  </div>
+                )}
                 
                 {/* スペル補完 */}
                 <SpellingSuggestions
