@@ -182,14 +182,25 @@ function App() {
   };
 
   const handleUpdateFile = async (updatedFile: VocabularyFile) => {
+    console.log('[DEBUG App] handleUpdateFile called with:', {
+      fileId: updatedFile.id,
+      fileName: updatedFile.name,
+      wordCount: updatedFile.words.length,
+      words: updatedFile.words.map(w => ({ id: w.id, word: w.word }))
+    });
+    
     try {
       await updateVocabularyFile(updatedFile);
+      console.log('[DEBUG App] updateVocabularyFile completed successfully');
+      
       setFiles(files.map(file => 
         file.id === updatedFile.id ? updatedFile : file
       ));
       setCurrentFile(updatedFile);
+      console.log('[DEBUG App] State updated with new file data');
     } catch (error) {
       logger.error('単語帳更新エラー', error);
+      console.error('[DEBUG App] Failed to update file:', error);
     }
   };
 

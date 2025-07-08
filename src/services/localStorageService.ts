@@ -122,11 +122,13 @@ export const addWordToFile = async (
   word: Word
 ): Promise<Word> => {
   logger.info('addWordToFile (localStorage): 開始', { fileId, word: word.word });
+  console.log('[DEBUG LocalStorage] Adding word to file:', fileId, word);
   
   const data = getData();
   const file = data.vocabularyFiles.find(f => f.id === fileId);
   
   if (!file) {
+    console.error('[DEBUG LocalStorage] File not found:', fileId);
     throw new Error('単語帳が見つかりません');
   }
   
@@ -136,8 +138,14 @@ export const addWordToFile = async (
     id: word.id || `word_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   };
   
+  console.log('[DEBUG LocalStorage] Generated new word with ID:', newWord.id);
+  console.log('[DEBUG LocalStorage] Words before adding:', file.words.length);
+  
   file.words.push(newWord);
   saveData(data);
+  
+  console.log('[DEBUG LocalStorage] Words after adding:', file.words.length);
+  console.log('[DEBUG LocalStorage] Successfully saved word to localStorage');
   
   logger.info('addWordToFile (localStorage): 完了', { wordId: newWord.id });
   return newWord;
@@ -168,16 +176,29 @@ export const updateVocabularyFile = async (
   file: VocabularyFile
 ): Promise<void> => {
   logger.info('updateVocabularyFile (localStorage): 開始', { fileId: file.id });
+  console.log('[DEBUG LocalStorage] updateVocabularyFile called with:', {
+    fileId: file.id,
+    fileName: file.name,
+    wordCount: file.words.length,
+    words: file.words.map(w => ({ id: w.id, word: w.word, hasAI: !!w.aiGenerated }))
+  });
   
   const data = getData();
   const index = data.vocabularyFiles.findIndex(f => f.id === file.id);
   
   if (index === -1) {
+    console.error('[DEBUG LocalStorage] File not found in storage:', file.id);
     throw new Error('単語帳が見つかりません');
   }
   
+  console.log('[DEBUG LocalStorage] Found file at index:', index);
+  console.log('[DEBUG LocalStorage] Current words in storage:', data.vocabularyFiles[index].words.length);
+  
   data.vocabularyFiles[index] = file;
   saveData(data);
+  
+  console.log('[DEBUG LocalStorage] File updated successfully');
+  console.log('[DEBUG LocalStorage] New words count:', file.words.length);
   
   logger.info('updateVocabularyFile (localStorage): 完了');
 };

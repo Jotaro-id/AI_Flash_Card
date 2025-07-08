@@ -49,6 +49,15 @@ export const WordManager: React.FC<WordManagerProps> = ({
   currentUser,
   onSignOut
 }) => {
+  // ファイルの状態をログに出力
+  useEffect(() => {
+    console.log('[DEBUG WordManager] File prop updated:', {
+      fileId: file.id,
+      fileName: file.name,
+      wordCount: file.words.length,
+      words: file.words.map(w => ({ id: w.id, word: w.word }))
+    });
+  }, [file]);
   const [newWord, setNewWord] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -180,12 +189,16 @@ export const WordManager: React.FC<WordManagerProps> = ({
   const handleAddWord = async () => {
     if (!newWord.trim()) return;
 
+    console.log('[DEBUG] handleAddWord started with word:', newWord.trim());
+
     const tempId = Date.now().toString();
     const tempWord: Word = {
       id: tempId,
       word: newWord.trim(),
       createdAt: new Date()
     };
+
+    console.log('[DEBUG] Created temp word with ID:', tempId);
 
     // まず単語をリストに追加（ローディング状態で表示）
     const updatedFileWithLoading = {
@@ -196,25 +209,29 @@ export const WordManager: React.FC<WordManagerProps> = ({
 
     // ローディング状態を設定
     setLoadingWords(prev => new Set([...prev, tempId]));
+    console.log('[DEBUG] Set loading state for word ID:', tempId);
     
     try {
       // AI情報を生成
+      console.log('[DEBUG] Generating AI info...');
       const aiInfo = await generateWordInfo(newWord.trim());
+      console.log('[DEBUG] AI info generated:', aiInfo);
       tempWord.aiGenerated = aiInfo;
       
-      // Supabaseに保存
+      // LocalStorageに保存
+      console.log('[DEBUG] Saving to LocalStorage...');
       const savedWord = await addWordToFile(file.id, tempWord);
+      console.log('[DEBUG] Saved word with new ID:', savedWord.id, 'original tempId:', tempId);
       
-      // 保存された単語で更新
+      // 保存された単語で更新（tempIdではなく、新しく追加された単語として扱う）
       const updatedFileWithAI = {
         ...file,
-        words: file.words.map(w => 
-          w.id === tempId ? savedWord : w
-        )
+        words: file.words.filter(w => w.id !== tempId).concat(savedWord)
       };
+      console.log('[DEBUG] Updated words list, total words:', updatedFileWithAI.words.length);
       onUpdateFile(updatedFileWithAI);
     } catch (error) {
-      console.error('Failed to add word:', error);
+      console.error('[DEBUG] Failed to add word:', error);
       // エラー時は一時的な単語を削除
       const revertedFile = {
         ...file,
@@ -235,10 +252,12 @@ export const WordManager: React.FC<WordManagerProps> = ({
     setLoadingWords(prev => {
       const newSet = new Set(prev);
       newSet.delete(tempId);
+      console.log('[DEBUG] Removed loading state for word ID:', tempId);
       return newSet;
     });
     setNewWord('');
     setIsAdding(false);
+    console.log('[DEBUG] handleAddWord completed');
   };
 
   const handleSelectSuggestion = (suggestion: string) => {
@@ -290,9 +309,11 @@ export const WordManager: React.FC<WordManagerProps> = ({
     }
   };
 
+  console.log('[DEBUG WordManager] Current file words:', file.words.length, file.words);
   const filteredWords = file.words.filter(word =>
     word.word.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  console.log('[DEBUG WordManager] Filtered words:', filteredWords.length);
 
   const getWordClassColor = (wordClass: string) => {
     switch (wordClass) {

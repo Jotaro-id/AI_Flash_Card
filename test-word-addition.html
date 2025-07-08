@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>単語追加テスト</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .log {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .debug {
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>単語追加デバッグテスト</h1>
+        
+        <div>
+            <h2>手順:</h2>
+            <ol>
+                <li>開発者ツールのコンソールを開いてください (F12)</li>
+                <li>アプリケーションを開いてログインしてください</li>
+                <li>単語帳を選択してください</li>
+                <li>単語を追加してみてください</li>
+                <li>コンソールに表示される[DEBUG]メッセージを確認してください</li>
+            </ol>
+        </div>
+        
+        <div>
+            <h2>チェックポイント:</h2>
+            <ul>
+                <li>✓ [DEBUG] handleAddWord started with word: が表示される</li>
+                <li>✓ [DEBUG] Created temp word with ID: が表示される</li>
+                <li>✓ [DEBUG] Generating AI info... が表示される</li>
+                <li>✓ [DEBUG] AI info generated: が表示される</li>
+                <li>✓ [DEBUG LocalStorage] Adding word to file: が表示される</li>
+                <li>✓ [DEBUG LocalStorage] Generated new word with ID: が表示される</li>
+                <li>✓ [DEBUG] Saved word with new ID: が表示される（tempIdと異なるID）</li>
+                <li>✓ [DEBUG] Updated words list, total words: が表示される</li>
+                <li>✓ [DEBUG] handleAddWord completed が表示される</li>
+            </ul>
+        </div>
+        
+        <div>
+            <h2>問題の可能性:</h2>
+            <ul>
+                <li>1. AI情報生成でエラーが発生している → [DEBUG] Failed to add word: が表示される</li>
+                <li>2. LocalStorageへの保存でエラーが発生している → [DEBUG LocalStorage] File not found: が表示される</li>
+                <li>3. 単語の更新処理に問題がある → 単語数が増えていない</li>
+            </ul>
+        </div>
+        
+        <div class="log" id="log">
+            <div class="log-entry debug">デバッグログがここに表示されます...</div>
+        </div>
+        
+        <button onclick="checkLocalStorage()">LocalStorageの内容を確認</button>
+        <button onclick="clearLog()">ログをクリア</button>
+    </div>
+    
+    <script>
+        const logDiv = document.getElementById('log');
+        
+        function addLog(message, type = 'debug') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function checkLocalStorage() {
+            try {
+                const data = localStorage.getItem('ai-flashcard-data');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    addLog('LocalStorage data found', 'success');
+                    addLog(`Vocabulary files: ${parsed.vocabularyFiles.length}`, 'debug');
+                    parsed.vocabularyFiles.forEach((file, index) => {
+                        addLog(`File ${index + 1}: ${file.name} (${file.words.length} words)`, 'debug');
+                    });
+                } else {
+                    addLog('No data in LocalStorage', 'error');
+                }
+            } catch (error) {
+                addLog(`Error reading LocalStorage: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearLog() {
+            logDiv.innerHTML = '<div class="log-entry debug">ログをクリアしました</div>';
+        }
+        
+        // コンソールログを監視してページに表示
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+            ).join(' ');
+            if (message.includes('[DEBUG]')) {
+                addLog(message, 'debug');
+            }
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+            ).join(' ');
+            addLog(message, 'error');
+        };
+    </script>
+</body>
+</html>

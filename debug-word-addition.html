@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>単語追加デバッグツール</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .error {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        .success {
+            color: #388e3c;
+            font-weight: bold;
+        }
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1565c0;
+        }
+        .log-entry {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .log-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI単語帳 - 単語追加デバッグツール</h1>
+
+    <div class="section">
+        <h2>1. LocalStorageデータ確認</h2>
+        <button onclick="checkLocalStorage()">LocalStorageを確認</button>
+        <button onclick="clearLocalStorage()">LocalStorageをクリア（注意！）</button>
+        <div id="localStorage-data"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. デバッグ手順</h2>
+        <ol>
+            <li>ブラウザの開発者ツールを開く（F12）</li>
+            <li>コンソールタブを選択</li>
+            <li>AI単語帳アプリを開く: <a href="http://localhost:5173" target="_blank">http://localhost:5173</a></li>
+            <li>単語を追加してみる</li>
+            <li>以下のログを確認:
+                <ul>
+                    <li><code>[DEBUG] handleAddWord started with word:</code></li>
+                    <li><code>[DEBUG] Set loading state for word ID:</code></li>
+                    <li><code>[DEBUG] Generating AI info...</code></li>
+                    <li><code>[DEBUG] AI info generated:</code></li>
+                    <li><code>[DEBUG] Saving to LocalStorage...</code></li>
+                    <li><code>[DEBUG] Saved word with new ID:</code></li>
+                    <li><code>[DEBUG] Updated words list, total words:</code></li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>3. 環境変数確認</h2>
+        <p>Gemini APIキーが設定されているか確認してください：</p>
+        <pre>.env.local ファイル:
+VITE_GEMINI_API_KEY=your_actual_api_key_here</pre>
+        <p class="error">注意: APIキーが設定されていない場合、フォールバックデータが使用されますが、エラーは表示されません。</p>
+    </div>
+
+    <div class="section">
+        <h2>4. テスト用単語追加</h2>
+        <button onclick="testAddWord()">テスト単語を直接追加</button>
+        <div id="test-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>5. コンソールログ</h2>
+        <button onclick="captureConsoleLogs()">コンソールログをキャプチャ開始</button>
+        <div id="console-logs"></div>
+    </div>
+
+    <script>
+        // LocalStorageデータを確認
+        function checkLocalStorage() {
+            const data = localStorage.getItem('ai-flashcard-data');
+            const user = localStorage.getItem('ai-flashcard-user');
+            
+            let html = '<h3>LocalStorageの内容:</h3>';
+            
+            if (user) {
+                html += '<h4>ユーザー情報:</h4>';
+                html += '<pre>' + JSON.stringify(JSON.parse(user), null, 2) + '</pre>';
+            } else {
+                html += '<p class="error">ユーザー情報が見つかりません</p>';
+            }
+            
+            if (data) {
+                const parsedData = JSON.parse(data);
+                html += '<h4>単語帳データ:</h4>';
+                html += '<pre>' + JSON.stringify(parsedData, null, 2) + '</pre>';
+                
+                // 統計情報
+                const totalFiles = parsedData.vocabularyFiles?.length || 0;
+                const totalWords = parsedData.vocabularyFiles?.reduce((sum, file) => sum + (file.words?.length || 0), 0) || 0;
+                
+                html += '<h4>統計:</h4>';
+                html += `<p>単語帳数: ${totalFiles}</p>`;
+                html += `<p>総単語数: ${totalWords}</p>`;
+            } else {
+                html += '<p class="error">単語帳データが見つかりません</p>';
+            }
+            
+            document.getElementById('localStorage-data').innerHTML = html;
+        }
+
+        // LocalStorageをクリア
+        function clearLocalStorage() {
+            if (confirm('本当にLocalStorageをクリアしますか？すべてのデータが失われます。')) {
+                localStorage.removeItem('ai-flashcard-data');
+                localStorage.removeItem('ai-flashcard-user');
+                alert('LocalStorageをクリアしました');
+                checkLocalStorage();
+            }
+        }
+
+        // テスト単語を直接追加
+        async function testAddWord() {
+            const resultDiv = document.getElementById('test-result');
+            resultDiv.innerHTML = '<p>テスト中...</p>';
+            
+            try {
+                // LocalStorageから現在のデータを取得
+                const dataStr = localStorage.getItem('ai-flashcard-data');
+                if (!dataStr) {
+                    throw new Error('LocalStorageにデータがありません');
+                }
+                
+                const data = JSON.parse(dataStr);
+                if (!data.vocabularyFiles || data.vocabularyFiles.length === 0) {
+                    throw new Error('単語帳が見つかりません');
+                }
+                
+                const file = data.vocabularyFiles[0];
+                const testWord = {
+                    id: `test_word_${Date.now()}`,
+                    word: 'test',
+                    createdAt: new Date().toISOString(),
+                    aiGenerated: {
+                        englishEquivalent: 'test',
+                        japaneseEquivalent: 'テスト',
+                        pronunciation: '/test/',
+                        exampleSentence: 'This is a test.',
+                        japaneseExample: 'これはテストです。',
+                        englishExample: 'This is a test example.',
+                        usageNotes: 'Test usage notes',
+                        wordClass: 'noun'
+                    }
+                };
+                
+                file.words.push(testWord);
+                data.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ai-flashcard-data', JSON.stringify(data));
+                
+                resultDiv.innerHTML = '<p class="success">テスト単語を追加しました！ページをリロードして確認してください。</p>';
+                checkLocalStorage();
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">エラー: ${error.message}</p>`;
+            }
+        }
+
+        // コンソールログをキャプチャ
+        let originalLog;
+        let logs = [];
+        
+        function captureConsoleLogs() {
+            if (!originalLog) {
+                originalLog = console.log;
+                console.log = function(...args) {
+                    originalLog.apply(console, args);
+                    const logEntry = {
+                        time: new Date().toLocaleTimeString(),
+                        message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ')
+                    };
+                    logs.push(logEntry);
+                    displayLogs();
+                };
+                document.getElementById('console-logs').innerHTML = '<p class="success">コンソールログのキャプチャを開始しました</p>';
+            }
+        }
+        
+        function displayLogs() {
+            const logsDiv = document.getElementById('console-logs');
+            let html = '<h3>キャプチャされたログ:</h3>';
+            logs.slice(-20).reverse().forEach(log => {
+                html += `<div class="log-entry">
+                    <span class="log-time">${log.time}</span>
+                    <pre>${log.message}</pre>
+                </div>`;
+            });
+            logsDiv.innerHTML = html;
+        }
+
+        // ページロード時にLocalStorageを確認
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>
