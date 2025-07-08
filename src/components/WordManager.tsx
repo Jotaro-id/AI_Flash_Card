@@ -50,6 +50,16 @@ export const WordManager: React.FC<WordManagerProps> = ({
   currentUser,
   onSignOut
 }) => {
+  const [newWord, setNewWord] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loadingWords, setLoadingWords] = useState<Set<string>>(new Set());
+  const [loadingTexts, setLoadingTexts] = useState<Record<string, string>>({});
+  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
+  const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
   // ファイルの状態をログに出力
   useEffect(() => {
     console.log('[DEBUG WordManager] File prop updated:', {
@@ -74,15 +84,6 @@ export const WordManager: React.FC<WordManagerProps> = ({
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [isSettingsOpen]);
-  const [newWord, setNewWord] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loadingWords, setLoadingWords] = useState<Set<string>>(new Set());
-  const [loadingTexts, setLoadingTexts] = useState<Record<string, string>>({});
-  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
-  const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // 設定フックを使用
   const { settings, setSetting } = useSettings();

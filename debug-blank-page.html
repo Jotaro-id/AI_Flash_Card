@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ブランクページデバッグ</title>
+</head>
+<body>
+    <h1>デバッグ用テストページ</h1>
+    <p>開発サーバー: <a href="http://localhost:5175/" target="_blank">http://localhost:5175/</a></p>
+    
+    <div id="status"></div>
+    
+    <script>
+        const statusDiv = document.getElementById('status');
+        
+        // 開発サーバーへアクセステスト
+        fetch('http://localhost:5175/')
+            .then(response => {
+                statusDiv.innerHTML += `<p>ステータス: ${response.status}</p>`;
+                return response.text();
+            })
+            .then(html => {
+                statusDiv.innerHTML += `<p>レスポンス長: ${html.length}文字</p>`;
+                // HTMLの最初の100文字を表示
+                statusDiv.innerHTML += `<pre>${html.substring(0, 200)}...</pre>`;
+            })
+            .catch(error => {
+                statusDiv.innerHTML += `<p style="color: red;">エラー: ${error.message}</p>`;
+            });
+    </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アプリケーションテスト</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .success { background-color: #e7f5e7; }
+        .error { background-color: #f5e7e7; }
+        .info { background-color: #e7e7f5; }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI単語帳 - デバッグ情報</h1>
+    
+    <div id="results"></div>
+    
+    <h2>開発サーバー確認</h2>
+    <iframe src="http://localhost:5173/" width="100%" height="600" style="border: 2px solid #333;"></iframe>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+        
+        // 1. ブラウザコンソールエラーを捕捉
+        window.addEventListener('error', function(event) {
+            addResult(`<strong>エラー検出:</strong> ${event.message}<br>ファイル: ${event.filename}:${event.lineno}:${event.colno}`, 'error');
+        });
+        
+        // 2. Promise rejection を捕捉
+        window.addEventListener('unhandledrejection', function(event) {
+            addResult(`<strong>未処理のPromise拒否:</strong> ${event.reason}`, 'error');
+        });
+        
+        // 3. 開発サーバーの状態確認
+        fetch('http://localhost:5173/')
+            .then(response => {
+                addResult(`<strong>開発サーバー状態:</strong> ${response.status} ${response.statusText}`, 
+                    response.ok ? 'success' : 'error');
+                return response.text();
+            })
+            .then(html => {
+                if (html.length === 0) {
+                    addResult('<strong>警告:</strong> 空のHTMLレスポンス', 'error');
+                } else {
+                    addResult(`<strong>HTMLサイズ:</strong> ${html.length}文字`, 'success');
+                    
+                    // root要素があるか確認
+                    if (html.includes('id="root"')) {
+                        addResult('<strong>root要素:</strong> 検出されました', 'success');
+                    } else {
+                        addResult('<strong>root要素:</strong> 見つかりません', 'error');
+                    }
+                    
+                    // スクリプトタグを確認
+                    const scriptMatch = html.match(/<script[^>]*src="([^"]+)"/g);
+                    if (scriptMatch) {
+                        addResult(`<strong>スクリプトタグ:</strong> ${scriptMatch.length}個検出`, 'success');
+                    }
+                }
+            })
+            .catch(error => {
+                addResult(`<strong>フェッチエラー:</strong> ${error.message}`, 'error');
+            });
+            
+        // 4. Vite HMR接続確認
+        setTimeout(() => {
+            if (window.__vite_is_modern_browser) {
+                addResult('<strong>Vite:</strong> モダンブラウザとして認識されています', 'success');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
