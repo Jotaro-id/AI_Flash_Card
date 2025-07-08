@@ -3,6 +3,7 @@ import { AIWordInfo, SupportedLanguage } from '../types';
 import { withExponentialBackoff } from '../utils/retry';
 import { logger } from '../utils/logger';
 import { geminiRateLimiter } from '../utils/rateLimiter';
+import { aiWordInfoCache } from './aiCacheService';
 
 // APIキーを環境変数から取得
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -33,18 +34,28 @@ const genAI = apiKeyStatus.isValid
   ? new GoogleGenerativeAI(apiKey) 
   : null;
 
-// Gemini 1.5 Flashモデルを使用（安定版）
+// Gemini 1.5 Flash-8Bモデルを使用（超高速版）
 const model = genAI?.getGenerativeModel({
-  model: "gemini-1.5-flash",
+  model: "gemini-1.5-flash-8b",
 });
 
 // Gemini APIを使用した単語情報生成サービス
 export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
+  // まずキャッシュをチェック
+  const cachedInfo = aiWordInfoCache.get(word);
+  if (cachedInfo) {
+    logger.info(`キャッシュから単語情報を取得: ${word}`);
+    return cachedInfo;
+  }
+
   // APIキーが設定されていない場合はフォールバックを使用
   if (!model) {
     logger.warn('Gemini API is not configured. Using fallback data.');
     logger.info('API key status:', apiKeyStatus);
-    return generateFallbackWordInfo(word);
+    const fallbackInfo = generateFallbackWordInfo(word);
+    // フォールバックデータもキャッシュに保存
+    aiWordInfoCache.set(word, fallbackInfo);
+    return fallbackInfo;
   }
 
   try {
@@ -75,6 +86,10 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     
     const wordInfo = parseAIResponse(aiResponse, word);
     logger.info('Successfully generated word info', { word });
+    
+    // 生成された情報をキャッシュに保存
+    aiWordInfoCache.set(word, wordInfo);
+    
     return wordInfo;
 
   } catch (error) {
@@ -98,59 +113,38 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     
     // その他のエラーの場合はフォールバックを使用
     logger.warn('Using fallback data due to unrecoverable API error');
-    return generateFallbackWordInfo(word);
+    const fallbackInfo = generateFallbackWordInfo(word);
+    // フォールバックデータもキャッシュに保存
+    aiWordInfoCache.set(word, fallbackInfo);
+    return fallbackInfo;
   }
 };
 
-// Gemini用のプロンプトを作成（言語検出機能付き）
+// Gemini用のプロンプトを作成（最適化版）
 const createWordAnalysisPrompt = (word: string): string => {
-  return `単語「${word}」について、以下の情報をJSON形式で提供してください：
-
-まず単語「${word}」の言語を検出してください。そして、その検出された言語で自然な例文を作成してください。
-
+  return `単語「${word}」の解析。JSONのみで返答:
 {
-  "englishEquivalent": "英語での意味・定義",
-  "japaneseEquivalent": "日本語での意味・定義",
-  "pronunciation": "発音記号（IPA形式）",
-  "exampleSentence": "英語での例文",
-  "japaneseExample": "日本語での例文",
-  "englishExample": "英語での使用例",
-  "usageNotes": "使用上の注意・コツ",
-  "wordClass": "品詞（noun/verb/adjective/adverb/other）",
-  "tenseInfo": "時制情報（該当する場合）",
-  "additionalInfo": "追加の文法情報",
+  "englishEquivalent": "英語意味",
+  "japaneseEquivalent": "日本語意味",
+  "pronunciation": "IPA発音",
+  "exampleSentence": "英語例文",
+  "japaneseExample": "日本語例文",
+  "englishExample": "英語使用例",
+  "usageNotes": "使用注意",
+  "wordClass": "品詞(noun/verb/adjective/adverb/other)",
   "enhancedExample": {
-    "originalLanguage": "検出された言語コード（en/ja/es/fr/it/de/zh/ko）",
-    "originalSentence": "検出された言語での自然な例文",
-    "japaneseTranslation": "その例文の日本語訳",
-    "englishTranslation": "その例文の英語訳"
+    "originalLanguage": "言語コード(en/ja/es/fr/it/de/zh/ko)",
+    "originalSentence": "原語例文",
+    "japaneseTranslation": "日本語訳",
+    "englishTranslation": "英語訳"
   },
   "translations": {
-    "spanish": "スペイン語での意味",
-    "french": "フランス語での意味",
-    "italian": "イタリア語での意味",
-    "german": "ドイツ語での意味",
-    "chinese": "中国語での意味",
-    "korean": "韓国語での意味"
-  },
-  "multilingualExamples": {
-    "spanish": "スペイン語での例文",
-    "french": "フランス語での例文",
-    "italian": "イタリア語での例文",
-    "german": "ドイツ語での例文",
-    "chinese": "中国語での例文",
-    "korean": "韓国語での例文"
+    "spanish": "スペイン語",
+    "french": "フランス語",
+    "german": "ドイツ語",
+    "chinese": "中国語"
   }
-}
-
-重要：
-1. 「originalLanguage」は単語「${word}」が属する言語を正確に検出してください
-2. 「originalSentence」はその言語で自然で適切な例文を作成してください
-3. 例：「niño」→スペイン語なので「El niño juega en el parque.」
-4. 例：「bonjour」→フランス語なので「Bonjour, comment allez-vous?」
-5. 例：「こんにちは」→日本語なので「こんにちは、元気ですか？」
-
-正確で教育的な内容を提供し、学習者に役立つ情報を含めてください。JSON形式で回答してください。`;
+}`;
 };
 
 // AIの回答をパースしてAIWordInfo形式に変換
