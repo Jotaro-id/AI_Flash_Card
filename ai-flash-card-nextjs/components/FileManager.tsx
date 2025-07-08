@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, FileText, Trash2, Globe } from 'lucide-react';
-import { VocabularyFile, ColorTheme, supportedLanguages, SupportedLanguage } from '../types';
+import { VocabularyFile, ColorTheme, supportedLanguages, SupportedLanguage } from '@/types';
 import { ThemeSelector } from './ThemeSelector';
 import { UserMenu } from './UserMenu';
 

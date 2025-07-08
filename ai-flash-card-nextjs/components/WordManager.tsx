@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2, Settings, EyeOff, RefreshCw } from 'lucide-react';
-import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '../types';
+import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '@/types';
 import { UserMenu } from './UserMenu';
-import { generateWordInfo, checkSpelling } from '../services/aiService';
-import { getWordSuggestions } from '../services/wordSuggestionService';
-import { addWordToFile, deleteWordFromFile, updateVocabularyFile } from '../services/localStorageService';
+import { generateWordInfo, checkSpelling } from '@/services/aiService';
+import { getWordSuggestions } from '@/services/wordSuggestionService';
+import { addWordToFile, deleteWordFromFile, updateVocabularyFile } from '@/services/localStorageService';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { 
@@ -12,12 +12,12 @@ import {
   exportVocabularyFileToJSON, 
   exportMultipleWordsToJSON, 
   exportAIGeneratedWordInfo 
-} from '../services/jsonExportService';
-import { useDebounce } from '../hooks/useDebounce';
+} from '@/services/jsonExportService';
+import { useDebounce } from '@/hooks/useDebounce';
 import { WordDetailModal } from './WordDetailModal';
 import { SpellingSuggestions } from './SpellingSuggestions';
 import { ApiStatusIndicator } from './ApiStatusIndicator';
-import { useSettings } from '../hooks/useSettings';
+import { useSettings } from '@/hooks/useSettings';
 
 interface WordManagerProps {
   file: VocabularyFile;
@@ -867,6 +867,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
           onClose={handleCloseDetailModal}
           onRegenerate={() => handleRegenerateWordInfo(selectedWord)}
           isRegenerating={loadingWords.has(selectedWord.id)}
+          targetLanguage={file.targetLanguage}
         />
       )}
       

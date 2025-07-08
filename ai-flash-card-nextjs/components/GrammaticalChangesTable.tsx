@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AIWordInfo } from '../types';
+import { AIWordInfo } from '@/types';
 import { SpeechButton } from './SpeechButton';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -199,6 +199,8 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       );
     }
@@ -215,8 +217,16 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
     if (conjugationPairs.length > 0) {
       return (
         <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 mb-4">
-          <h3 className="text-white font-semibold mb-3">動詞の活用</h3>
-          <div className="overflow-x-auto">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center justify-between text-white font-semibold mb-3 hover:text-white/80 transition-colors"
+          >
+            <h3>動詞の活用</h3>
+            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </button>
+          
+          {isExpanded && (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/20">
@@ -244,10 +254,10 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
               </tbody>
             </table>
           </div>
+          )}
         </div>
       );
     }
-  }
   }
 
   // 名詞・形容詞の性数変化表

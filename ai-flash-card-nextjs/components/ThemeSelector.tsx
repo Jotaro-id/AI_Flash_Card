@@ -1,6 +1,6 @@
 import React from 'react';
 import { Palette, Check } from 'lucide-react';
-import { ColorTheme } from '../types';
+import { ColorTheme } from '@/types';
 
 interface ThemeSelectorProps {
   currentTheme: ColorTheme;

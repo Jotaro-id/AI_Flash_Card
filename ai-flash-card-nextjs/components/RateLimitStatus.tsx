@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Clock } from 'lucide-react';
-import { geminiRateLimiter } from '../utils/rateLimiter';
+import { geminiRateLimiter } from '@/utils/rateLimiter';
 
 export const RateLimitStatus: React.FC = () => {
   const [status, setStatus] = useState(geminiRateLimiter.getStatus());

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
-import { apiKeyStatus } from '../services/aiService';
+import { apiKeyStatus } from '@/services/aiService';
 
 export const ApiStatusIndicator: React.FC = () => {
   if (apiKeyStatus.isValid) {

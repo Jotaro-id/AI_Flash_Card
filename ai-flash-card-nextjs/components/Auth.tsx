@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn, UserPlus, Mail, Lock } from 'lucide-react';
-import { setCurrentUser } from '../services/localStorageService';
+import { setCurrentUser } from '@/services/localStorageService';
 
 type AuthMode = 'login' | 'signup';
 

@@ -1,5 +1,5 @@
-import { VocabularyFile, Word, SupportedLanguage } from '../types';
-import { logger } from '../utils/logger';
+import { VocabularyFile, Word, SupportedLanguage } from '@/types';
+import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'ai-flashcard-data';
 const USER_KEY = 'ai-flashcard-user';

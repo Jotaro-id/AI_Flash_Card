@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { WifiOff, Wifi, AlertCircle, RefreshCw } from 'lucide-react';
-import { checkSupabaseConnection } from '../utils/supabaseHelpers';
+import { checkSupabaseConnection } from '@/utils/supabaseHelpers';
 
 export const ConnectionStatus: React.FC = () => {
   const [connectionState, setConnectionState] = useState<{

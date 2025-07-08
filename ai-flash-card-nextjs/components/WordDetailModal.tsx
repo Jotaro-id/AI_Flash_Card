@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { Word, supportedLanguages } from '../types';
+import { Word, supportedLanguages } from '@/types';
 import { SpeechButton } from './SpeechButton';
 import { GrammaticalChangesTable } from './GrammaticalChangesTable';
 
@@ -13,7 +13,7 @@ interface WordDetailModalProps {
   targetLanguage?: string;
 }
 
-export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating }) => {
+export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating, targetLanguage = 'en' }) => {
   const [showJapaneseTranslation, setShowJapaneseTranslation] = useState(false);
   const [showEnglishTranslation, setShowEnglishTranslation] = useState(false);
 
@@ -200,6 +200,13 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
               </div>
             </div>
           )}
+
+          {/* 文法変化表 */}
+          <GrammaticalChangesTable 
+            grammaticalChanges={aiInfo.grammaticalChanges}
+            wordClass={aiInfo.wordClass}
+            targetLanguage={targetLanguage}
+          />
 
           {/* 使用上の注意 */}
           <div className="mb-6">

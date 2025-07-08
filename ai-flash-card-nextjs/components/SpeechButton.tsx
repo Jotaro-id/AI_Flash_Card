@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Volume2, VolumeX, Loader2 } from 'lucide-react';
-import { speechService } from '../services/speechService';
+import { speechService } from '@/services/speechService';
 
 interface SpeechButtonProps {
   text: string;

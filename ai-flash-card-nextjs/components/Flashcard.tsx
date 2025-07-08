@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, ChevronLeft, ChevronRight, Shuffle, Info } from 'lucide-react';
-import { Word, ColorTheme, SupportedLanguage } from '../types';
+import { Word, ColorTheme, SupportedLanguage } from '@/types';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
-import { speechService } from '../services/speechService';
+import { speechService } from '@/services/speechService';
+import { GrammaticalChangesTable } from './GrammaticalChangesTable';
 
 interface FlashcardProps {
   word: Word;
@@ -160,6 +161,13 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* 文法変化表 */}
+              <GrammaticalChangesTable 
+                grammaticalChanges={word.aiGenerated.grammaticalChanges}
+                wordClass={word.aiGenerated.wordClass}
+                targetLanguage={targetLanguage}
+              />
 
               {/* 多言語翻訳セクション */}
               {word.aiGenerated.translations && (
