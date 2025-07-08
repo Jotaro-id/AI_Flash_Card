@@ -17,6 +17,7 @@ import {
   debugSupabaseData
 } from './services/supabaseService';
 import { runSupabaseDiagnostics, DiagnosticResult } from './utils/supabaseDiagnostics';
+import { runDetailedSupabaseDiagnostics } from './utils/performanceDiagnostics';
 
 type AppState = 'file-manager' | 'word-manager' | 'flashcards';
 
@@ -54,6 +55,8 @@ function App() {
       window.runSupabaseDiagnostics = runSupabaseDiagnostics;
       
       // 環境変数へのアクセス関数も追加
+      // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
+      window.runDetailedSupabaseDiagnostics = runDetailedSupabaseDiagnostics;
       // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
       window.getSupabaseConfig = () => {
         return {

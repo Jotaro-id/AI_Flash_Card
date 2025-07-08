@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI単語帳 - ネットワーク診断</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a2e;
+            color: #eee;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4a7c7e;
+            text-align: center;
+        }
+        .section {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+        .metric:last-child {
+            border-bottom: none;
+        }
+        .metric-name {
+            font-weight: bold;
+            color: #4a7c7e;
+        }
+        .metric-value {
+            font-family: monospace;
+        }
+        .good { color: #4caf50; }
+        .warning { color: #ff9800; }
+        .bad { color: #f44336; }
+        button {
+            background: #4a7c7e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #5a8c8e;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        #log {
+            background: #0f1419;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        .log-success { color: #4caf50; }
+        .log-error { color: #f44336; }
+        .log-info { color: #2196f3; }
+        .chart {
+            height: 200px;
+            background: #0f1419;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar {
+            position: absolute;
+            bottom: 0;
+            width: 40px;
+            background: #4a7c7e;
+            transition: height 0.3s ease;
+        }
+        .bar-label {
+            position: absolute;
+            bottom: -20px;
+            font-size: 10px;
+            width: 100%;
+            text-align: center;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 3px solid #333;
+            border-top: 3px solid #4a7c7e;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI単語帳 - ネットワーク診断ツール</h1>
+        
+        <div class="section">
+            <h2>診断コントロール</h2>
+            <button id="runDiagnostics" onclick="runDiagnostics()">診断を実行</button>
+            <button id="clearLog" onclick="clearLog()">ログをクリア</button>
+            <button onclick="location.reload()">ページを更新</button>
+        </div>
+
+        <div class="section">
+            <h2>基本情報</h2>
+            <div id="basicInfo">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>情報を取得中...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>レスポンスタイム分析</h2>
+            <div id="responseChart" class="chart"></div>
+        </div>
+
+        <div class="section">
+            <h2>診断結果サマリー</h2>
+            <div id="summary">
+                <p>診断を実行してください</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>診断ログ</h2>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://cdltoqdsxdnyoorkhkan.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkbHRvcWRzeGRueW9vcmtoa2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2MTMzMDIsImV4cCI6MjA2NzE4OTMwMn0.qpk4PdfKyEZ7dKzx6DHcmTtXsLmGEuXP7zN08PkjALY';
+        
+        let diagnosticsRunning = false;
+        const results = {};
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function measureRequest(name, url, options = {}) {
+            log(`テスト中: ${name}`, 'info');
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch(url, options);
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                results[name] = {
+                    duration,
+                    status: response.status,
+                    ok: response.ok
+                };
+                
+                log(`✓ ${name}: ${duration.toFixed(2)}ms (HTTP ${response.status})`, response.ok ? 'success' : 'error');
+                return { duration, response };
+            } catch (error) {
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                results[name] = {
+                    duration,
+                    error: error.message
+                };
+                
+                log(`✗ ${name}: ${duration.toFixed(2)}ms - ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function getBasicInfo() {
+            const infoDiv = document.getElementById('basicInfo');
+            
+            try {
+                // URLからリージョンを推測
+                const url = new URL(supabaseUrl);
+                const hostname = url.hostname;
+                let region = '不明';
+                
+                if (hostname.includes('ap-northeast-1')) {
+                    region = 'Asia Pacific (Tokyo) 🇯🇵';
+                } else if (hostname.includes('us-east-1')) {
+                    region = 'US East (N. Virginia) 🇺🇸';
+                } else if (hostname.includes('eu-west-1')) {
+                    region = 'Europe (Ireland) 🇮🇪';
+                } else if (hostname.includes('ap-southeast-1')) {
+                    region = 'Asia Pacific (Singapore) 🇸🇬';
+                }
+                
+                // プロジェクトIDを取得
+                const projectId = hostname.split('.')[0];
+                
+                infoDiv.innerHTML = `
+                    <div class="metric">
+                        <span class="metric-name">Supabase URL:</span>
+                        <span class="metric-value">${supabaseUrl}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-name">プロジェクトID:</span>
+                        <span class="metric-value">${projectId}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-name">推定リージョン:</span>
+                        <span class="metric-value">${region}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-name">現在時刻:</span>
+                        <span class="metric-value">${new Date().toLocaleString('ja-JP')}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-name">ブラウザ:</span>
+                        <span class="metric-value">${navigator.userAgent.split(' ').slice(-2).join(' ')}</span>
+                    </div>
+                `;
+            } catch (error) {
+                infoDiv.innerHTML = `<p class="bad">基本情報の取得に失敗しました: ${error.message}</p>`;
+            }
+        }
+
+        async function runDiagnostics() {
+            if (diagnosticsRunning) return;
+            
+            diagnosticsRunning = true;
+            document.getElementById('runDiagnostics').disabled = true;
+            clearLog();
+            
+            log('=== Supabase ネットワーク診断開始 ===', 'info');
+            
+            try {
+                // 1. Health Check
+                await measureRequest(
+                    'Health Check',
+                    `${supabaseUrl}/rest/v1/`,
+                    {
+                        headers: {
+                            'apikey': supabaseKey,
+                            'Authorization': `Bearer ${supabaseKey}`
+                        }
+                    }
+                );
+                
+                // 2. Auth Endpoint
+                await measureRequest(
+                    'Auth Endpoint',
+                    `${supabaseUrl}/auth/v1/health`,
+                    {
+                        headers: {
+                            'apikey': supabaseKey
+                        }
+                    }
+                );
+                
+                // 3. Storage Health
+                await measureRequest(
+                    'Storage Health',
+                    `${supabaseUrl}/storage/v1/`,
+                    {
+                        headers: {
+                            'apikey': supabaseKey,
+                            'Authorization': `Bearer ${supabaseKey}`
+                        }
+                    }
+                );
+                
+                // 4. Database Query (Simple)
+                await measureRequest(
+                    'DB Query (Count)',
+                    `${supabaseUrl}/rest/v1/word_books?select=*&limit=0`,
+                    {
+                        headers: {
+                            'apikey': supabaseKey,
+                            'Authorization': `Bearer ${supabaseKey}`,
+                            'Prefer': 'count=exact'
+                        }
+                    }
+                );
+                
+                // 5. Database Query (With Data)
+                await measureRequest(
+                    'DB Query (Data)',
+                    `${supabaseUrl}/rest/v1/word_books?limit=1`,
+                    {
+                        headers: {
+                            'apikey': supabaseKey,
+                            'Authorization': `Bearer ${supabaseKey}`
+                        }
+                    }
+                );
+                
+                // 6. Complex Query
+                await measureRequest(
+                    'Complex Query',
+                    `${supabaseUrl}/rest/v1/word_books?select=*,word_book_cards(word_cards(*))&limit=1`,
+                    {
+                        headers: {
+                            'apikey': supabaseKey,
+                            'Authorization': `Bearer ${supabaseKey}`
+                        }
+                    }
+                );
+                
+                displayResults();
+                
+            } catch (error) {
+                log(`診断中にエラーが発生しました: ${error.message}`, 'error');
+            } finally {
+                diagnosticsRunning = false;
+                document.getElementById('runDiagnostics').disabled = false;
+                log('=== 診断完了 ===', 'info');
+            }
+        }
+
+        function displayResults() {
+            // チャート表示
+            const chartDiv = document.getElementById('responseChart');
+            chartDiv.innerHTML = '';
+            
+            const maxDuration = Math.max(...Object.values(results).map(r => r.duration || 0));
+            let index = 0;
+            
+            Object.entries(results).forEach(([name, result]) => {
+                if (result.duration) {
+                    const barHeight = (result.duration / maxDuration) * 180;
+                    const bar = document.createElement('div');
+                    bar.className = 'bar';
+                    bar.style.left = `${index * 150 + 20}px`;
+                    bar.style.height = `${barHeight}px`;
+                    
+                    if (result.duration < 500) {
+                        bar.style.background = '#4caf50';
+                    } else if (result.duration < 1000) {
+                        bar.style.background = '#ff9800';
+                    } else {
+                        bar.style.background = '#f44336';
+                    }
+                    
+                    const label = document.createElement('div');
+                    label.className = 'bar-label';
+                    label.textContent = `${result.duration.toFixed(0)}ms`;
+                    label.style.left = `${index * 150 + 20}px`;
+                    label.style.bottom = `${barHeight + 5}px`;
+                    
+                    const nameLabel = document.createElement('div');
+                    nameLabel.className = 'bar-label';
+                    nameLabel.textContent = name.split(' ')[0];
+                    nameLabel.style.left = `${index * 150 + 20}px`;
+                    
+                    chartDiv.appendChild(bar);
+                    chartDiv.appendChild(label);
+                    chartDiv.appendChild(nameLabel);
+                    
+                    index++;
+                }
+            });
+            
+            // サマリー表示
+            const summaryDiv = document.getElementById('summary');
+            const avgDuration = Object.values(results)
+                .filter(r => r.duration)
+                .reduce((sum, r) => sum + r.duration, 0) / Object.keys(results).length;
+            
+            const slowest = Object.entries(results)
+                .filter(([_, r]) => r.duration)
+                .sort((a, b) => b[1].duration - a[1].duration)[0];
+            
+            let diagnosis = '';
+            if (avgDuration > 1000) {
+                diagnosis = '⚠️ 平均レスポンスタイムが1秒を超えています。リージョンの変更を強く推奨します。';
+            } else if (avgDuration > 500) {
+                diagnosis = '⚡ レスポンスタイムがやや遅いです。パフォーマンス改善の余地があります。';
+            } else {
+                diagnosis = '✅ レスポンスタイムは良好です。';
+            }
+            
+            summaryDiv.innerHTML = `
+                <div class="metric">
+                    <span class="metric-name">平均レスポンスタイム:</span>
+                    <span class="metric-value ${avgDuration < 500 ? 'good' : avgDuration < 1000 ? 'warning' : 'bad'}">
+                        ${avgDuration.toFixed(2)}ms
+                    </span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">最も遅いリクエスト:</span>
+                    <span class="metric-value bad">${slowest[0]}: ${slowest[1].duration.toFixed(2)}ms</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">診断結果:</span>
+                    <span class="metric-value">${diagnosis}</span>
+                </div>
+            `;
+        }
+
+        // 初期化
+        getBasicInfo();
+    </script>
+</body>
+</html>
