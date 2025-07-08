@@ -32,9 +32,9 @@ const genAI = apiKeyStatus.isValid
   ? new GoogleGenerativeAI(apiKey) 
   : null;
 
-// Gemini 1.5 Flashモデルを使用（高速・無料）
+// Gemini 2.0 Flashモデルを使用（最新・高速・無料）
 const model = genAI?.getGenerativeModel({
-  model: "gemini-1.5-flash-latest",
+  model: "gemini-2.0-flash-exp",
 });
 
 // Gemini APIを使用した単語情報生成サービス
