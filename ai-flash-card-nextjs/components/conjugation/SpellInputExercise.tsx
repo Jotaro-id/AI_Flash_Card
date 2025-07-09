@@ -33,12 +33,26 @@ export function SpellInputExercise({
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [usedQuestions, setUsedQuestions] = useState<number[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionHistory, setQuestionHistory] = useState<number[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectNextQuestion = useCallback((availableQuestions: Question[], used: number[]) => {
+  const selectQuestion = useCallback((questionIndex: number) => {
+    if (questions.length === 0) return;
+    
+    setCurrentQuestion(questions[questionIndex]);
+    setUserAnswer('');
+    setShowResult(null);
+    setAttempts(0);
+    
+    // 入力フィールドにフォーカス
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [questions]);
+
+  const selectNextQuestion = useCallback((availableQuestions: Question[]) => {
     const remainingIndices = availableQuestions
       .map((_, index) => index)
-      .filter(index => !used.includes(index));
+      .filter(index => !usedQuestions.includes(index));
 
     if (remainingIndices.length === 0) {
       // すべての問題を解いた
@@ -47,15 +61,31 @@ export function SpellInputExercise({
     }
 
     const randomIndex = remainingIndices[Math.floor(Math.random() * remainingIndices.length)];
-    setCurrentQuestion(availableQuestions[randomIndex]);
-    setUsedQuestions([...used, randomIndex]);
-    setUserAnswer('');
-    setShowResult(null);
-    setAttempts(0);
+    const newHistory = [...questionHistory, randomIndex];
     
-    // 入力フィールドにフォーカス
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [onComplete]);
+    setCurrentQuestionIndex(newHistory.length - 1);
+    setQuestionHistory(newHistory);
+    setUsedQuestions([...usedQuestions, randomIndex]);
+    selectQuestion(randomIndex);
+  }, [onComplete, questionHistory, usedQuestions, selectQuestion]);
+
+  const goToPreviousQuestion = useCallback(() => {
+    if (currentQuestionIndex > 0) {
+      const prevIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(prevIndex);
+      selectQuestion(questionHistory[prevIndex]);
+    }
+  }, [currentQuestionIndex, questionHistory, selectQuestion]);
+
+  const goToNextQuestion = useCallback(() => {
+    if (currentQuestionIndex < questionHistory.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      selectQuestion(questionHistory[nextIndex]);
+    } else {
+      selectNextQuestion(questions);
+    }
+  }, [currentQuestionIndex, questionHistory, questions, selectQuestion, selectNextQuestion]);
 
   useEffect(() => {
     // 活用形データを取得
@@ -125,12 +155,17 @@ export function SpellInputExercise({
     setTotalQuestions(newQuestions.length);
     setUsedQuestions([]);
     setCorrectCount(0);
+    setQuestionHistory([]);
+    setCurrentQuestionIndex(0);
     
     // 最初の問題を選択
     if (newQuestions.length > 0) {
-      selectNextQuestion(newQuestions, []);
+      const firstIndex = Math.floor(Math.random() * newQuestions.length);
+      setQuestionHistory([firstIndex]);
+      setUsedQuestions([firstIndex]);
+      selectQuestion(firstIndex);
     }
-  }, [verb, tense, mood, selectNextQuestion]);
+  }, [verb, tense, mood, selectQuestion]);
 
   const checkAnswer = () => {
     if (!currentQuestion || !userAnswer.trim()) return;
@@ -142,13 +177,13 @@ export function SpellInputExercise({
     if (isCorrect) {
       setCorrectCount(correctCount + 1);
       setTimeout(() => {
-        selectNextQuestion(questions, usedQuestions);
+        goToNextQuestion();
       }, 1500);
     }
   };
 
   const skipQuestion = () => {
-    selectNextQuestion(questions, usedQuestions);
+    goToNextQuestion();
   };
 
   const getTenseLabel = () => {
@@ -267,17 +302,32 @@ export function SpellInputExercise({
       </div>
 
       <div className="flex justify-between">
-        <button
-          onClick={() => {
-            setUsedQuestions([]);
-            setCorrectCount(0);
-            selectNextQuestion(questions, []);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
-        >
-          <RotateCcw size={20} />
-          最初から
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={goToPreviousQuestion}
+            disabled={currentQuestionIndex === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
+          >
+            <ChevronRight size={20} className="rotate-180" />
+            前の問題
+          </button>
+          <button
+            onClick={() => {
+              setUsedQuestions([]);
+              setCorrectCount(0);
+              setQuestionHistory([]);
+              setCurrentQuestionIndex(0);
+              const firstIndex = Math.floor(Math.random() * questions.length);
+              setQuestionHistory([firstIndex]);
+              setUsedQuestions([firstIndex]);
+              selectQuestion(firstIndex);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+          >
+            <RotateCcw size={20} />
+            最初から
+          </button>
+        </div>
 
         <button
           onClick={onComplete}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Filter, BookOpen, FileText, Brain } from 'lucide-react';
+import { ArrowLeft, Filter, BookOpen, FileText, Brain, ChevronRight } from 'lucide-react';
 import { VocabularyFile, Word, SupportedLanguage } from '@/types';
 import { FillBlanksExercise } from './conjugation/FillBlanksExercise';
 import { SpellInputExercise } from './conjugation/SpellInputExercise';
@@ -48,6 +48,12 @@ export function VerbConjugationContainer({
     setCurrentVerb(verbs[nextIndex]);
   };
 
+  const handlePreviousVerb = () => {
+    const currentIndex = verbs.findIndex(v => v.id === currentVerb?.id);
+    const prevIndex = currentIndex - 1 < 0 ? verbs.length - 1 : currentIndex - 1;
+    setCurrentVerb(verbs[prevIndex]);
+  };
+
   const handlePracticeTypeChange = (type: PracticeType) => {
     setPracticeType(type);
   };
@@ -86,8 +92,24 @@ export function VerbConjugationContainer({
         
         <h1 className="text-2xl font-bold text-gray-800">動詞活用練習</h1>
         
-        <div className="text-sm text-gray-600">
-          {verbs.indexOf(currentVerb!) + 1} / {verbs.length}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handlePreviousVerb}
+            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            title="前の動詞"
+          >
+            <ChevronRight size={20} className="rotate-180" />
+          </button>
+          <span className="text-sm text-gray-600">
+            {verbs.indexOf(currentVerb!) + 1} / {verbs.length}
+          </span>
+          <button
+            onClick={handleNextVerb}
+            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            title="次の動詞"
+          >
+            <ChevronRight size={20} />
+          </button>
         </div>
       </div>
 
