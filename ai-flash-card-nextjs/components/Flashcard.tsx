@@ -5,6 +5,7 @@ import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { speechService } from '@/services/speechService';
 import { GrammaticalChangesTable } from './GrammaticalChangesTable';
+import { SwipeableCard, SwipeDirection } from './SwipeableCard';
 
 interface FlashcardProps {
   word: Word;
@@ -91,6 +92,19 @@ export const Flashcard: React.FC<FlashcardProps> = ({
 
   const handleFlip = () => {
     setIsFlipped(!isFlipped);
+  };
+
+  const handleSwipe = (direction: SwipeDirection) => {
+    if (!isFlipped || !onLearningStatusChange || !wordBookId) return;
+
+    // スワイプ方向に応じて学習状況を更新
+    const statusMap: Record<SwipeDirection, LearningStatus> = {
+      right: 'learned',
+      left: 'forgot',
+      up: 'uncertain'
+    };
+
+    handleLearningStatusChange(statusMap[direction]);
   };
 
   const handleNext = () => {
@@ -402,41 +416,46 @@ export const Flashcard: React.FC<FlashcardProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-center mb-8">
-            <div 
-              className="relative w-80 h-80 cursor-pointer"
-              onClick={handleFlip}
+          <div className="flex justify-center mb-4">
+            <SwipeableCard 
+              key={word.id}
+              onSwipe={handleSwipe} 
+              disabled={!isFlipped || !onLearningStatusChange || !wordBookId}
             >
-              <div className={`absolute inset-0 w-full h-full transition-transform duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+              <div 
+                className="relative w-64 h-64 cursor-pointer"
+                onClick={handleFlip}
+              >
+                <div className={`absolute inset-0 w-full h-full transition-transform duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
                 {/* Front */}
                 <div className="absolute inset-0 w-full h-full backface-hidden">
-                  <div className="w-full h-full bg-white/20 backdrop-blur-sm rounded-2xl p-8 flex flex-col items-center justify-center shadow-2xl border border-white/30">
-                    <div className="flex items-center gap-4 mb-4">
-                      <h2 className="text-4xl font-bold text-white text-center">{word.word}</h2>
-                      <SpeechButton text={word.word} language={targetLanguage} size={28} />
+                  <div className="w-full h-full bg-white/20 backdrop-blur-sm rounded-2xl p-6 flex flex-col items-center justify-center shadow-2xl border border-white/30">
+                    <div className="flex items-center gap-3 mb-3">
+                      <h2 className="text-3xl font-bold text-white text-center">{word.word}</h2>
+                      <SpeechButton text={word.word} language={targetLanguage} size={24} />
                     </div>
-                    <p className="text-white/70 text-center">タップして答えを表示</p>
+                    <p className="text-white/70 text-center text-sm">タップして答えを表示</p>
                   </div>
                 </div>
 
                 {/* Back */}
                 <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
-                  <div className="w-full h-full bg-white/20 backdrop-blur-sm rounded-2xl p-8 flex flex-col items-center justify-center shadow-2xl border border-white/30">
+                  <div className="w-full h-full bg-white/20 backdrop-blur-sm rounded-2xl p-6 flex flex-col items-center justify-center shadow-2xl border border-white/30">
                     {word.aiGenerated ? (
-                      <div className="text-center space-y-3">
-                        <div className="flex items-center gap-3 justify-center">
-                          <h3 className="text-2xl font-bold text-white">{word.aiGenerated.englishEquivalent}</h3>
-                          <SpeechButton text={word.aiGenerated.englishEquivalent} language="en" size={20} />
+                      <div className="text-center space-y-2">
+                        <div className="flex items-center gap-2 justify-center">
+                          <h3 className="text-xl font-bold text-white">{word.aiGenerated.englishEquivalent}</h3>
+                          <SpeechButton text={word.aiGenerated.englishEquivalent} language="en" size={18} />
                         </div>
-                        <div className="flex items-center gap-3 justify-center">
-                          <p className="text-xl text-white/90">{word.aiGenerated.japaneseEquivalent}</p>
-                          <SpeechButton text={word.aiGenerated.japaneseEquivalent} language="ja" size={18} />
+                        <div className="flex items-center gap-2 justify-center">
+                          <p className="text-lg text-white/90">{word.aiGenerated.japaneseEquivalent}</p>
+                          <SpeechButton text={word.aiGenerated.japaneseEquivalent} language="ja" size={16} />
                         </div>
-                        <p className="text-white/70">{word.aiGenerated.pronunciation}</p>
-                        <div className="mt-4 p-3 bg-white/20 rounded-lg">
+                        <p className="text-white/70 text-sm">{word.aiGenerated.pronunciation}</p>
+                        <div className="mt-3 p-2 bg-white/20 rounded-lg">
                           <div className="flex items-start gap-2">
-                            <p className="text-white/90 text-sm italic flex-1">&ldquo;{word.aiGenerated.exampleSentence}&rdquo;</p>
-                            <SpeechButton text={word.aiGenerated.exampleSentence} language={targetLanguage} size={16} />
+                            <p className="text-white/90 text-xs italic flex-1">&ldquo;{word.aiGenerated.exampleSentence}&rdquo;</p>
+                            <SpeechButton text={word.aiGenerated.exampleSentence} language={targetLanguage} size={14} />
                           </div>
                         </div>
                       </div>
@@ -449,9 +468,10 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                 </div>
               </div>
             </div>
+            </SwipeableCard>
           </div>
 
-          <div className="flex justify-center gap-4 mb-6">
+          <div className="flex justify-center gap-4 mb-3">
             <button
               onClick={handlePrevious}
               className="bg-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-all duration-200 hover:scale-110"
@@ -516,14 +536,19 @@ export const Flashcard: React.FC<FlashcardProps> = ({
             </div>
           )}
 
-          {/* 自動再生の説明 */}
-          <div className="mt-6 text-center">
-            <p className="text-white/60 text-sm">
+          {/* 自動再生とスワイプの説明 */}
+          <div className="mt-3 text-center space-y-1">
+            <p className="text-white/60 text-xs">
               {autoPlayEnabled 
-                ? '🔊 自動音声再生が有効です（カード表示時とフリップ時に自動再生）' 
-                : '🔇 自動音声再生が無効です（手動で音声ボタンをクリックしてください）'
+                ? '🔊 自動音声再生が有効です' 
+                : '🔇 自動音声再生が無効です'
               }
             </p>
+            {isFlipped && onLearningStatusChange && wordBookId && (
+              <p className="text-white/60 text-xs">
+                💡 右スワイプ: 覚えた | 左スワイプ: 覚えていない | 上スワイプ: 怪しい
+              </p>
+            )}
           </div>
         </div>
       </div>
