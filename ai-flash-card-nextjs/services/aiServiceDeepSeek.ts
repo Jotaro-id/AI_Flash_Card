@@ -117,7 +117,7 @@ const parseAIResponse = (response: string, word: string): AIWordInfo => {
     usageNotes: '',
     wordClass: 'noun',
     enhancedExample: {
-      originalLanguage: 'unknown',
+      originalLanguage: 'en' as const,
       originalSentence: '',
       japaneseTranslation: '',
       englishTranslation: ''
@@ -148,7 +148,7 @@ const parseAIResponse = (response: string, word: string): AIWordInfo => {
 
   // enhancedExampleの設定
   info.enhancedExample = {
-    originalLanguage: 'unknown',
+    originalLanguage: 'en' as const,
     originalSentence: info.exampleSentence,
     japaneseTranslation: info.japaneseExample,
     englishTranslation: info.englishExample

@@ -89,12 +89,12 @@ export async function checkSupabaseConnection(): Promise<{
   
   try {
     // シンプルなヘルスチェッククエリ
-    const { error } = await withRetry(
+    await withRetry(
       async () => {
-        const result = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`, {
+        const result = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
           method: 'HEAD',
           headers: {
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
           },
         });
         
@@ -102,17 +102,10 @@ export async function checkSupabaseConnection(): Promise<{
           throw new Error(`HTTP ${result.status}`);
         }
         
-        return { error: null };
+        return result;
       },
       { maxRetries: 2, baseDelay: 500 }
     );
-    
-    if (error) {
-      return {
-        connected: false,
-        error: error.message,
-      };
-    }
     
     const latency = Date.now() - startTime;
     
@@ -150,7 +143,7 @@ export function handleSupabaseError(error: unknown): void {
     console.error('Supabase接続エラーが頻発しています。ネットワーク接続を確認してください。');
     
     // ユーザーに通知（開発中のみ）
-    if (import.meta.env.DEV) {
+    if (process.env.NODE_ENV === 'development') {
       alert('データベース接続に問題が発生しています。しばらく待ってから再度お試しください。');
     }
   }

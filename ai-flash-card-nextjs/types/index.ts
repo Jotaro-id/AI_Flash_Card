@@ -48,6 +48,44 @@ export interface AIWordInfo {
     chinese?: string;
     korean?: string;
   };
+  // 文法変化情報
+  grammaticalChanges?: {
+    verbConjugations?: {
+      present?: string;
+      past?: string;
+      future?: string;
+      presentPerfect?: string;
+      pastPerfect?: string;
+      continuous?: string;
+      conditional?: string;
+      subjunctive?: string;
+      imperative?: string;
+      gerund?: string;
+      pastParticiple?: string;
+      languageSpecific?: {
+        [key: string]: string;
+      };
+    };
+    genderNumberChanges?: {
+      masculine?: {
+        singular?: string;
+        plural?: string;
+      };
+      feminine?: {
+        singular?: string;
+        plural?: string;
+      };
+      neuter?: {
+        singular?: string;
+        plural?: string;
+      };
+    };
+    comparativeForms?: {
+      comparative?: string;
+      superlative?: string;
+    };
+    raw?: string | Record<string, unknown>;
+  };
 }
 
 export interface FlashcardProps {

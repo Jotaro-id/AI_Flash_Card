@@ -166,7 +166,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
               <GrammaticalChangesTable 
                 grammaticalChanges={word.aiGenerated.grammaticalChanges}
                 wordClass={word.aiGenerated.wordClass}
-                targetLanguage={targetLanguage}
+                targetLanguage={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko' | 'auto'}
               />
 
               {/* 多言語翻訳セクション */}

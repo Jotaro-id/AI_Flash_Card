@@ -432,7 +432,7 @@ export const migrateFromLocalStorage = async (): Promise<void> => {
 
 // 開発環境用のテストデータ作成
 export const createDevTestData = async (): Promise<void> => {
-  if (!import.meta.env.DEV) {
+  if (process.env.NODE_ENV !== 'development') {
     logger.warn('createDevTestData: 本番環境では実行できません');
     return;
   }
@@ -485,9 +485,9 @@ export const createDevTestData = async (): Promise<void> => {
 export const debugSupabaseData = async (): Promise<Record<string, unknown>> => {
   logger.info('debugSupabaseData: 開始');
   logger.info('debugSupabaseData: 環境変数確認', {
-    hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
-    hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-    url: import.meta.env.VITE_SUPABASE_URL
+    hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL
   });
   
   const { data: { user } } = await supabase.auth.getUser();

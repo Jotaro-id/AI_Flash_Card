@@ -205,7 +205,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
           <GrammaticalChangesTable 
             grammaticalChanges={aiInfo.grammaticalChanges}
             wordClass={aiInfo.wordClass}
-            targetLanguage={targetLanguage}
+            targetLanguage={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko' | 'auto'}
           />
 
           {/* 使用上の注意 */}

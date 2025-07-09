@@ -129,9 +129,9 @@ export const runDetailedSupabaseDiagnostics = async (): Promise<{
     await diagnostics.measureOperation(
       'Supabase Health Check',
       async () => {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
           headers: {
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
           }
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -236,7 +236,7 @@ export const runDetailedSupabaseDiagnostics = async (): Promise<{
   let region: string | undefined;
   try {
     // Supabase URLからリージョンを推測
-    const url = new URL(import.meta.env.VITE_SUPABASE_URL);
+    const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || '');
     const hostname = url.hostname;
     // リージョンコードは通常URLに含まれている
     if (hostname.includes('ap-northeast-1')) {

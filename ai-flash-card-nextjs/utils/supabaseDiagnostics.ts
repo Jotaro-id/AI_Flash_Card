@@ -15,52 +15,52 @@ export class SupabaseDiagnostics {
   checkEnvironmentVariables(): DiagnosticResult[] {
     const results: DiagnosticResult[] = [];
     
-    // VITE_SUPABASE_URL のチェック
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    // NEXT_PUBLIC_SUPABASE_URL のチェック
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl) {
       results.push({
-        test: 'VITE_SUPABASE_URL',
+        test: 'NEXT_PUBLIC_SUPABASE_URL',
         status: 'error',
-        message: '環境変数 VITE_SUPABASE_URL が設定されていません',
-        details: 'VITE_SUPABASE_URL=your-project-url.supabase.co を .env ファイルに設定してください'
+        message: '環境変数 NEXT_PUBLIC_SUPABASE_URL が設定されていません',
+        details: 'NEXT_PUBLIC_SUPABASE_URL=your-project-url.supabase.co を .env.local ファイルに設定してください'
       });
     } else if (!supabaseUrl.includes('supabase.co')) {
       results.push({
-        test: 'VITE_SUPABASE_URL',
+        test: 'NEXT_PUBLIC_SUPABASE_URL',
         status: 'warning',
-        message: 'VITE_SUPABASE_URL の形式が正しくない可能性があります',
+        message: 'NEXT_PUBLIC_SUPABASE_URL の形式が正しくない可能性があります',
         details: `現在の値: ${supabaseUrl}`
       });
     } else {
       results.push({
-        test: 'VITE_SUPABASE_URL',
+        test: 'NEXT_PUBLIC_SUPABASE_URL',
         status: 'success',
-        message: 'VITE_SUPABASE_URL が設定されています',
+        message: 'NEXT_PUBLIC_SUPABASE_URL が設定されています',
         details: supabaseUrl
       });
     }
 
-    // VITE_SUPABASE_ANON_KEY のチェック
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    // NEXT_PUBLIC_SUPABASE_ANON_KEY のチェック
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!supabaseAnonKey) {
       results.push({
-        test: 'VITE_SUPABASE_ANON_KEY',
+        test: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
         status: 'error',
-        message: '環境変数 VITE_SUPABASE_ANON_KEY が設定されていません',
-        details: 'VITE_SUPABASE_ANON_KEY=your-anon-key を .env ファイルに設定してください'
+        message: '環境変数 NEXT_PUBLIC_SUPABASE_ANON_KEY が設定されていません',
+        details: 'NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key を .env.local ファイルに設定してください'
       });
     } else if (supabaseAnonKey.length < 100) {
       results.push({
-        test: 'VITE_SUPABASE_ANON_KEY',
+        test: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
         status: 'warning',
-        message: 'VITE_SUPABASE_ANON_KEY が短すぎる可能性があります',
+        message: 'NEXT_PUBLIC_SUPABASE_ANON_KEY が短すぎる可能性があります',
         details: `現在の長さ: ${supabaseAnonKey.length} 文字`
       });
     } else {
       results.push({
-        test: 'VITE_SUPABASE_ANON_KEY',
+        test: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
         status: 'success',
-        message: 'VITE_SUPABASE_ANON_KEY が設定されています',
+        message: 'NEXT_PUBLIC_SUPABASE_ANON_KEY が設定されています',
         details: `長さ: ${supabaseAnonKey.length} 文字`
       });
     }
@@ -191,7 +191,7 @@ export class SupabaseDiagnostics {
 
   // ネットワーク接続テスト
   async testNetworkConnection(): Promise<DiagnosticResult> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     
     if (!supabaseUrl) {
       return {
@@ -206,7 +206,7 @@ export class SupabaseDiagnostics {
       const response = await fetch(`${supabaseUrl}/rest/v1/`, {
         method: 'GET',
         headers: {
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
         }
       });
       const endTime = Date.now();
