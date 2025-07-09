@@ -162,7 +162,19 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       }
     }
     
-    const detectedLanguage = speechService.detectLanguage(word) as SupportedLanguage;
+    // 言語を判定（翻訳情報から推測）
+    let detectedLanguage: SupportedLanguage = 'en';
+    if (translations.en && translations.en !== word) {
+      // 英語訳が存在し、元の単語と異なる場合は英語以外
+      if (translations.es === word) detectedLanguage = 'es';
+      else if (translations.fr === word) detectedLanguage = 'fr';
+      else if (translations.de === word) detectedLanguage = 'de';
+      else if (translations.zh === word) detectedLanguage = 'zh';
+      else if (translations.ko === word) detectedLanguage = 'ko';
+      else if (translations.ja === word) detectedLanguage = 'ja';
+      else detectedLanguage = speechService.detectLanguage(word) as SupportedLanguage;
+    }
+    
     console.log('[aiService] Detected language for', word, ':', detectedLanguage);
     console.log('[aiService] example:', resp.example);
     console.log('[aiService] example_translation:', resp.example_translation);
@@ -172,7 +184,7 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       originalLanguage: detectedLanguage,
       originalSentence: resp.example || `Example sentence with "${word}".`,
       japaneseTranslation: resp.example_translation || `「${word}」を使った例文です。`,
-      englishTranslation: resp.english_example || (translations.en && translations.en !== word ? `Example: ${resp.example}` : resp.example) || `Example sentence with "${word}".`
+      englishTranslation: resp.english_example || (detectedLanguage !== 'en' && resp.example ? `[Translation needed] ${resp.example}` : resp.example) || `Example sentence with "${word}".`
     };
     
     console.log('[aiService] Created enhancedExample:', enhancedExample);
