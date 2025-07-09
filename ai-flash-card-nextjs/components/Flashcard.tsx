@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, ChevronLeft, ChevronRight, Shuffle, Info } from 'lucide-react';
-import { Word, ColorTheme, SupportedLanguage } from '@/types';
+import { RotateCcw, ChevronLeft, ChevronRight, Shuffle, Info, Check, X, HelpCircle } from 'lucide-react';
+import { Word, ColorTheme, SupportedLanguage, LearningStatus } from '@/types';
 import { ThemeSelector } from './ThemeSelector';
 import { SpeechButton } from './SpeechButton';
 import { speechService } from '@/services/speechService';
@@ -18,6 +18,8 @@ interface FlashcardProps {
   currentTheme: ColorTheme;
   availableThemes: ColorTheme[];
   onThemeChange: (themeId: string) => void;
+  onLearningStatusChange?: (wordId: string, status: LearningStatus) => void;
+  wordBookId?: string;
 }
 
 export const Flashcard: React.FC<FlashcardProps> = ({
@@ -31,12 +33,25 @@ export const Flashcard: React.FC<FlashcardProps> = ({
   onBack,
   currentTheme,
   availableThemes,
-  onThemeChange
+  onThemeChange,
+  onLearningStatusChange,
+  wordBookId
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
+
+  // 学習状況を更新する関数
+  const handleLearningStatusChange = async (status: LearningStatus) => {
+    if (onLearningStatusChange && wordBookId) {
+      await onLearningStatusChange(word.id, status);
+      // ステータス更新後、少し待ってから次のカードに進む
+      setTimeout(() => {
+        onNext();
+      }, 500);
+    }
+  };
 
   // カードが変更されたときに自動音声再生
   useEffect(() => {
@@ -304,6 +319,36 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                 <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
                   <h3 className="text-white font-semibold mb-2">追加情報</h3>
                   <p className="text-white/90">{word.aiGenerated.additionalInfo}</p>
+                </div>
+              )}
+
+              {/* 学習状況選択ボタン */}
+              {onLearningStatusChange && wordBookId && (
+                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                  <h3 className="text-white font-semibold mb-3">この単語を覚えましたか？</h3>
+                  <div className="flex gap-3 justify-center">
+                    <button
+                      onClick={() => handleLearningStatusChange('learned')}
+                      className="flex-1 bg-green-500/80 hover:bg-green-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      <Check size={20} />
+                      覚えた
+                    </button>
+                    <button
+                      onClick={() => handleLearningStatusChange('uncertain')}
+                      className="flex-1 bg-yellow-500/80 hover:bg-yellow-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      <HelpCircle size={20} />
+                      怪しい
+                    </button>
+                    <button
+                      onClick={() => handleLearningStatusChange('forgot')}
+                      className="flex-1 bg-red-500/80 hover:bg-red-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      <X size={20} />
+                      覚えていない
+                    </button>
+                  </div>
                 </div>
               )}
 

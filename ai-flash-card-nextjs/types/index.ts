@@ -11,6 +11,19 @@ export interface Word {
   word: string;
   aiGenerated?: AIWordInfo;
   createdAt: Date;
+  learningStatus?: LearningStatus;
+}
+
+export type LearningStatus = 'not_started' | 'learned' | 'uncertain' | 'forgot';
+
+export interface WordBookCard {
+  id: string;
+  wordBookId: string;
+  wordCardId: string;
+  createdAt: Date;
+  learningStatus: LearningStatus;
+  lastReviewedAt?: Date;
+  reviewCount: number;
 }
 
 export interface AIWordInfo {

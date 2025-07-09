@@ -35,11 +35,18 @@ CREATE TABLE IF NOT EXISTS word_cards (
 );
 
 -- 3. 単語帳と単語カードの関連テーブル (word_book_cards)
+-- 学習状況の管理も含む
 CREATE TABLE IF NOT EXISTS word_book_cards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     word_book_id UUID NOT NULL REFERENCES word_books(id) ON DELETE CASCADE,
     word_card_id UUID NOT NULL REFERENCES word_cards(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- 学習状況管理のカラム
+    learning_status VARCHAR(20) DEFAULT 'not_started' CHECK (learning_status IN ('not_started', 'learned', 'uncertain', 'forgot')),
+    last_reviewed_at TIMESTAMPTZ,
+    review_count INTEGER DEFAULT 0,
+    
     UNIQUE(word_book_id, word_card_id)
 );
 
@@ -48,6 +55,8 @@ CREATE INDEX IF NOT EXISTS idx_word_books_user_id ON word_books(user_id);
 CREATE INDEX IF NOT EXISTS idx_word_cards_user_id ON word_cards(user_id);
 CREATE INDEX IF NOT EXISTS idx_word_book_cards_word_book_id ON word_book_cards(word_book_id);
 CREATE INDEX IF NOT EXISTS idx_word_book_cards_word_card_id ON word_book_cards(word_card_id);
+CREATE INDEX IF NOT EXISTS idx_word_book_cards_learning_status ON word_book_cards(learning_status);
+CREATE INDEX IF NOT EXISTS idx_word_book_cards_last_reviewed_at ON word_book_cards(last_reviewed_at);
 
 -- Row Level Security (RLS) を有効化
 ALTER TABLE word_books ENABLE ROW LEVEL SECURITY;
