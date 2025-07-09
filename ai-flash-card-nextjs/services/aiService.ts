@@ -151,13 +151,19 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
     // 文法変化情報の抽出（Groqレスポンスから）
     let grammaticalChanges = undefined;
     if (resp.conjugations) {
+      console.log('[aiService] Processing conjugations:', resp.conjugations);
       // レスポンスから文法変化情報を解析
       try {
-        const conjugationData = typeof resp.conjugations === 'string' 
-          ? JSON.parse(resp.conjugations) 
-          : resp.conjugations;
-        grammaticalChanges = conjugationData;
-      } catch {
+        if (typeof resp.conjugations === 'string') {
+          // 文字列の場合はJSONとしてパース
+          grammaticalChanges = JSON.parse(resp.conjugations);
+        } else if (typeof resp.conjugations === 'object') {
+          // オブジェクトの場合はそのまま使用
+          grammaticalChanges = resp.conjugations;
+        }
+        console.log('[aiService] Parsed grammaticalChanges:', grammaticalChanges);
+      } catch (error) {
+        console.error('[aiService] Failed to parse conjugations:', error);
         // パースに失敗した場合はテキストとして扱う
         grammaticalChanges = { raw: resp.conjugations };
       }

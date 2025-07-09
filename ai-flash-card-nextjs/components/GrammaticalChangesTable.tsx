@@ -16,6 +16,12 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
+  console.log('[GrammaticalChangesTable] Props:', {
+    grammaticalChanges,
+    wordClass,
+    targetLanguage
+  });
+  
   if (!grammaticalChanges) return null;
 
   // 動詞の活用表

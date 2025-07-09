@@ -108,15 +108,22 @@ export class GroqService {
               role: "system",
               content: `あなたは多言語の単語学習を支援する専門家です。必ずJSON形式のみで回答してください。追加の説明や前置きは一切不要です。
 
+重要な注意事項：
+1. conjugationsフィールドは必ずオブジェクト形式で返してください（文字列ではありません）
+2. 動詞の場合は詳細な活用情報を含む
+3. 動詞以外の場合はconjugationsフィールドにnullを設定
+
 以下は期待される出力の例です：
 {
   "word": "beautiful",
+  "wordClass": "adjective",
   "meaning": "美しい、きれいな",
   "pronunciation": "/ˈbjuːtɪfəl/",
   "example": "The sunset over the ocean was absolutely beautiful, painting the sky in shades of orange and pink.",
   "example_translation": "海に沈む夕日は本当に美しく、空をオレンジとピンクの色合いに染めていました。",
   "english_example": "The sunset over the ocean was absolutely beautiful, painting the sky in shades of orange and pink.",
-  "notes": "感情を表現する形容詞で、人・物・風景など幅広く使えます。"
+  "notes": "感情を表現する形容詞で、人・物・風景など幅広く使えます。",
+  "conjugations": null
 }`
             },
             {
@@ -225,7 +232,7 @@ export class GroqService {
     "zh": "${word}の中国語訳（簡体字）",
     "ko": "${word}の韓国語訳"
   },
-  "conjugations": ${word}が動詞の場合、以下の形式で活用形を詳細に記載してください。動詞以外の場合は、名詞・形容詞の性数変化を記載してください：
+  "conjugations": ${word}が動詞の場合、以下のオブジェクト形式で活用形を詳細に記載してください（文字列ではなくオブジェクトとして）。動詞以外の場合はnullを入れてください：
   {
     "verbConjugations": {
       "present": "現在形の基本形",
