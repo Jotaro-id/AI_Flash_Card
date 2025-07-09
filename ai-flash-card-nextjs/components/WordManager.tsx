@@ -17,7 +17,6 @@ import {
 import { useDebounce } from '@/hooks/useDebounce';
 import { WordDetailModal } from './WordDetailModal';
 import { SpellingSuggestions } from './SpellingSuggestions';
-import { ApiStatusIndicator } from './ApiStatusIndicator';
 import { useSettings } from '@/hooks/useSettings';
 
 interface WordManagerProps {
@@ -935,7 +934,6 @@ export const WordManager: React.FC<WordManagerProps> = ({
       )}
       
       {/* APIステータスインジケーター */}
-      <ApiStatusIndicator />
     </div>
   );
 };

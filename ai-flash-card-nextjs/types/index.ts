@@ -51,20 +51,27 @@ export interface AIWordInfo {
   // 文法変化情報
   grammaticalChanges?: {
     verbConjugations?: {
-      present?: string;
-      past?: string;
-      future?: string;
-      presentPerfect?: string;
-      pastPerfect?: string;
-      continuous?: string;
-      conditional?: string;
-      subjunctive?: string;
-      imperative?: string;
+      present?: string | Record<string, string>;
+      preterite?: string | Record<string, string>;
+      imperfect?: string | Record<string, string>;
+      past?: string | Record<string, string>;
+      future?: string | Record<string, string>;
+      presentPerfect?: string | Record<string, string>;
+      pastPerfect?: string | Record<string, string>;
+      futurePerfect?: string | Record<string, string>;
+      continuous?: string | Record<string, string>;
+      conditional?: string | Record<string, string>;
+      conditionalPerfect?: string | Record<string, string>;
+      subjunctive?: string | Record<string, string>;
+      subjunctive_imperfect?: string | Record<string, string>;
+      imperative?: string | Record<string, string>;
       gerund?: string;
       pastParticiple?: string;
       languageSpecific?: {
         [key: string]: string | undefined;
       };
+      // スペイン語の追加の時制
+      [key: string]: string | Record<string, string> | Record<string, string | undefined> | undefined;
     };
     genderNumberChanges?: {
       masculine?: {

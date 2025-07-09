@@ -7,13 +7,20 @@ import { speechService } from './speechService';
 // Groq APIクライアントを使用
 async function callGroqAPI(action: string, data: Record<string, unknown>): Promise<unknown> {
   try {
+    // タイムアウト付きfetch（60秒）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒タイムアウト
+    
     const response = await fetch('/api/groq', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ action, ...data }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     // レスポンスのコンテンツタイプを確認
     const contentType = response.headers.get('content-type');
@@ -24,8 +31,17 @@ async function callGroqAPI(action: string, data: Record<string, unknown>): Promi
     }
 
     if (!response.ok) {
-      const error = await response.json();
+      let error;
+      try {
+        error = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse error response:', jsonError);
+        error = { error: 'Failed to parse error response', message: await response.text() };
+      }
+      
       console.error('API Error Response:', error);
+      console.error('Response status:', response.status);
+      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
       
       // APIキー未設定の場合のメッセージを表示
       if (error.fallbackMode) {
@@ -35,13 +51,24 @@ async function callGroqAPI(action: string, data: Record<string, unknown>): Promi
         console.warn('3. Add: GROQ_API_KEY=your_api_key_here');
       }
       
-      throw new Error(error.message || error.error || 'Groq API request failed');
+      // レート制限の場合
+      if (response.status === 429 || error.error === 'Rate limit exceeded') {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
+      throw new Error(error.message || error.error || `API request failed with status ${response.status}`);
     }
 
     const result = await response.json();
     return result.data;
   } catch (error) {
     console.error('CallGroqAPI error:', error);
+    
+    // タイムアウトエラーの場合
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out.');
+    }
+    
     throw error;
   }
 }
@@ -77,9 +104,13 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     );
     
     console.log('[generateWordInfo] Groq API result:', result);
+    console.log('[generateWordInfo] Result type:', typeof result);
+    console.log('[generateWordInfo] Result keys:', result ? Object.keys(result) : 'null');
+    
     const wordInfo = parseGroqResponse(result, word);
     logger.info('Successfully generated word info', { word });
     console.log('[generateWordInfo] Parsed word info:', wordInfo);
+    console.log('[generateWordInfo] WordInfo keys:', Object.keys(wordInfo));
     
     // 生成された情報をキャッシュに保存
     aiWordInfoCache.set(word, wordInfo);
@@ -91,13 +122,15 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     
     // エラーの種類を判定してユーザーフレンドリーなメッセージを生成
     if (error instanceof Error) {
-      if (error.message.includes('429') || error.message.includes('rate limit') || error.message.includes('quota')) {
+      if (error.message.includes('429') || error.message.includes('rate limit') || error.message.includes('Rate limit') || error.message.includes('quota')) {
         logger.warn('Rate limit or quota exceeded, using fallback data', {
-          message: '無料枠の制限（1日1000リクエスト）に達しました。基本的な単語情報を提供します。',
+          message: '無料枠の制限に達しました。基本的な単語情報を提供します。',
           word,
           error: error.message
         });
         const fallbackInfo = generateFallbackWordInfo(word);
+        // レート制限の場合は使用上の注意を更新
+        fallbackInfo.usageNotes = '⚠️ API制限により簡易情報を表示しています。1分後に再度お試しください。';
         aiWordInfoCache.set(word, fallbackInfo);
         return fallbackInfo;
       }
@@ -134,17 +167,33 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
   console.log('[aiService] Parsing Groq response for word:', word);
   console.log('[aiService] Raw response:', response);
   try {
-    const resp = response as {
-      translations?: Record<string, string>;
-      conjugations?: string | Record<string, unknown>;
-      meaning?: string;
-      pronunciation?: string;
-      example?: string;
-      example_translation?: string;
-      english_example?: string;
-      notes?: string;
-      wordClass?: string;
-    };
+    // responseが文字列の場合はパース
+    let resp: any;
+    if (typeof response === 'string') {
+      console.log('[aiService] Response is string, parsing JSON...');
+      resp = JSON.parse(response);
+    } else {
+      resp = response;
+    }
+    
+    console.log('[aiService] Parsed response type:', typeof resp);
+    console.log('[aiService] Parsed response keys:', resp ? Object.keys(resp) : 'null');
+    
+    // multilingualExamplesの型定義
+    interface MultilingualExamples {
+      spanish?: string;
+      french?: string;
+      german?: string;
+      italian?: string;
+      chinese?: string;
+      korean?: string;
+      es?: string;
+      fr?: string;
+      de?: string;
+      it?: string;
+      zh?: string;
+      ko?: string;
+    }
     
     const translations = resp.translations || {};
     
@@ -196,67 +245,126 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
     
     console.log('[aiService] Created enhancedExample:', enhancedExample);
     
-    return {
-      englishEquivalent: translations.en || `English meaning of "${word}"`,
-      japaneseEquivalent: translations.ja || resp.meaning || `${word}の日本語意味`,
-      pronunciation: resp.pronunciation || `/${word.toLowerCase()}/`,
-      exampleSentence: resp.example || `Example sentence with "${word}".`,
-      japaneseExample: resp.example_translation || `「${word}」を使った例文です。`,
-      englishExample: translations.en ? `Usage example for "${translations.en}".` : `Usage example for "${word}".`,
-      usageNotes: resp.notes || `Usage notes for "${word}".`,
+    // 値が文字列であることを確認する関数
+    const ensureString = (value: unknown, fallback: string): string => {
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object' && value !== null) {
+        // オブジェクトの場合はJSON文字列化
+        console.warn('[aiService] Object found where string expected:', value);
+        return JSON.stringify(value);
+      }
+      return fallback;
+    };
+    
+    const result = {
+      englishEquivalent: ensureString(translations.en || resp.meaning, `English meaning of "${word}"`),
+      japaneseEquivalent: ensureString(translations.ja || resp.meaning, `${word}の日本語意味`),
+      pronunciation: ensureString(resp.pronunciation, `/${word.toLowerCase()}/`),
+      exampleSentence: ensureString(resp.example, `Example sentence with "${word}".`),
+      japaneseExample: ensureString(resp.example_translation, `「${word}」を使った例文です。`),
+      englishExample: ensureString(resp.english_example || (translations.en ? `Usage example for "${translations.en}".` : null), `Usage example for "${word}".`),
+      usageNotes: ensureString(resp.notes, `Usage notes for "${word}".`),
       wordClass: resp.wordClass as AIWordInfo['wordClass'] || determineWordClass(word),
       grammaticalChanges,
-      enhancedExample,
+      enhancedExample: {
+        originalLanguage: enhancedExample.originalLanguage,
+        originalSentence: ensureString(enhancedExample.originalSentence, ''),
+        japaneseTranslation: ensureString(enhancedExample.japaneseTranslation, ''),
+        englishTranslation: ensureString(enhancedExample.englishTranslation, '')
+      },
       translations: {
-        spanish: translations.es || `Significado en español de "${word}"`,
-        french: translations.fr || `Signification française de "${word}"`,
-        german: translations.de || `Deutsche Bedeutung von "${word}"`,
-        chinese: translations.zh || `"${word}"的中文含义`,
-        korean: translations.ko || `"${word}"의 한국어 의미`
-      }
+        spanish: ensureString(translations.es || translations.spanish, `Significado en español de "${word}"`),
+        french: ensureString(translations.fr || translations.french, `Signification française de "${word}"`),
+        german: ensureString(translations.de || translations.german, `Deutsche Bedeutung von "${word}"`),
+        chinese: ensureString(translations.zh || translations.chinese, `"${word}"的中文含义`),
+        korean: ensureString(translations.ko || translations.korean, `"${word}"의 한국어 의미`),
+        italian: ensureString(translations.it || translations.italian, '')
+      },
+      multilingualExamples: resp.multilingualExamples ? {
+        spanish: ensureString(resp.multilingualExamples.spanish || resp.multilingualExamples.es, ''),
+        french: ensureString(resp.multilingualExamples.french || resp.multilingualExamples.fr, ''),
+        german: ensureString(resp.multilingualExamples.german || resp.multilingualExamples.de, ''),
+        chinese: ensureString(resp.multilingualExamples.chinese || resp.multilingualExamples.zh, ''),
+        korean: ensureString(resp.multilingualExamples.korean || resp.multilingualExamples.ko, ''),
+        italian: ensureString(resp.multilingualExamples.italian || resp.multilingualExamples.it, '')
+      } : undefined
     };
+    
+    console.log('[aiService] Final result:', result);
+    return result;
   } catch (error) {
     console.error('Failed to parse Groq response:', error);
     return generateFallbackWordInfo(word);
   }
 };
 
-// フォールバック用のモックデータ生成
+// フォールバック用のモックデータ生成（レート制限時も使用）
 const generateFallbackWordInfo = (word: string): AIWordInfo => {
-  return {
-    englishEquivalent: `English meaning of "${word}"`,
-    japaneseEquivalent: `${word}の日本語意味`,
-    pronunciation: `/${word.toLowerCase().replace(/[aeiou]/g, 'ɑ')}/`,
-    exampleSentence: `This is an example sentence using "${word}".`,
-    japaneseExample: `これは「${word}」を使った例文です。`,
-    englishExample: `Here's how to use "${word}" in English.`,
-    usageNotes: `Common usage patterns and notes for "${word}".`,
+  // 単語の言語を推測
+  const detectedLang = speechService.detectLanguage(word) as SupportedLanguage;
+  
+  // 基本的な単語情報を生成
+  const wordInfo: AIWordInfo = {
+    englishEquivalent: detectedLang === 'en' ? word : `[翻訳取得中] ${word}`,
+    japaneseEquivalent: detectedLang === 'ja' ? word : `[翻訳取得中] ${word}`,
+    pronunciation: `/${word.toLowerCase()}/`,
+    exampleSentence: generateExampleSentence(word, detectedLang),
+    japaneseExample: `「${word}」を使った例文`,
+    englishExample: `Example with "${word}"`,
+    usageNotes: 'API制限により詳細情報は取得できませんでした。後でもう一度お試しください。',
     wordClass: determineWordClass(word),
-    tenseInfo: word.endsWith('ed') ? 'Past tense form' : undefined,
-    additionalInfo: `Additional grammatical information about "${word}".`,
     enhancedExample: {
-      originalLanguage: 'en' as SupportedLanguage,
-      originalSentence: `This is an example sentence using "${word}".`,
-      japaneseTranslation: `これは「${word}」を使った例文です。`,
-      englishTranslation: `This is an example sentence using "${word}".`
+      originalLanguage: detectedLang,
+      originalSentence: generateExampleSentence(word, detectedLang),
+      japaneseTranslation: `「${word}」を使った例文`,
+      englishTranslation: `Example with "${word}"`
     },
     translations: {
-      spanish: `Significado en español de "${word}"`,
-      french: `Signification française de "${word}"`,
-      italian: `Significato italiano di "${word}"`,
-      german: `Deutsche Bedeutung von "${word}"`,
-      chinese: `"${word}"的中文含义`,
-      korean: `"${word}"의 한국어 의미`
-    },
-    multilingualExamples: {
-      spanish: `Esta es una oración de ejemplo usando "${word}" en español.`,
-      french: `Ceci est un exemple de phrase utilisant "${word}" en français.`,
-      italian: `Questo è un esempio di frase usando "${word}" in italiano.`,
-      german: `Dies ist ein Beispielsatz mit "${word}" auf Deutsch.`,
-      chinese: `这是一个使用"${word}"的中文例句。`,
-      korean: `이것은 "${word}"를 사용한 한국어 예문입니다.`
+      spanish: detectedLang === 'es' ? word : `[${word}]`,
+      french: detectedLang === 'fr' ? word : `[${word}]`,
+      italian: detectedLang === 'it' ? word : `[${word}]`,
+      german: detectedLang === 'de' ? word : `[${word}]`,
+      chinese: detectedLang === 'zh' ? word : `[${word}]`,
+      korean: detectedLang === 'ko' ? word : `[${word}]`
     }
   };
+  
+  // 品詞に応じた文法情報を追加
+  if (wordInfo.wordClass === 'verb') {
+    wordInfo.grammaticalChanges = {
+      verbConjugations: {
+        present: word,
+        past: word.endsWith('e') ? word + 'd' : word + 'ed',
+        future: 'will ' + word,
+        gerund: word.endsWith('e') ? word.slice(0, -1) + 'ing' : word + 'ing',
+        pastParticiple: word.endsWith('e') ? word + 'd' : word + 'ed'
+      }
+    };
+  } else if (wordInfo.wordClass === 'noun' || wordInfo.wordClass === 'adjective') {
+    wordInfo.grammaticalChanges = {};
+  }
+  
+  return wordInfo;
+};
+
+// 言語に応じた例文を生成
+const generateExampleSentence = (word: string, language: SupportedLanguage): string => {
+  switch (language) {
+    case 'es':
+      return `Ejemplo con la palabra "${word}".`;
+    case 'fr':
+      return `Exemple avec le mot "${word}".`;
+    case 'de':
+      return `Beispiel mit dem Wort "${word}".`;
+    case 'ja':
+      return `「${word}」を使用した例文です。`;
+    case 'zh':
+      return `使用"${word}"的例句。`;
+    case 'ko':
+      return `"${word}"를 사용한 예문입니다.`;
+    default:
+      return `This is an example sentence using "${word}".`;
+  }
 };
 
 const determineWordClass = (word: string): AIWordInfo['wordClass'] => {

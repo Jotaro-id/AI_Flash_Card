@@ -48,9 +48,9 @@ export class GroqService {
               content: prompt
             }
           ],
-          model: "llama-3.3-70b-versatile",
-          temperature: 0.3,
-          max_tokens: 2048,
+          model: "gemma2-9b-it",
+          temperature: 0.5,
+          max_tokens: 3000,
         });
 
         const content = completion.choices[0]?.message?.content || '';
@@ -69,11 +69,39 @@ export class GroqService {
         
         return content;
       } catch (error) {
-        if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429 && attempt < this.MAX_RETRIES - 1) {
-          // レート制限エラーの場合、リトライ
+        console.error(`Groq API attempt ${attempt + 1} failed:`, error);
+        
+        if (error instanceof Error) {
+          // レート制限エラーのチェック
+          if (('status' in error && (error as { status: number }).status === 429) ||
+              error.message.includes('429') ||
+              error.message.includes('rate_limit') ||
+              error.message.includes('Rate limit')) {
+            if (attempt < this.MAX_RETRIES - 1) {
+              console.log(`Rate limit detected, retrying in ${this.RETRY_DELAY * (attempt + 1)}ms...`);
+              await this.delay(this.RETRY_DELAY * (attempt + 1));
+              continue;
+            }
+          }
+          
+          // APIキーエラーのチェック
+          if (error.message.includes('401') || error.message.includes('authentication')) {
+            throw new Error('GROQ_API_KEY is invalid. Please check your API key.');
+          }
+          
+          // サービス不可のチェック
+          if (error.message.includes('503') || error.message.includes('service unavailable')) {
+            throw new Error('Groq service is temporarily unavailable. Please try again later.');
+          }
+        }
+        
+        // 最後の試行でない場合は再試行
+        if (attempt < this.MAX_RETRIES - 1) {
+          console.log(`Retrying in ${this.RETRY_DELAY * (attempt + 1)}ms...`);
           await this.delay(this.RETRY_DELAY * (attempt + 1));
           continue;
         }
+        
         throw error;
       }
     }
@@ -95,7 +123,7 @@ export class GroqService {
     conjugations?: string;
   }> {
     if (!this.isConfigured) {
-      return this.parseFlashcardResponse(this.generateFallbackWordInfo(word), word);
+      throw new Error('GROQ_API_KEY is not configured. Please set GROQ_API_KEY in your .env.local file.');
     }
 
     const prompt = this.createFlashcardPrompt(word, context, difficulty);
@@ -110,20 +138,67 @@ export class GroqService {
 
 重要な注意事項：
 1. conjugationsフィールドは必ずオブジェクト形式で返してください（文字列ではありません）
-2. 動詞の場合は詳細な活用情報を含む
-3. 動詞以外の場合はconjugationsフィールドにnullを設定
+2. 動詞の場合は必ず"verbConjugations"として詳細な活用情報を含む
+3. 形容詞・名詞の場合は必ず"genderNumberChanges"を含む（性数変化がない言語でも空のオブジェクトを返す）
+4. その他の品詞の場合のみconjugationsフィールドにnullを設定
+5. 性数変化がある言語（スペイン語、フランス語、ドイツ語、イタリア語など）では必ず実際の変化形を記載
+6. 性数変化がない言語（英語、日本語、中国語、韓国語など）では空のgenderNumberChanges: {}を返す
+7. スペイン語の動詞の場合は、必ずすべての人称（単数・複数）の活用形を含める
 
-以下は期待される出力の例です：
+以下は期待される出力の例です（スペイン語の動詞「ser」）：
 {
-  "word": "beautiful",
+  "word": "ser",
+  "wordClass": "verb",
+  "meaning": "〜である（恒久的な状態を表す）",
+  "pronunciation": "/ser/",
+  "example": "Ella es profesora de español y trabaja en una universidad.",
+  "example_translation": "彼女はスペイン語の先生で、大学で働いています。",
+  "english_example": "She is a Spanish teacher and works at a university.",
+  "notes": "スペイン語の最も重要な動詞の一つ。恒久的な状態や本質的な特徴を表す際に使用。",
+  "conjugations": {
+    "verbConjugations": {
+      "present": {
+        "yo": "soy",
+        "tú": "eres",
+        "él/ella/usted": "es",
+        "nosotros/nosotras": "somos",
+        "vosotros/vosotras": "sois",
+        "ellos/ellas/ustedes": "son"
+      },
+      "preterite": {
+        "yo": "fui",
+        "tú": "fuiste",
+        "él/ella/usted": "fue",
+        "nosotros/nosotras": "fuimos",
+        "vosotros/vosotras": "fuisteis",
+        "ellos/ellas/ustedes": "fueron"
+      }
+    }
+  }
+}
+
+以下は形容詞の例（スペイン語の形容詞「bonito」）：
+{
+  "word": "bonito",
   "wordClass": "adjective",
   "meaning": "美しい、きれいな",
-  "pronunciation": "/ˈbjuːtɪfəl/",
-  "example": "The sunset over the ocean was absolutely beautiful, painting the sky in shades of orange and pink.",
-  "example_translation": "海に沈む夕日は本当に美しく、空をオレンジとピンクの色合いに染めていました。",
-  "english_example": "The sunset over the ocean was absolutely beautiful, painting the sky in shades of orange and pink.",
+  "pronunciation": "/boˈnito/",
+  "example": "El jardín está muy bonito en primavera con todas las flores.",
+  "example_translation": "庭は春になるとすべての花が咲いてとても美しいです。",
+  "english_example": "The garden is very beautiful in spring with all the flowers.",
   "notes": "感情を表現する形容詞で、人・物・風景など幅広く使えます。",
-  "conjugations": null
+  "conjugations": {
+    "genderNumberChanges": {
+      "masculine": {
+        "singular": "bonito",
+        "plural": "bonitos"
+      },
+      "feminine": {
+        "singular": "bonita",
+        "plural": "bonitas"
+      }
+    }
+  }
 }`
             },
             {
@@ -131,9 +206,9 @@ export class GroqService {
               content: prompt
             }
           ],
-          model: "llama-3.3-70b-versatile",
-          temperature: 0.3,
-          max_tokens: 2048,
+          model: "gemma2-9b-it",
+          temperature: 0.5,
+          max_tokens: 3000,
         });
 
         const content = completion.choices[0]?.message?.content || '';
@@ -155,11 +230,39 @@ export class GroqService {
         
         return this.parseFlashcardResponse(content, word);
       } catch (error) {
-        if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429 && attempt < this.MAX_RETRIES - 1) {
-          // レート制限エラーの場合、リトライ
+        console.error(`Groq API flashcard attempt ${attempt + 1} failed:`, error);
+        
+        if (error instanceof Error) {
+          // レート制限エラーのチェック
+          if (('status' in error && (error as { status: number }).status === 429) ||
+              error.message.includes('429') ||
+              error.message.includes('rate_limit') ||
+              error.message.includes('Rate limit')) {
+            if (attempt < this.MAX_RETRIES - 1) {
+              console.log(`Rate limit detected, retrying in ${this.RETRY_DELAY * (attempt + 1)}ms...`);
+              await this.delay(this.RETRY_DELAY * (attempt + 1));
+              continue;
+            }
+          }
+          
+          // APIキーエラーのチェック
+          if (error.message.includes('401') || error.message.includes('authentication')) {
+            throw new Error('GROQ_API_KEY is invalid. Please check your API key.');
+          }
+          
+          // サービス不可のチェック
+          if (error.message.includes('503') || error.message.includes('service unavailable')) {
+            throw new Error('Groq service is temporarily unavailable. Please try again later.');
+          }
+        }
+        
+        // 最後の試行でない場合は再試行
+        if (attempt < this.MAX_RETRIES - 1) {
+          console.log(`Retrying in ${this.RETRY_DELAY * (attempt + 1)}ms...`);
           await this.delay(this.RETRY_DELAY * (attempt + 1));
           continue;
         }
+        
         throw error;
       }
     }
@@ -232,54 +335,24 @@ export class GroqService {
     "zh": "${word}の中国語訳（簡体字）",
     "ko": "${word}の韓国語訳"
   },
-  "conjugations": ${word}が動詞の場合、以下のオブジェクト形式で活用形を詳細に記載してください（文字列ではなくオブジェクトとして）。動詞以外の場合はnullを入れてください：
-  {
-    "verbConjugations": {
-      "present": "現在形の基本形",
-      "past": "過去形",
-      "future": "未来形",
-      "gerund": "動名詞",
-      "pastParticiple": "過去分詞",
-      "languageSpecific": {
-        "present_1sg": "現在形1人称単数",
-        "present_2sg": "現在形2人称単数",
-        "present_3sg": "現在形3人称単数",
-        "present_1pl": "現在形1人称複数",
-        "present_2pl": "現在形2人称複数",
-        "present_3pl": "現在形3人称複数",
-        "preterite_1sg": "点過去形1人称単数（スペイン語等）",
-        "preterite_2sg": "点過去形2人称単数",
-        "preterite_3sg": "点過去形3人称単数",
-        "preterite_1pl": "点過去形1人称複数",
-        "preterite_2pl": "点過去形2人称複数",
-        "preterite_3pl": "点過去形3人称複数",
-        "imperfect_1sg": "線過去形1人称単数（スペイン語等）",
-        "imperfect_2sg": "線過去形2人称単数",
-        "imperfect_3sg": "線過去形3人称単数",
-        "imperfect_1pl": "線過去形1人称複数",
-        "imperfect_2pl": "線過去形2人称複数",
-        "imperfect_3pl": "線過去形3人称複数",
-        "future_1sg": "未来形1人称単数",
-        "future_2sg": "未来形2人称単数",
-        "future_3sg": "未来形3人称単数",
-        "future_1pl": "未来形1人称複数",
-        "future_2pl": "未来形2人称複数",
-        "future_3pl": "未来形3人称複数",
-        "conditional_1sg": "条件法現在1人称単数",
-        "conditional_2sg": "条件法現在2人称単数",
-        "conditional_3sg": "条件法現在3人称単数",
-        "conditional_1pl": "条件法現在1人称複数",
-        "conditional_2pl": "条件法現在2人称複数",
-        "conditional_3pl": "条件法現在3人称複数",
-        "subjunctive_present_1sg": "接続法現在1人称単数",
-        "subjunctive_present_2sg": "接続法現在2人称単数",
-        "subjunctive_present_3sg": "接続法現在3人称単数",
-        "subjunctive_present_1pl": "接続法現在1人称複数",
-        "subjunctive_present_2pl": "接続法現在2人称複数",
-        "subjunctive_present_3pl": "接続法現在3人称複数"
+  "conjugations": 品詞に応じて以下の形式で必ず返してください：
+    - 動詞の場合: {
+        "verbConjugations": {
+          "present": {
+            "yo": "活用形", "tú": "活用形", "él/ella/usted": "活用形",
+            "nosotros/nosotras": "活用形", "vosotros/vosotras": "活用形", "ellos/ellas/ustedes": "活用形"
+          },
+          "preterite": {
+            "yo": "活用形", "tú": "活用形", "él/ella/usted": "活用形",
+            "nosotros/nosotras": "活用形", "vosotros/vosotras": "活用形", "ellos/ellas/ustedes": "活用形"
+          },
+          // その他の時制も同様に全人称を含める
+        }
       }
-    }
-  }
+    - 形容詞・名詞: {"genderNumberChanges": {...}} 形式で性数変化を含む（変化がない場合も空のオブジェクト{}を返す）
+    - その他: null
+
+重要：スペイン語・フランス語・イタリア語などの動詞では、必ずすべての人称（1人称単数・複数、2人称単数・複数、3人称単数・複数）の活用形を含めてください。
 }`;
     
     return prompt;
@@ -418,7 +491,7 @@ export class GroqService {
             content: enhancedPrompt
           }
         ],
-        model: "llama-3.3-70b-versatile",
+        model: "gemma2-9b-it",
         temperature: 0.2, // さらに低い温度で再試行
         max_tokens: 2048,
       });

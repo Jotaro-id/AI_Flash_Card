@@ -39,8 +39,20 @@ export async function POST(request: NextRequest) {
     console.error('Groq API error:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
+      errorType: error?.constructor?.name,
+      errorObject: error
     });
+    
+    // 詳細なエラー情報を開発モードで出力
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      console.error('Request details:', {
+        url: request.url,
+        method: request.method,
+        headers: Object.fromEntries(request.headers.entries())
+      });
+    }
     
     // APIキー未設定エラーの特別な処理
     if (error instanceof Error && error.message.includes('GROQ_API_KEY')) {
@@ -56,18 +68,46 @@ export async function POST(request: NextRequest) {
     }
     
     // レート制限エラー
-    if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded. Please try again later.' },
-        { status: 429 }
-      );
+    if (error instanceof Error) {
+      // Groq SDKのレート制限エラーをチェック
+      if (error.message.includes('429') || 
+          error.message.includes('rate_limit_exceeded') || 
+          error.message.includes('Rate limit') ||
+          (error as { status?: number }).status === 429) {
+        return NextResponse.json(
+          { 
+            error: 'Rate limit exceeded',
+            message: 'API rate limit exceeded. Please try again in a minute.',
+            retryAfter: 60
+          },
+          { status: 429 }
+        );
+      }
+      
+      // タイムアウトエラー
+      if (error.message.includes('timeout') || error.message.includes('AbortError')) {
+        return NextResponse.json(
+          { 
+            error: 'Request timeout',
+            message: 'The request took too long to complete. Please try again.'
+          },
+          { status: 504 }
+        );
+      }
     }
     
     // その他のエラー
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'An unexpected error occurred'
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? {
+          type: error?.constructor?.name,
+          stack: error instanceof Error ? error.stack : undefined,
+          fullError: JSON.stringify(error, null, 2)
+        } : undefined
       },
       { status: 500 }
     );

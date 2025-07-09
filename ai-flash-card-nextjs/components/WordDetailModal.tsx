@@ -23,8 +23,15 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
   console.log('[WordDetailModal] Word:', word);
   console.log('[WordDetailModal] AI Info:', aiInfo);
   console.log('[WordDetailModal] Enhanced Example:', aiInfo.enhancedExample);
+  console.log('[WordDetailModal] Grammatical Changes:', aiInfo.grammaticalChanges);
+  console.log('[WordDetailModal] Word Class:', aiInfo.wordClass);
   console.log('[WordDetailModal] onRegenerate prop:', onRegenerate);
   console.log('[WordDetailModal] isRegenerating prop:', isRegenerating);
+  console.log('[WordDetailModal] Rendering GrammaticalChangesTable with:', {
+    grammaticalChanges: aiInfo.grammaticalChanges,
+    wordClass: aiInfo.wordClass,
+    targetLanguage: targetLanguage
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
