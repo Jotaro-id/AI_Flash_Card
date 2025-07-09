@@ -16,8 +16,8 @@ interface SwipeableCardProps {
   wordId?: string; // カードが変わったことを検知するため
 }
 
-const SWIPE_THRESHOLD_X = 100; // 左右スワイプの閾値（px）
-const SWIPE_THRESHOLD_Y = 80;  // 上スワイプの閾値（px）
+const SWIPE_THRESHOLD_X = 50;  // 左右スワイプの閾値（px）
+const SWIPE_THRESHOLD_Y = 40;  // 上スワイプの閾値（px）
 
 export function SwipeableCard({ children, onSwipe, disabled = false, wordId }: SwipeableCardProps) {
   // ドラッグ中の座標を追跡
@@ -36,9 +36,9 @@ export function SwipeableCard({ children, onSwipe, disabled = false, wordId }: S
   const rotate = useTransform(x, [-150, 150], [-20, 20]);
   
   // ドラッグ中の背景色のオーバーレイ透明度
-  const rightOverlayOpacity = useTransform(x, [0, 100], [0, 0.3]);
-  const leftOverlayOpacity = useTransform(x, [-100, 0], [0.3, 0]);
-  const upOverlayOpacity = useTransform(y, [-80, 0], [0.3, 0]);
+  const rightOverlayOpacity = useTransform(x, [0, 50], [0, 0.4]);
+  const leftOverlayOpacity = useTransform(x, [-50, 0], [0.4, 0]);
+  const upOverlayOpacity = useTransform(y, [-40, 0], [0.4, 0]);
 
   // ドラッグ終了時の処理
   const handleDragEnd = async (
@@ -47,20 +47,24 @@ export function SwipeableCard({ children, onSwipe, disabled = false, wordId }: S
   ) => {
     if (disabled) return;
 
+    // 速度も考慮に入れる（速い動きは小さい移動でもスワイプと判定）
+    const velocityThreshold = 500;
+
     // 上スワイプを最優先で判定
-    if (info.offset.y < -SWIPE_THRESHOLD_Y && Math.abs(info.offset.x) < SWIPE_THRESHOLD_X) {
+    if ((info.offset.y < -SWIPE_THRESHOLD_Y || (info.velocity.y < -velocityThreshold && info.offset.y < 0)) 
+        && Math.abs(info.offset.x) < SWIPE_THRESHOLD_X) {
       // 上スワイプ（怪しい）
       await controls.start({ y: -500, opacity: 0 });
       onSwipe('up');
       // アニメーション完了後、カードを元の位置に戻す（次のカード用）
       await controls.set({ x: 0, y: 0, rotate: 0, opacity: 1 });
-    } else if (info.offset.x > SWIPE_THRESHOLD_X) {
+    } else if (info.offset.x > SWIPE_THRESHOLD_X || (info.velocity.x > velocityThreshold && info.offset.x > 0)) {
       // 右スワイプ（覚えた）
       await controls.start({ x: 500, opacity: 0, rotate: 30 });
       onSwipe('right');
       // アニメーション完了後、カードを元の位置に戻す（次のカード用）
       await controls.set({ x: 0, y: 0, rotate: 0, opacity: 1 });
-    } else if (info.offset.x < -SWIPE_THRESHOLD_X) {
+    } else if (info.offset.x < -SWIPE_THRESHOLD_X || (info.velocity.x < -velocityThreshold && info.offset.x < 0)) {
       // 左スワイプ（覚えていない）
       await controls.start({ x: -500, opacity: 0, rotate: -30 });
       onSwipe('left');
