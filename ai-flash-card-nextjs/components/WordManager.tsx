@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, 
 import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '@/types';
 import { UserMenu } from './UserMenu';
 import { generateWordInfo, checkSpelling } from '@/services/aiService';
+import { aiWordInfoCache } from '@/services/aiCacheService';
 import { getWordSuggestions } from '@/services/wordSuggestionService';
 import { addWordToFile, deleteWordFromFile, updateVocabularyFile } from '@/services/localStorageService';
 import { ThemeSelector } from './ThemeSelector';
@@ -445,6 +446,10 @@ export const WordManager: React.FC<WordManagerProps> = ({
     setLoadingTexts(prev => ({ ...prev, [word.id]: 'AI情報を再生成中...' }));
     
     try {
+      // キャッシュから削除して強制的に再生成
+      console.log('[DEBUG] Clearing cache for word:', word.word);
+      aiWordInfoCache.delete(word.word);
+      
       console.log('[DEBUG] Calling generateWordInfo...');
       // AI情報を再生成
       const aiInfo = await generateWordInfo(word.word);

@@ -121,6 +121,15 @@ class AIWordInfoCache {
     logger.info('キャッシュをクリア');
   }
 
+  // 特定の単語のキャッシュを削除
+  delete(word: string): void {
+    const deleted = this.cache.delete(word.toLowerCase());
+    if (deleted) {
+      this.saveToLocalStorage();
+      logger.debug(`キャッシュから削除: ${word}`);
+    }
+  }
+
   // キャッシュ統計を取得
   getStats() {
     return {
