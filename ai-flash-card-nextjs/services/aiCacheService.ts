@@ -77,8 +77,11 @@ class AIWordInfoCache {
   // ローカルストレージに保存
   private saveToLocalStorage(): void {
     try {
-      const cacheData = Array.from(this.cache.entries());
-      localStorage.setItem('ai-word-info-cache', JSON.stringify(cacheData));
+      // ブラウザ環境でのみlocalStorageを使用
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        const cacheData = Array.from(this.cache.entries());
+        localStorage.setItem('ai-word-info-cache', JSON.stringify(cacheData));
+      }
     } catch (error) {
       logger.error('キャッシュの保存に失敗:', error);
     }
@@ -87,14 +90,23 @@ class AIWordInfoCache {
   // ローカルストレージから読み込み
   private loadFromLocalStorage(): void {
     try {
-      const stored = localStorage.getItem('ai-word-info-cache');
-      if (stored) {
-        const cacheData = JSON.parse(stored) as Array<[string, CacheEntry]>;
-        this.cache = new Map(cacheData);
-        logger.info(`キャッシュを復元: ${this.cache.size}件`);
+      // ブラウザ環境でのみlocalStorageを使用
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem('ai-word-info-cache');
+        if (stored) {
+          const cacheData = JSON.parse(stored) as Array<[string, CacheEntry]>;
+          this.cache = new Map(cacheData);
+          logger.info(`キャッシュを復元: ${this.cache.size}件`);
+          
+          // 有効期限切れのエントリを削除
+          this.cleanupExpiredEntries();
+        }
       }
     } catch (error) {
       logger.error('キャッシュの読み込みに失敗:', error);
+      if (error instanceof Error) {
+        logger.error('Stack trace:', error.stack);
+      }
       this.cache.clear();
     }
   }
@@ -102,7 +114,10 @@ class AIWordInfoCache {
   // キャッシュをクリア
   clear(): void {
     this.cache.clear();
-    localStorage.removeItem('ai-word-info-cache');
+    // ブラウザ環境でのみlocalStorageを使用
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.removeItem('ai-word-info-cache');
+    }
     logger.info('キャッシュをクリア');
   }
 
@@ -113,6 +128,24 @@ class AIWordInfoCache {
       maxSize: this.MAX_CACHE_SIZE,
       utilization: (this.cache.size / this.MAX_CACHE_SIZE) * 100
     };
+  }
+
+  // 有効期限切れのエントリを削除
+  private cleanupExpiredEntries(): void {
+    const now = Date.now();
+    let removedCount = 0;
+    
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > this.CACHE_DURATION) {
+        this.cache.delete(key);
+        removedCount++;
+      }
+    }
+    
+    if (removedCount > 0) {
+      logger.info(`有効期限切れのキャッシュエントリを${removedCount}件削除`);
+      this.saveToLocalStorage();
+    }
   }
 }
 

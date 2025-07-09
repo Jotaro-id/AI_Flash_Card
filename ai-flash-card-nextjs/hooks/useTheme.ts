@@ -4,10 +4,13 @@ import { ColorTheme, colorThemes } from '../types';
 export function useTheme() {
   const [currentTheme, setCurrentTheme] = useState<ColorTheme>(() => {
     try {
-      const savedTheme = localStorage.getItem('vocabulary-app-theme');
-      if (savedTheme) {
-        const themeId = JSON.parse(savedTheme);
-        return colorThemes.find(theme => theme.id === themeId) || colorThemes[0];
+      // ブラウザ環境でのみlocalStorageを使用
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        const savedTheme = localStorage.getItem('vocabulary-app-theme');
+        if (savedTheme) {
+          const themeId = JSON.parse(savedTheme);
+          return colorThemes.find(theme => theme.id === themeId) || colorThemes[0];
+        }
       }
       return colorThemes[0];
     } catch (error) {
@@ -21,7 +24,10 @@ export function useTheme() {
     if (theme) {
       setCurrentTheme(theme);
       try {
-        localStorage.setItem('vocabulary-app-theme', JSON.stringify(themeId));
+        // ブラウザ環境でのみlocalStorageを使用
+        if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+          localStorage.setItem('vocabulary-app-theme', JSON.stringify(themeId));
+        }
       } catch (error) {
         console.error('Error saving theme to localStorage:', error);
       }
