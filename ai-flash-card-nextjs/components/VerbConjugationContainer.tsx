@@ -37,6 +37,8 @@ export function VerbConjugationContainer({
     
     if (filteredVerbs.length > 0) {
       setCurrentVerb(filteredVerbs[0]);
+      // デバッグ: 最初の動詞の活用データを確認
+      logger.info('First verb conjugation data:', filteredVerbs[0].aiGenerated?.grammaticalChanges?.verbConjugations);
     }
   }, [vocabularyFile]);
 

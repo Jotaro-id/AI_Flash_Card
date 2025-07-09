@@ -99,6 +99,10 @@ export function TenseMoodSelector({
   onMoodChange,
   availableConjugations
 }: TenseMoodSelectorProps) {
+  // デバッグ: 利用可能な活用形を確認
+  console.log('[TenseMoodSelector] Available conjugations:', availableConjugations);
+  console.log('[TenseMoodSelector] Available conjugation keys:', Object.keys(availableConjugations || {}));
+  
   const languageTenses = tenseOptions[targetLanguage] || tenseOptions.en;
   const moods = Object.keys(languageTenses);
   const currentMoodTenses = languageTenses[selectedMood as keyof typeof languageTenses] || {};
@@ -144,8 +148,27 @@ export function TenseMoodSelector({
         <div className="flex flex-wrap gap-2">
           {Object.entries(currentMoodTenses).map(([tense, label]) => {
             // 利用可能な活用形かチェック
-            const isAvailable = availableConjugations?.[selectedMood]?.[tense] || 
-                              availableConjugations?.[tense];
+            // 直接法の場合はトップレベルをチェック、それ以外は法の下をチェック
+            let isAvailable = false;
+            
+            if (selectedMood === 'indicative') {
+              // 直接法の場合、トップレベルのキーをチェック
+              isAvailable = !!availableConjugations?.[tense];
+              
+              // もしなければ、別の可能性のあるキー名もチェック
+              if (!isAvailable && tense === 'preterite') {
+                // スペイン語の点過去は別の名前で保存されている可能性
+                isAvailable = !!availableConjugations?.['pretérito'] || 
+                            !!availableConjugations?.['preterito'] ||
+                            !!availableConjugations?.['past'] ||
+                            !!availableConjugations?.['pasado'];
+              }
+            } else {
+              // その他の法の場合
+              isAvailable = !!availableConjugations?.[selectedMood]?.[tense];
+            }
+            
+            console.log(`[TenseMoodSelector] Checking ${selectedMood} ${tense}: ${isAvailable}`);
             
             return (
               <button

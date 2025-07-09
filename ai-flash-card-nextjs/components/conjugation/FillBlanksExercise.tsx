@@ -38,11 +38,33 @@ export function FillBlanksExercise({
       logger.warn('No verb conjugations found');
       return;
     }
+    
+    // デバッグ: 活用形データの構造を確認
+    logger.info('Verb conjugations structure:', verbConjugations);
+    logger.info('Available keys:', Object.keys(verbConjugations));
+    logger.info('Selected mood:', mood);
+    logger.info('Selected tense:', tense);
 
     // 時制・法に応じた活用形を取得
     let conjugationData: Record<string, string> | undefined;
     if (mood === 'indicative') {
-      const data = verbConjugations[tense];
+      // 直接法の場合、複数の可能性のあるキー名をチェック
+      let data = verbConjugations[tense];
+      
+      // 点過去の場合、別の名前で保存されている可能性をチェック
+      if (!data && tense === 'preterite') {
+        data = verbConjugations['pretérito'] || 
+               verbConjugations['preterito'] || 
+               verbConjugations['past'] ||
+               verbConjugations['pasado'];
+        logger.info('Checking alternative keys for preterite:', {
+          'pretérito': !!verbConjugations['pretérito'],
+          'preterito': !!verbConjugations['preterito'],
+          'past': !!verbConjugations['past'],
+          'pasado': !!verbConjugations['pasado']
+        });
+      }
+      
       if (data && typeof data === 'object' && !Array.isArray(data)) {
         conjugationData = data as Record<string, string>;
       }
