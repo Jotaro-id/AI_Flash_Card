@@ -163,9 +163,13 @@ export function SpellInputExercise({
       const firstIndex = Math.floor(Math.random() * newQuestions.length);
       setQuestionHistory([firstIndex]);
       setUsedQuestions([firstIndex]);
-      selectQuestion(firstIndex);
+      setCurrentQuestion(newQuestions[firstIndex]);
+      setUserAnswer('');
+      setShowResult(null);
+      setAttempts(0);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [verb, tense, mood, selectQuestion]);
+  }, [verb, tense, mood]);
 
   const checkAnswer = () => {
     if (!currentQuestion || !userAnswer.trim()) return;
@@ -317,10 +321,16 @@ export function SpellInputExercise({
               setCorrectCount(0);
               setQuestionHistory([]);
               setCurrentQuestionIndex(0);
-              const firstIndex = Math.floor(Math.random() * questions.length);
-              setQuestionHistory([firstIndex]);
-              setUsedQuestions([firstIndex]);
-              selectQuestion(firstIndex);
+              if (questions.length > 0) {
+                const firstIndex = Math.floor(Math.random() * questions.length);
+                setQuestionHistory([firstIndex]);
+                setUsedQuestions([firstIndex]);
+                setCurrentQuestion(questions[firstIndex]);
+                setUserAnswer('');
+                setShowResult(null);
+                setAttempts(0);
+                setTimeout(() => inputRef.current?.focus(), 100);
+              }
             }}
             className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
           >
