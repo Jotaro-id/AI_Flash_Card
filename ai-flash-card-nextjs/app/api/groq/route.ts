@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
           context,
           difficulty
         );
+        console.log('Generated flashcard:', JSON.stringify(flashcard, null, 2));
         return NextResponse.json({ data: flashcard });
 
       default:

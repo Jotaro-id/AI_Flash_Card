@@ -22,19 +22,21 @@ export class GroqService {
           messages: [
             {
               role: "system",
-              content: "あなたは多言語の単語学習を支援する専門家です。単語の詳細な情報を提供してください。"
+              content: "あなたは多言語の単語学習を支援する専門家です。必ずJSON形式のみで回答してください。追加の説明や前置きは一切不要です。"
             },
             {
               role: "user",
               content: prompt
             }
           ],
-          model: "llama-3.3-70b-versatile",
+          model: "mixtral-8x7b-32768",
           temperature: 0.7,
           max_tokens: 2048,
         });
 
-        return completion.choices[0]?.message?.content || '';
+        const content = completion.choices[0]?.message?.content || '';
+        console.log('Groq response:', content);
+        return content;
       } catch (error) {
         if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429 && attempt < this.MAX_RETRIES - 1) {
           // レート制限エラーの場合、リトライ
@@ -68,24 +70,30 @@ export class GroqService {
   }
 
   private createWordInfoPrompt(word: string, targetLanguage: string): string {
-    return `単語「${word}」について、以下の情報を提供してください：
+    return `単語「${word}」について、必ず以下のJSON形式で回答してください。他の形式での回答は受け付けません。
 
-1. 意味（${targetLanguage}）
-2. 発音記号
-3. 例文（原文と${targetLanguage}訳）
-4. 語源や覚え方のヒント
-5. 類義語・反意語
-6. 各言語での翻訳：
-   - 英語
-   - 日本語
-   - スペイン語
-   - フランス語
-   - ドイツ語
-   - 中国語（簡体字）
-   - 韓国語
-7. 動詞の場合は活用形、名詞・形容詞の場合は性数変化（該当する場合）
+{
+  "word": "${word}",
+  "meaning": "${targetLanguage === 'ja' ? '日本語での意味' : 'meaning in ' + targetLanguage}",
+  "pronunciation": "発音記号（IPA形式）",
+  "example": "例文（原文）",
+  "example_translation": "例文の${targetLanguage}訳",
+  "etymology": "語源や覚え方のヒント",
+  "synonyms": ["類義語1", "類義語2"],
+  "antonyms": ["反意語1", "反意語2"],
+  "translations": {
+    "en": "英語訳",
+    "ja": "日本語訳",
+    "es": "スペイン語訳",
+    "fr": "フランス語訳",
+    "de": "ドイツ語訳",
+    "zh": "中国語訳（簡体字）",
+    "ko": "韓国語訳"
+  },
+  "conjugations": "動詞の活用形、名詞・形容詞の性数変化（該当する場合のみ）"
+}
 
-JSON形式で回答してください。`;
+重要：必ずJSON形式のみで回答し、説明文や追加のテキストは含めないでください。`;
   }
 
   private createFlashcardPrompt(
@@ -93,7 +101,7 @@ JSON形式で回答してください。`;
     context?: string,
     difficulty?: string
   ): string {
-    let prompt = `単語「${word}」のフラッシュカード情報を生成してください。`;
+    let prompt = `単語「${word}」のフラッシュカード情報を、必ず以下のJSON形式のみで回答してください。`;
     
     if (context) {
       prompt += `\n文脈: ${context}`;
@@ -103,23 +111,26 @@ JSON形式で回答してください。`;
       prompt += `\n難易度: ${difficulty}`;
     }
     
-    prompt += `\n\n以下のJSON形式で回答してください：
+    prompt += `
+
+必ず以下の形式のJSONで回答してください。他の形式や説明文は含めないでください：
+
 {
-  "meaning": "主要な意味",
-  "pronunciation": "発音記号",
-  "example": "例文",
+  "meaning": "${word}の主要な意味（日本語）",
+  "pronunciation": "${word}の発音記号（IPA形式）",
+  "example": "${word}を使った例文（原文）",
   "example_translation": "例文の日本語訳",
   "notes": "学習のヒントや注意点",
   "translations": {
-    "en": "英語",
-    "ja": "日本語",
-    "es": "スペイン語",
-    "fr": "フランス語",
-    "de": "ドイツ語",
-    "zh": "中国語",
-    "ko": "韓国語"
+    "en": "${word}の英語訳（もし${word}が英語の場合は同じ）",
+    "ja": "${word}の日本語訳",
+    "es": "${word}のスペイン語訳",
+    "fr": "${word}のフランス語訳",
+    "de": "${word}のドイツ語訳",
+    "zh": "${word}の中国語訳（簡体字）",
+    "ko": "${word}の韓国語訳"
   },
-  "conjugations": "活用形や性数変化（該当する場合）"
+  "conjugations": "動詞の活用形や名詞・形容詞の性数変化（該当する場合のみ）"
 }`;
     
     return prompt;
@@ -135,28 +146,47 @@ JSON形式で回答してください。`;
     conjugations?: string;
   } {
     try {
-      // JSONブロックを抽出
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          word,
-          meaning: parsed.meaning || '',
-          pronunciation: parsed.pronunciation || '',
-          example: parsed.example || '',
-          notes: parsed.notes || '',
-          translations: parsed.translations || {},
-          conjugations: parsed.conjugations
-        };
+      // レスポンス全体をJSONとしてパース
+      const parsed = JSON.parse(response.trim());
+      
+      // `notes`フィールドが存在しない場合は、etymology、synonyms、antonymsから作成
+      let notes = parsed.notes || '';
+      if (!notes && (parsed.etymology || parsed.synonyms || parsed.antonyms)) {
+        const noteParts = [];
+        if (parsed.etymology) noteParts.push(`語源: ${parsed.etymology}`);
+        if (parsed.synonyms?.length) noteParts.push(`類義語: ${parsed.synonyms.join(', ')}`);
+        if (parsed.antonyms?.length) noteParts.push(`反意語: ${parsed.antonyms.join(', ')}`);
+        notes = noteParts.join('\n');
       }
+      
+      return {
+        word: parsed.word || word,
+        meaning: parsed.meaning || '',
+        pronunciation: parsed.pronunciation || '',
+        example: parsed.example || '',
+        notes,
+        translations: parsed.translations || {},
+        conjugations: parsed.conjugations
+      };
     } catch (error) {
       console.error('Failed to parse Groq response:', error);
+      console.error('Response was:', response);
+      
+      // JSONブロックを抽出して再試行
+      try {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return this.parseFlashcardResponse(jsonMatch[0], word);
+        }
+      } catch (secondError) {
+        console.error('Second parse attempt failed:', secondError);
+      }
     }
     
     // パースに失敗した場合のフォールバック
     return {
       word,
-      meaning: response,
+      meaning: 'エラー: 単語情報の取得に失敗しました',
       pronunciation: '',
       example: '',
       notes: '',
