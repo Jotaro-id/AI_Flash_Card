@@ -472,6 +472,38 @@ export const Flashcard: React.FC<FlashcardProps> = ({
             </button>
           </div>
 
+          {/* 学習状況選択ボタン（フリップされた時のみ表示） */}
+          {word.aiGenerated && isFlipped && onLearningStatusChange && wordBookId && (
+            <div className="mb-6">
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 max-w-2xl mx-auto">
+                <h3 className="text-white font-semibold mb-3 text-center">この単語を覚えましたか？</h3>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => handleLearningStatusChange('learned')}
+                    className="flex-1 bg-green-500/80 hover:bg-green-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 hover:scale-105"
+                  >
+                    <Check size={20} />
+                    覚えた
+                  </button>
+                  <button
+                    onClick={() => handleLearningStatusChange('uncertain')}
+                    className="flex-1 bg-yellow-500/80 hover:bg-yellow-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 hover:scale-105"
+                  >
+                    <HelpCircle size={20} />
+                    怪しい
+                  </button>
+                  <button
+                    onClick={() => handleLearningStatusChange('forgot')}
+                    className="flex-1 bg-red-500/80 hover:bg-red-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 hover:scale-105"
+                  >
+                    <X size={20} />
+                    覚えていない
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {word.aiGenerated && (
             <div className="text-center">
               <button
