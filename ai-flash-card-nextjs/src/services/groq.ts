@@ -144,6 +144,7 @@ export class GroqService {
 5. 性数変化がある言語（スペイン語、フランス語、ドイツ語、イタリア語など）では必ず実際の変化形を記載
 6. 性数変化がない言語（英語、日本語、中国語、韓国語など）では空のgenderNumberChanges: {}を返す
 7. スペイン語の動詞の場合は、必ずすべての人称（単数・複数）の活用形を含める
+8. スペイン語の動詞は必ず以下の6つの時制を含める：present, preterite, imperfect, future, conditional, subjunctive
 
 以下は期待される出力の例です（スペイン語の動詞「ser」）：
 {
@@ -172,6 +173,38 @@ export class GroqService {
         "nosotros/nosotras": "fuimos",
         "vosotros/vosotras": "fuisteis",
         "ellos/ellas/ustedes": "fueron"
+      },
+      "imperfect": {
+        "yo": "era",
+        "tú": "eras",
+        "él/ella/usted": "era",
+        "nosotros/nosotras": "éramos",
+        "vosotros/vosotras": "erais",
+        "ellos/ellas/ustedes": "eran"
+      },
+      "future": {
+        "yo": "seré",
+        "tú": "serás",
+        "él/ella/usted": "será",
+        "nosotros/nosotras": "seremos",
+        "vosotros/vosotras": "seréis",
+        "ellos/ellas/ustedes": "serán"
+      },
+      "conditional": {
+        "yo": "sería",
+        "tú": "serías",
+        "él/ella/usted": "sería",
+        "nosotros/nosotras": "seríamos",
+        "vosotros/vosotras": "seríais",
+        "ellos/ellas/ustedes": "serían"
+      },
+      "subjunctive": {
+        "yo": "sea",
+        "tú": "seas",
+        "él/ella/usted": "sea",
+        "nosotros/nosotras": "seamos",
+        "vosotros/vosotras": "seáis",
+        "ellos/ellas/ustedes": "sean"
       }
     }
   }
@@ -346,13 +379,37 @@ export class GroqService {
             "yo": "活用形", "tú": "活用形", "él/ella/usted": "活用形",
             "nosotros/nosotras": "活用形", "vosotros/vosotras": "活用形", "ellos/ellas/ustedes": "活用形"
           },
-          // その他の時制も同様に全人称を含める
+          "imperfect": {
+            "yo": "活用形", "tú": "活用形", "él/ella/usted": "活用形",
+            "nosotros/nosotras": "活用形", "vosotros/vosotras": "活用形", "ellos/ellas/ustedes": "活用形"
+          },
+          "future": {
+            "yo": "活用形", "tú": "活用形", "él/ella/usted": "活用形",
+            "nosotros/nosotras": "活用形", "vosotros/vosotras": "活用形", "ellos/ellas/ustedes": "活用形"
+          },
+          "conditional": {
+            "yo": "活用形", "tú": "活用形", "él/ella/usted": "活用形",
+            "nosotros/nosotras": "活用形", "vosotros/vosotras": "活用形", "ellos/ellas/ustedes": "活用形"
+          },
+          "subjunctive": {
+            "yo": "活用形", "tú": "活用形", "él/ella/usted": "活用形",
+            "nosotros/nosotras": "活用形", "vosotros/vosotras": "活用形", "ellos/ellas/ustedes": "活用形"
+          }
         }
       }
     - 形容詞・名詞: {"genderNumberChanges": {...}} 形式で性数変化を含む（変化がない場合も空のオブジェクト{}を返す）
     - その他: null
 
-重要：スペイン語・フランス語・イタリア語などの動詞では、必ずすべての人称（1人称単数・複数、2人称単数・複数、3人称単数・複数）の活用形を含めてください。
+重要：
+1. スペイン語・フランス語・イタリア語などの動詞では、必ずすべての人称（1人称単数・複数、2人称単数・複数、3人称単数・複数）の活用形を含めてください。
+2. スペイン語の動詞の場合、必ず以下の時制を含めてください：
+   - present（直説法現在形）
+   - preterite（直説法点過去形）
+   - imperfect（直説法線過去形）
+   - future（直説法未来形）
+   - conditional（条件法現在）
+   - subjunctive（接続法現在）
+3. 各時制には必ず6つの人称すべての活用形を含めてください。
 }`;
     
     return prompt;

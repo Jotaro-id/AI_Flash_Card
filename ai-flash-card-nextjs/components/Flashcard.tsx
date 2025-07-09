@@ -307,12 +307,6 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                 </div>
               )}
 
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
-                <h3 className="text-white font-semibold mb-2">AI生成データ (JSON)</h3>
-                <pre className="text-white/80 text-sm bg-black/20 p-3 rounded overflow-x-auto">
-                  {JSON.stringify(word.aiGenerated, null, 2)}
-                </pre>
-              </div>
             </div>
           </div>
         </div>
