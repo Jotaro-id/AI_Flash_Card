@@ -5,6 +5,7 @@ import { FileManager } from '@/components/FileManager';
 import { WordManager } from '@/components/WordManager';
 import { FlashcardContainer } from '@/components/FlashcardContainer';
 import { Auth } from '@/components/Auth';
+import { VerbConjugationContainer } from '@/components/VerbConjugationContainer';
 import { VocabularyFile, SupportedLanguage, LearningStatus } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 // LocalStorageを使用するように変更
@@ -20,7 +21,7 @@ import {
 } from '@/services/localStorageService';
 import { logger } from '@/utils/logger';
 
-type AppState = 'file-manager' | 'word-manager' | 'flashcards';
+type AppState = 'file-manager' | 'word-manager' | 'flashcards' | 'verb-conjugation';
 
 export default function Home() {
   logger.info('App component rendering...');
@@ -178,6 +179,13 @@ export default function Home() {
     }
   };
 
+  const handleStartVerbConjugation = () => {
+    logger.info('Starting verb conjugation practice');
+    if (currentFile) {
+      setAppState('verb-conjugation');
+    }
+  };
+
   const handleUpdateFile = async (updatedFile: VocabularyFile) => {
     logger.info('Updating file', { fileId: updatedFile.id, fileName: updatedFile.name });
     try {
@@ -289,6 +297,7 @@ export default function Home() {
             onBack={handleBack}
             onUpdateFile={handleUpdateFile}
             onStartFlashcards={handleStudyWords}
+            onStartVerbConjugation={handleStartVerbConjugation}
             currentTheme={currentTheme}
             availableThemes={availableThemes}
             onThemeChange={setTheme}
@@ -311,6 +320,14 @@ export default function Home() {
             }}
             onLearningStatusChange={handleLearningStatusChange}
             wordBookId={currentFile.id}
+          />
+        )}
+
+        {appState === 'verb-conjugation' && currentFile && (
+          <VerbConjugationContainer
+            vocabularyFile={currentFile}
+            onBack={() => setAppState('word-manager')}
+            targetLanguage={currentFile.targetLanguage || 'es'}
           />
         )}
     </div>

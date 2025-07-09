@@ -25,6 +25,7 @@ interface WordManagerProps {
   onBack: () => void;
   onUpdateFile: (file: VocabularyFile) => void;
   onStartFlashcards: () => void;
+  onStartVerbConjugation?: () => void;
   currentTheme: ColorTheme;
   availableThemes: ColorTheme[];
   onThemeChange: (themeId: string) => void;
@@ -45,6 +46,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
   onBack,
   onUpdateFile,
   onStartFlashcards,
+  onStartVerbConjugation,
   currentTheme,
   availableThemes,
   onThemeChange,
@@ -683,6 +685,18 @@ export const WordManager: React.FC<WordManagerProps> = ({
                 <BookOpen size={20} />
                 学習開始
               </button>
+              
+              {onStartVerbConjugation && (
+                <button
+                  onClick={onStartVerbConjugation}
+                  disabled={!file.words.some(w => w.aiGenerated?.wordClass === 'verb')}
+                  className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 hover:scale-105 disabled:cursor-not-allowed"
+                  title="動詞の活用形を集中的に練習"
+                >
+                  <Brain size={20} />
+                  動詞活用練習
+                </button>
+              )}
               <button
                 onClick={() => setIsAdding(true)}
                 className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 hover:scale-105"
