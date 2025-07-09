@@ -4,6 +4,7 @@ export interface VocabularyFile {
   createdAt: Date;
   words: Word[];
   targetLanguage?: SupportedLanguage; // 対象言語の設定（デフォルトは英語）
+  isFiltered?: boolean; // フィルタリングされた状態かどうか
 }
 
 export interface Word {

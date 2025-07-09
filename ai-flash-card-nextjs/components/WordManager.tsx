@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Search, BookOpen, Download, FileText, Brain, Loader2, Languages, Trash2, Settings, EyeOff, RefreshCw } from 'lucide-react';
-import { VocabularyFile, Word, ColorTheme, supportedLanguages } from '@/types';
+import { VocabularyFile, Word, ColorTheme, supportedLanguages, LearningStatus } from '@/types';
 import { UserMenu } from './UserMenu';
 import { generateWordInfo, checkSpelling } from '@/services/aiService';
 import { aiWordInfoCache } from '@/services/aiCacheService';
@@ -18,6 +18,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { WordDetailModal } from './WordDetailModal';
 import { SpellingSuggestions } from './SpellingSuggestions';
 import { useSettings } from '@/hooks/useSettings';
+import { LearningStatusFilter } from './LearningStatusFilter';
 
 interface WordManagerProps {
   file: VocabularyFile;
@@ -59,6 +60,8 @@ export const WordManager: React.FC<WordManagerProps> = ({
   const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<LearningStatus[]>(['not_started', 'uncertain', 'forgot']);
   
   // ファイルの状態をログに出力
   useEffect(() => {
@@ -206,6 +209,59 @@ export const WordManager: React.FC<WordManagerProps> = ({
 
     checkSpellingAsync();
   }, [debouncedWord, file.targetLanguage, settings.showSpellingSuggestions]);
+
+  const handleStatusToggle = (status: LearningStatus) => {
+    setSelectedStatuses(prev => {
+      if (prev.includes(status)) {
+        return prev.filter(s => s !== status);
+      } else {
+        return [...prev, status];
+      }
+    });
+  };
+
+  const getFilteredWords = (): Word[] => {
+    if (selectedStatuses.length === 0) return [];
+    
+    return file.words.filter(word => {
+      const status = word.learningStatus || 'not_started';
+      return selectedStatuses.includes(status);
+    });
+  };
+
+  const getStatusCount = (status: LearningStatus): number => {
+    return file.words.filter(word => (word.learningStatus || 'not_started') === status).length;
+  };
+
+  const handleStartFilteredFlashcards = () => {
+    if (selectedStatuses.length === 0) {
+      alert('少なくとも1つの学習状況を選択してください');
+      return;
+    }
+    
+    const filteredWords = getFilteredWords();
+    if (filteredWords.length === 0) {
+      alert('選択した条件に該当する単語がありません');
+      return;
+    }
+    
+    // フィルタリングされた単語でフラッシュカードを開始
+    // 一時的にfileオブジェクトを更新してフィルタリングされた単語だけを含むようにする
+    const filteredFile = {
+      ...file,
+      words: filteredWords,
+      isFiltered: true, // フィルタリングされていることを示すフラグ
+    };
+    
+    // フィルタリングされたファイルを更新
+    onUpdateFile(filteredFile);
+    
+    setShowFilterDialog(false);
+    // 少し遅延を入れてからフラッシュカードを開始（状態更新を待つため）
+    setTimeout(() => {
+      onStartFlashcards();
+    }, 100);
+  };
 
   const handleAddWord = async () => {
     if (!newWord.trim()) return;
@@ -620,7 +676,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
               </div>
               
               <button
-                onClick={onStartFlashcards}
+                onClick={() => setShowFilterDialog(true)}
                 disabled={file.words.length === 0}
                 className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 hover:scale-105 disabled:cursor-not-allowed"
               >
@@ -927,6 +983,38 @@ export const WordManager: React.FC<WordManagerProps> = ({
                     削除する
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 学習フィルタリングダイアログ */}
+      {showFilterDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white mb-4">学習する単語を選択</h2>
+            
+            <LearningStatusFilter
+              selectedStatuses={selectedStatuses}
+              onStatusToggle={handleStatusToggle}
+              getStatusCount={getStatusCount}
+            />
+            
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowFilterDialog(false)}
+                className="flex-1 bg-white/20 hover:bg-white/30 text-white px-4 py-3 rounded-lg transition-all duration-200"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleStartFilteredFlashcards}
+                disabled={selectedStatuses.length === 0}
+                className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 disabled:cursor-not-allowed"
+              >
+                <BookOpen size={20} />
+                学習開始（{getFilteredWords().length}単語）
               </button>
             </div>
           </div>

@@ -302,7 +302,13 @@ export default function Home() {
             file={currentFile}
             currentIndex={currentWordIndex}
             onIndexChange={setCurrentWordIndex}
-            onBack={() => setAppState('word-manager')}
+            onBack={async () => {
+              // フィルタリングされている場合は、元のファイルを再読み込み
+              if (currentFile?.isFiltered) {
+                await loadVocabularyFiles();
+              }
+              setAppState('word-manager');
+            }}
             onLearningStatusChange={handleLearningStatusChange}
             wordBookId={currentFile.id}
           />
