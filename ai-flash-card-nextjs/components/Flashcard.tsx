@@ -236,7 +236,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                     <div className="flex-1">
                       <p className="text-white/90"><strong>基本例文:</strong> {word.aiGenerated.exampleSentence}</p>
                     </div>
-                    <SpeechButton text={word.aiGenerated.exampleSentence} language="en" size={16} />
+                    <SpeechButton text={word.aiGenerated.exampleSentence} language={targetLanguage} size={16} />
                   </div>
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
@@ -436,7 +436,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                         <div className="mt-4 p-3 bg-white/20 rounded-lg">
                           <div className="flex items-start gap-2">
                             <p className="text-white/90 text-sm italic flex-1">&ldquo;{word.aiGenerated.exampleSentence}&rdquo;</p>
-                            <SpeechButton text={word.aiGenerated.exampleSentence} language="en" size={16} />
+                            <SpeechButton text={word.aiGenerated.exampleSentence} language={targetLanguage} size={16} />
                           </div>
                         </div>
                       </div>
