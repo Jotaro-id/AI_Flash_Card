@@ -208,6 +208,8 @@ export class GroqService {
 必ず以下の形式のJSONで回答してください。他の形式や説明文は含めないでください：
 
 {
+  "word": "${word}",
+  "wordClass": "${word}の品詞を次から1つ選んでください: verb, noun, adjective, adverb, other",
   "meaning": "${word}の主要な意味を日本語で説明してください",
   "pronunciation": "${word}の発音記号をIPA形式で記載してください（例: /ˈbjuːtɪfəl/）",
   "example": "${word}を使った実用的で自然な例文を1つ作成してください。必ず10単語以上の完全な文で、日常会話や実際の文章で使われるような内容にしてください",
@@ -286,6 +288,7 @@ export class GroqService {
     notes: string;
     translations: Record<string, string>;
     conjugations?: string;
+    wordClass?: string;
   } {
     try {
       // レスポンス全体をJSONとしてパース
@@ -310,7 +313,8 @@ export class GroqService {
         english_example: parsed.english_example,
         notes,
         translations: parsed.translations || {},
-        conjugations: parsed.conjugations
+        conjugations: parsed.conjugations,
+        wordClass: parsed.wordClass
       };
     } catch (error) {
       console.error('Failed to parse Groq response:', error);

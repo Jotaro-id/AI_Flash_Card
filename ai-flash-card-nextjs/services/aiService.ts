@@ -143,6 +143,7 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       example_translation?: string;
       english_example?: string;
       notes?: string;
+      wordClass?: string;
     };
     
     const translations = resp.translations || {};
@@ -197,7 +198,7 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       japaneseExample: resp.example_translation || `「${word}」を使った例文です。`,
       englishExample: translations.en ? `Usage example for "${translations.en}".` : `Usage example for "${word}".`,
       usageNotes: resp.notes || `Usage notes for "${word}".`,
-      wordClass: determineWordClass(word),
+      wordClass: resp.wordClass as AIWordInfo['wordClass'] || determineWordClass(word),
       grammaticalChanges,
       enhancedExample,
       translations: {
