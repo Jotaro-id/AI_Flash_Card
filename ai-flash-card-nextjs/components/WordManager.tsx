@@ -791,21 +791,30 @@ export const WordManager: React.FC<WordManagerProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleDeleteWord(word)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteWord(word);
+                          }}
                           className="bg-red-500/80 hover:bg-red-600 text-white p-1 rounded-lg transition-all duration-200 hover:scale-105"
                           title="この単語を削除"
                         >
                           <Trash2 size={16} />
                         </button>
                         <button
-                          onClick={() => handleExportSingleWord(word)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportSingleWord(word);
+                          }}
                           className="bg-white/20 hover:bg-white/30 text-white p-1 rounded-lg transition-all duration-200 hover:scale-105"
                           title="この単語をJSONでエクスポート"
                         >
                           <Download size={16} />
                         </button>
                         <button
-                          onClick={() => handleRegenerateWordInfo(word)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRegenerateWordInfo(word);
+                          }}
                           className="bg-blue-500/80 hover:bg-blue-600 text-white p-1 rounded-lg transition-all duration-200 hover:scale-105"
                           title="AI情報を再生成"
                           disabled={loadingWords.has(word.id)}
