@@ -31,7 +31,17 @@ export class GroqService {
           messages: [
             {
               role: "system",
-              content: "あなたは多言語の単語学習を支援する専門家です。必ずJSON形式のみで回答してください。追加の説明や前置きは一切不要です。"
+              content: `あなたは多言語の単語学習を支援する専門家です。必ずJSON形式のみで回答してください。追加の説明や前置きは一切不要です。
+
+以下は期待される出力の例です：
+{
+  "word": "beautiful",
+  "meaning": "美しい、きれいな",
+  "pronunciation": "/ˈbjuːtɪfəl/",
+  "example": "The sunset over the ocean was absolutely beautiful, painting the sky in shades of orange and pink.",
+  "example_translation": "海に沈む夕日は本当に美しく、空をオレンジとピンクの色合いに染めていました。",
+  "notes": "感情を表現する形容詞で、人・物・風景など幅広く使えます。"
+}`
             },
             {
               role: "user",
@@ -39,12 +49,24 @@ export class GroqService {
             }
           ],
           model: "llama-3.3-70b-versatile",
-          temperature: 0.7,
+          temperature: 0.3,
           max_tokens: 2048,
         });
 
         const content = completion.choices[0]?.message?.content || '';
         console.log('Groq response:', content);
+        
+        // レスポンスの検証
+        const parsed = this.validateAndParseJSON(content);
+        if (parsed && 'example' in parsed && 'example_translation' in parsed) {
+          const example = parsed.example as string;
+          const exampleTranslation = parsed.example_translation as string;
+          if (!example || example.trim() === '' || !exampleTranslation || exampleTranslation.trim() === '') {
+            console.warn('Empty example or translation detected, retrying with enhanced prompt...');
+            return this.generateWordInfoWithRetry(word, targetLanguage);
+          }
+        }
+        
         return content;
       } catch (error) {
         if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429 && attempt < this.MAX_RETRIES - 1) {
@@ -85,8 +107,8 @@ export class GroqService {
   "word": "${word}",
   "meaning": "${targetLanguage === 'ja' ? '日本語での意味' : 'meaning in ' + targetLanguage}",
   "pronunciation": "発音記号（IPA形式）",
-  "example": "例文（原文）",
-  "example_translation": "例文の${targetLanguage}訳",
+  "example": "${word}を使った実用的で自然な例文を1つ作成してください。必ず10単語以上の完全な文で、日常会話や実際の文章で使われるような内容にしてください",
+  "example_translation": "上記の例文を自然な${targetLanguage}に翻訳してください。意訳でも構いませんが、原文の意味を正確に伝えてください",
   "etymology": "語源や覚え方のヒント",
   "synonyms": ["類義語1", "類義語2"],
   "antonyms": ["反意語1", "反意語2"],
@@ -125,10 +147,10 @@ export class GroqService {
 必ず以下の形式のJSONで回答してください。他の形式や説明文は含めないでください：
 
 {
-  "meaning": "${word}の主要な意味（日本語）",
-  "pronunciation": "${word}の発音記号（IPA形式）",
-  "example": "${word}を使った例文（原文）",
-  "example_translation": "例文の日本語訳",
+  "meaning": "${word}の主要な意味を日本語で説明してください",
+  "pronunciation": "${word}の発音記号をIPA形式で記載してください（例: /ˈbjuːtɪfəl/）",
+  "example": "${word}を使った実用的で自然な例文を1つ作成してください。必ず10単語以上の完全な文で、日常会話や実際の文章で使われるような内容にしてください",
+  "example_translation": "上記の例文を自然な日本語に翻詳してください。意訳でも構いませんが、原文の意味を正確に伝えてください",
   "notes": "学習のヒントや注意点",
   "translations": {
     "en": "${word}の英語訳（もし${word}が英語の場合は同じ）",
@@ -235,5 +257,82 @@ export class GroqService {
 
   public isApiConfigured(): boolean {
     return this.isConfigured;
+  }
+
+  private validateAndParseJSON(content: string): Record<string, unknown> | null {
+    try {
+      // まずJSONをパース
+      return JSON.parse(content.trim());
+    } catch {
+      // JSONブロックを抽出して再試行
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch {
+          console.error('Failed to parse extracted JSON');
+        }
+      }
+      return null;
+    }
+  }
+
+  private async generateWordInfoWithRetry(word: string, targetLanguage: string = 'ja'): Promise<string> {
+    const enhancedPrompt = this.createEnhancedWordInfoPrompt(word, targetLanguage);
+    
+    try {
+      const completion = await this.groq!.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: `あなたは単語学習の専門家です。重要：必ず完全な例文とその翻訳を含むJSONを返してください。例文は10単語以上の完全な文である必要があります。`
+          },
+          {
+            role: "user",
+            content: enhancedPrompt
+          }
+        ],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.2, // さらに低い温度で再試行
+        max_tokens: 2048,
+      });
+
+      return completion.choices[0]?.message?.content || this.generateFallbackWordInfo(word);
+    } catch (error) {
+      console.error('Retry failed:', error);
+      return this.generateFallbackWordInfo(word);
+    }
+  }
+
+  private createEnhancedWordInfoPrompt(word: string, targetLanguage: string): string {
+    return `単語「${word}」について、以下のJSON形式で回答してください。
+
+重要な注意事項：
+1. "example"フィールドには必ず10単語以上の完全な英語の文を入れてください
+2. "example_translation"フィールドにはその日本語訳を入れてください
+3. 空文字列や省略は禁止です
+
+{
+  "word": "${word}",
+  "meaning": "${targetLanguage === 'ja' ? '日本語での意味' : 'meaning in ' + targetLanguage}",
+  "pronunciation": "発音記号（IPA形式、例: /ˈbjuːtɪfəl/）",
+  "example": "${word}を使った10単語以上の完全な英語の文。日常生活で使える実用的な内容にしてください。",
+  "example_translation": "上記exampleの自然な${targetLanguage}訳。意味が正確に伝わるようにしてください。",
+  "etymology": "語源や覚え方のヒント",
+  "synonyms": ["類義語1", "類義語2"],
+  "antonyms": ["反意語1", "反意語2"],
+  "translations": {
+    "en": "英語訳",
+    "ja": "日本語訳",
+    "es": "スペイン語訳",
+    "fr": "フランス語訳",
+    "de": "ドイツ語訳",
+    "zh": "中国語訳（簡体字）",
+    "ko": "韓国語訳"
+  },
+  "conjugations": "動詞の活用形、名詞・形容詞の性数変化（該当する場合のみ）"
+}
+
+必ずJSON形式のみで回答し、説明文や追加のテキストは含めないでください。`;
   }
 }
