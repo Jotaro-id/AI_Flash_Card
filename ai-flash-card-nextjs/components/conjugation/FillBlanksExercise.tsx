@@ -84,19 +84,41 @@ export function FillBlanksExercise({
       return;
     }
 
-    // 人称の順序
-    const personOrder = ['yo', 'tú', 'él/ella/Ud.', 'nosotros', 'vosotros', 'ellos/ellas/Uds.'];
+    // 人称の順序 - AIが生成するキーに合わせる
+    const personOrder = [
+      'yo', 
+      'tú', 
+      'él/ella/usted', 
+      'él/ella/Ud.',  // 後方互換性のため
+      'nosotros/nosotras',
+      'nosotros',     // 後方互換性のため
+      'vosotros/vosotras',
+      'vosotros',     // 後方互換性のため
+      'ellos/ellas/ustedes',
+      'ellos/ellas/Uds.'  // 後方互換性のため
+    ];
     const forms: ConjugationForm[] = [];
 
     // オブジェクト形式のデータを配列に変換
     if (typeof conjugationData === 'object' && !Array.isArray(conjugationData)) {
+      // 既に追加された人称を記録
+      const addedPersons = new Set<string>();
+      
       personOrder.forEach(person => {
-        if (conjugationData[person]) {
+        if (conjugationData[person] && !addedPersons.has(conjugationData[person])) {
+          // 表示用の人称名を統一
+          let displayPerson = person;
+          if (person === 'él/ella/Ud.') displayPerson = 'él/ella/usted';
+          if (person === 'nosotros') displayPerson = 'nosotros/nosotras';
+          if (person === 'vosotros') displayPerson = 'vosotros/vosotras';
+          if (person === 'ellos/ellas/Uds.') displayPerson = 'ellos/ellas/ustedes';
+          
           forms.push({
-            person,
+            person: displayPerson,
             conjugation: conjugationData[person],
             hint: conjugationData[person].charAt(0) + '...'
           });
+          addedPersons.add(conjugationData[person]);
         }
       });
     }

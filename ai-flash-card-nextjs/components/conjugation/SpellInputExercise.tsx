@@ -134,21 +134,46 @@ export function SpellInputExercise({
       return;
     }
 
-    // 人称の順序
-    const personOrder = ['yo', 'tú', 'él/ella/Ud.', 'nosotros', 'vosotros', 'ellos/ellas/Uds.'];
+    // 人称の順序 - AIが生成するキーに合わせる
+    const personOrder = [
+      'yo', 
+      'tú', 
+      'él/ella/usted', 
+      'él/ella/Ud.',  // 後方互換性のため
+      'nosotros/nosotras',
+      'nosotros',     // 後方互換性のため
+      'vosotros/vosotras',
+      'vosotros',     // 後方互換性のため
+      'ellos/ellas/ustedes',
+      'ellos/ellas/Uds.'  // 後方互換性のため
+    ];
     const newQuestions: Question[] = [];
 
     // オブジェクト形式のデータを配列に変換
     if (typeof conjugationData === 'object' && !Array.isArray(conjugationData)) {
+      logger.info('Conjugation data for tense/mood:', conjugationData);
+      
+      // 既に追加された人称を記録
+      const addedPersons = new Set<string>();
+      
       personOrder.forEach(person => {
-        if (conjugationData[person]) {
+        if (conjugationData[person] && !addedPersons.has(conjugationData[person])) {
+          // 表示用の人称名を統一
+          let displayPerson = person;
+          if (person === 'él/ella/Ud.') displayPerson = 'él/ella/usted';
+          if (person === 'nosotros') displayPerson = 'nosotros/nosotras';
+          if (person === 'vosotros') displayPerson = 'vosotros/vosotras';
+          if (person === 'ellos/ellas/Uds.') displayPerson = 'ellos/ellas/ustedes';
+          
           newQuestions.push({
-            person,
+            person: displayPerson,
             correctAnswer: conjugationData[person],
             hint: conjugationData[person].slice(0, 2) + '...'
           });
+          addedPersons.add(conjugationData[person]);
         }
       });
+      logger.info('Generated questions:', newQuestions);
     }
 
     setQuestions(newQuestions);
@@ -309,7 +334,7 @@ export function SpellInputExercise({
         <div className="flex gap-2">
           <button
             onClick={goToPreviousQuestion}
-            disabled={currentQuestionIndex === 0}
+            disabled={currentQuestionIndex === 0 || showResult === true}
             className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
           >
             <ChevronRight size={20} className="rotate-180" />
