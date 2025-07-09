@@ -20,6 +20,9 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
   if (!isOpen || !word.aiGenerated) return null;
 
   const aiInfo = word.aiGenerated;
+  console.log('[WordDetailModal] Word:', word);
+  console.log('[WordDetailModal] AI Info:', aiInfo);
+  console.log('[WordDetailModal] Enhanced Example:', aiInfo.enhancedExample);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

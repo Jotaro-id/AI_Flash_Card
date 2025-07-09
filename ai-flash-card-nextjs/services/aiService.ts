@@ -48,14 +48,17 @@ async function callGroqAPI(action: string, data: Record<string, unknown>): Promi
 
 // Groq APIを使用した単語情報生成サービス
 export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
+  console.log('[generateWordInfo] Starting for word:', word);
   // まずキャッシュをチェック
   const cachedInfo = aiWordInfoCache.get(word);
   if (cachedInfo) {
     logger.info(`キャッシュから単語情報を取得: ${word}`);
+    console.log('[generateWordInfo] Using cached data');
     return cachedInfo;
   }
 
   try {
+    console.log('[generateWordInfo] Calling Groq API...');
     // レート制限とリトライ処理付きでAPIを呼び出し
     const result = await withExponentialBackoff(
       async () => {
@@ -73,8 +76,10 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
       }
     );
     
+    console.log('[generateWordInfo] Groq API result:', result);
     const wordInfo = parseGroqResponse(result, word);
     logger.info('Successfully generated word info', { word });
+    console.log('[generateWordInfo] Parsed word info:', wordInfo);
     
     // 生成された情報をキャッシュに保存
     aiWordInfoCache.set(word, wordInfo);
