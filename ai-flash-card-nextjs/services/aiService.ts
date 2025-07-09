@@ -24,7 +24,17 @@ async function callGroqAPI(action: string, data: Record<string, unknown>): Promi
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Groq API request failed');
+      console.error('API Error Response:', error);
+      
+      // APIキー未設定の場合のメッセージを表示
+      if (error.fallbackMode) {
+        console.warn('🔐 GROQ API key not configured. To enable AI features:');
+        console.warn('1. Get your API key from:', error.setupUrl);
+        console.warn('2. Create a .env.local file in the project root');
+        console.warn('3. Add: GROQ_API_KEY=your_api_key_here');
+      }
+      
+      throw new Error(error.message || error.error || 'Groq API request failed');
     }
 
     const result = await response.json();

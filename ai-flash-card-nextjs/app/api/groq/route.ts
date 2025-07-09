@@ -3,15 +3,6 @@ import { GroqService } from '@/src/services/groq';
 
 export async function POST(request: NextRequest) {
   try {
-    // 環境変数の確認
-    if (!process.env.GROQ_API_KEY) {
-      console.error('GROQ_API_KEY is not set');
-      return NextResponse.json(
-        { error: 'Groq API configuration error' },
-        { status: 500 }
-      );
-    }
-
     const body = await request.json();
     const { word, action, context, difficulty, targetLanguage } = body;
 
@@ -51,6 +42,20 @@ export async function POST(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined
     });
     
+    // APIキー未設定エラーの特別な処理
+    if (error instanceof Error && error.message.includes('GROQ_API_KEY')) {
+      return NextResponse.json(
+        { 
+          error: 'AI service not configured',
+          message: 'GROQ API key is not set. Please add GROQ_API_KEY to your .env.local file.',
+          setupUrl: 'https://console.groq.com/keys',
+          fallbackMode: true
+        },
+        { status: 503 }
+      );
+    }
+    
+    // レート制限エラー
     if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again later.' },
@@ -58,8 +63,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // その他のエラー
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'An unexpected error occurred'
+      },
       { status: 500 }
     );
   }

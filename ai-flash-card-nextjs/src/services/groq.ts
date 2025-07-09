@@ -1,24 +1,33 @@
 import Groq from 'groq-sdk';
 
 export class GroqService {
-  private groq: Groq;
+  private groq: Groq | null = null;
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 1000; // 1秒
+  private isConfigured: boolean = false;
 
   constructor() {
     const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      throw new Error('GROQ_API_KEY is not set in environment variables');
+    if (apiKey && apiKey !== 'your_groq_api_key_here') {
+      this.groq = new Groq({ apiKey });
+      this.isConfigured = true;
+    } else {
+      console.warn('GROQ_API_KEY is not configured. Using fallback mode.');
+      console.warn('To enable AI features, please set GROQ_API_KEY in your .env.local file.');
+      console.warn('Get your API key from: https://console.groq.com/keys');
     }
-    this.groq = new Groq({ apiKey });
   }
 
   async generateWordInfo(word: string, targetLanguage: string = 'ja'): Promise<string> {
+    if (!this.isConfigured) {
+      return this.generateFallbackWordInfo(word);
+    }
+
     const prompt = this.createWordInfoPrompt(word, targetLanguage);
     
     for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
       try {
-        const completion = await this.groq.chat.completions.create({
+        const completion = await this.groq!.chat.completions.create({
           messages: [
             {
               role: "system",
@@ -197,5 +206,34 @@ export class GroqService {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private generateFallbackWordInfo(word: string): string {
+    const fallbackData = {
+      word: word,
+      meaning: `${word}の意味（API未設定のため簡易表示）`,
+      pronunciation: `/${word.toLowerCase()}/`,
+      example: `Example sentence with "${word}".`,
+      example_translation: `「${word}」を使った例文です。`,
+      etymology: "語源情報は利用できません",
+      synonyms: [],
+      antonyms: [],
+      translations: {
+        en: word,
+        ja: `${word}（日本語訳）`,
+        es: `${word} (español)`,
+        fr: `${word} (français)`,
+        de: `${word} (Deutsch)`,
+        zh: `${word}（中文）`,
+        ko: `${word}（한국어）`
+      },
+      conjugations: "活用形情報は利用できません",
+      notes: "GROQ APIキーが設定されていないため、AI生成機能は利用できません。.env.localファイルにGROQ_API_KEYを設定してください。"
+    };
+    return JSON.stringify(fallbackData, null, 2);
+  }
+
+  public isApiConfigured(): boolean {
+    return this.isConfigured;
   }
 }
