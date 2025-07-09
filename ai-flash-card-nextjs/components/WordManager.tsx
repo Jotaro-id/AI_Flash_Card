@@ -437,12 +437,15 @@ export const WordManager: React.FC<WordManagerProps> = ({
   // 単語情報を再生成
   const handleRegenerateWordInfo = async (word: Word) => {
     console.log('[DEBUG] Regenerating word info for:', word.word);
+    console.log('[DEBUG] Word object:', word);
+    console.log('[DEBUG] Current loadingWords:', loadingWords);
     
     // ローディング状態を設定
     setLoadingWords(prev => new Set([...prev, word.id]));
     setLoadingTexts(prev => ({ ...prev, [word.id]: 'AI情報を再生成中...' }));
     
     try {
+      console.log('[DEBUG] Calling generateWordInfo...');
       // AI情報を再生成
       const aiInfo = await generateWordInfo(word.word);
       console.log('[DEBUG] Regenerated AI info:', aiInfo);
@@ -454,6 +457,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
         words: file.words.map(w => w.id === word.id ? updatedWord : w)
       };
       
+      console.log('[DEBUG] Updating file...');
       // ファイルを更新
       await updateVocabularyFile(updatedFile);
       onUpdateFile(updatedFile);
@@ -471,6 +475,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
       setLoadingWords(prev => {
         const newSet = new Set(prev);
         newSet.delete(word.id);
+        console.log('[DEBUG] Updated loadingWords after removal:', newSet);
         return newSet;
       });
       setLoadingTexts(prev => {
@@ -812,7 +817,11 @@ export const WordManager: React.FC<WordManagerProps> = ({
                         </button>
                         <button
                           onClick={(e) => {
+                            console.log('[DEBUG] Regenerate button clicked!');
+                            console.log('[DEBUG] Event:', e);
+                            console.log('[DEBUG] Word:', word);
                             e.stopPropagation();
+                            e.preventDefault();
                             handleRegenerateWordInfo(word);
                           }}
                           className="bg-blue-500/80 hover:bg-blue-600 text-white p-1 rounded-lg transition-all duration-200 hover:scale-105"
