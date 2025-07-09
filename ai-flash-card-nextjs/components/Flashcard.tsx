@@ -54,8 +54,11 @@ export const Flashcard: React.FC<FlashcardProps> = ({
     }
   };
 
-  // カードが変更されたときに自動音声再生
+  // カードが変更されたときに自動音声再生とフリップ状態のリセット
   useEffect(() => {
+    // フリップ状態をリセット
+    setIsFlipped(false);
+    
     if (autoPlayEnabled && word && speechService.isSupported()) {
       const playAudio = async () => {
         try {
@@ -419,6 +422,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
           <div className="flex justify-center mb-4">
             <SwipeableCard 
               key={word.id}
+              wordId={word.id}
               onSwipe={handleSwipe} 
               disabled={!isFlipped || !onLearningStatusChange || !wordBookId}
             >

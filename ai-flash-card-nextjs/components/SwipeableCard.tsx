@@ -13,13 +13,13 @@ interface SwipeableCardProps {
   children: ReactNode;
   onSwipe: (direction: SwipeDirection) => void;
   disabled?: boolean;
-  key?: string | number; // カードが変わったことを検知するため
+  wordId?: string; // カードが変わったことを検知するため
 }
 
 const SWIPE_THRESHOLD_X = 100; // 左右スワイプの閾値（px）
 const SWIPE_THRESHOLD_Y = 80;  // 上スワイプの閾値（px）
 
-export function SwipeableCard({ children, onSwipe, disabled = false, key }: SwipeableCardProps) {
+export function SwipeableCard({ children, onSwipe, disabled = false, wordId }: SwipeableCardProps) {
   // ドラッグ中の座標を追跡
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -30,7 +30,7 @@ export function SwipeableCard({ children, onSwipe, disabled = false, key }: Swip
     controls.set({ x: 0, y: 0, rotate: 0, opacity: 1 });
     x.set(0);
     y.set(0);
-  }, [key, controls, x, y]);
+  }, [wordId, controls, x, y]);
 
   // xの値に応じて回転を計算
   const rotate = useTransform(x, [-150, 150], [-20, 20]);
