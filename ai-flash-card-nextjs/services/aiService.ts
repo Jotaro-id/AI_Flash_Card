@@ -2,6 +2,7 @@ import { AIWordInfo, SupportedLanguage } from '@/types';
 import { withExponentialBackoff } from '@/utils/retry';
 import { logger } from '@/utils/logger';
 import { aiWordInfoCache } from './aiCacheService';
+import { speechService } from './speechService';
 
 // Groq APIクライアントを使用
 async function callGroqAPI(action: string, data: Record<string, unknown>): Promise<unknown> {
@@ -133,6 +134,7 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       pronunciation?: string;
       example?: string;
       example_translation?: string;
+      english_example?: string;
       notes?: string;
     };
     
@@ -164,10 +166,10 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       wordClass: determineWordClass(word),
       grammaticalChanges,
       enhancedExample: {
-        originalLanguage: 'en' as SupportedLanguage,
+        originalLanguage: speechService.detectLanguage(word) as SupportedLanguage,
         originalSentence: resp.example || `Example sentence with "${word}".`,
         japaneseTranslation: resp.example_translation || `「${word}」を使った例文です。`,
-        englishTranslation: resp.example || `Example sentence with "${word}".`
+        englishTranslation: resp.english_example || (translations.en && translations.en !== word ? `Example: ${resp.example}` : resp.example) || `Example sentence with "${word}".`
       },
       translations: {
         spanish: translations.es || `Significado en español de "${word}"`,
