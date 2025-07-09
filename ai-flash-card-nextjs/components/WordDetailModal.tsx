@@ -53,23 +53,38 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 relative z-50">
               {onRegenerate && (
-                <button
+                <div 
                   onClick={(e) => {
-                    console.log('[WordDetailModal] Regenerate button clicked!');
-                    console.log('[WordDetailModal] onRegenerate function:', onRegenerate);
-                    console.log('[WordDetailModal] isRegenerating:', isRegenerating);
+                    console.log('[WordDetailModal] Wrapper div clicked!');
                     e.stopPropagation();
-                    e.preventDefault();
-                    onRegenerate();
                   }}
-                  disabled={isRegenerating}
-                  className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/20 rounded-lg"
-                  title="AI情報を再生成"
+                  className="relative"
                 >
-                  <RefreshCw size={20} className={isRegenerating ? 'animate-spin' : ''} />
-                </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      console.log('[WordDetailModal] Regenerate button clicked!');
+                      console.log('[WordDetailModal] onRegenerate function:', onRegenerate);
+                      console.log('[WordDetailModal] isRegenerating:', isRegenerating);
+                      console.log('[WordDetailModal] Event:', e);
+                      e.stopPropagation();
+                      e.preventDefault();
+                      if (onRegenerate && typeof onRegenerate === 'function') {
+                        console.log('[WordDetailModal] Calling onRegenerate...');
+                        onRegenerate();
+                      } else {
+                        console.error('[WordDetailModal] onRegenerate is not a function!');
+                      }
+                    }}
+                    disabled={isRegenerating}
+                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white p-3 rounded-lg transition-all duration-200 hover:scale-105 disabled:cursor-not-allowed"
+                    title="AI情報を再生成"
+                  >
+                    <RefreshCw size={24} className={isRegenerating ? 'animate-spin' : ''} />
+                  </button>
+                </div>
               )}
               <button
                 onClick={onClose}
