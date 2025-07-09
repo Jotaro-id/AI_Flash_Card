@@ -23,6 +23,8 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
   console.log('[WordDetailModal] Word:', word);
   console.log('[WordDetailModal] AI Info:', aiInfo);
   console.log('[WordDetailModal] Enhanced Example:', aiInfo.enhancedExample);
+  console.log('[WordDetailModal] onRegenerate prop:', onRegenerate);
+  console.log('[WordDetailModal] isRegenerating prop:', isRegenerating);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -54,7 +56,14 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
             <div className="flex items-center gap-2">
               {onRegenerate && (
                 <button
-                  onClick={onRegenerate}
+                  onClick={(e) => {
+                    console.log('[WordDetailModal] Regenerate button clicked!');
+                    console.log('[WordDetailModal] onRegenerate function:', onRegenerate);
+                    console.log('[WordDetailModal] isRegenerating:', isRegenerating);
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onRegenerate();
+                  }}
                   disabled={isRegenerating}
                   className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/20 rounded-lg"
                   title="AI情報を再生成"
