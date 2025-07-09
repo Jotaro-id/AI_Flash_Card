@@ -5,7 +5,7 @@ import { FileManager } from '@/components/FileManager';
 import { WordManager } from '@/components/WordManager';
 import { FlashcardContainer } from '@/components/FlashcardContainer';
 import { Auth } from '@/components/Auth';
-import { VocabularyFile, SupportedLanguage } from '@/types';
+import { VocabularyFile, SupportedLanguage, LearningStatus } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 // LocalStorageを使用するように変更
 import { 
@@ -191,6 +191,34 @@ export default function Home() {
     }
   };
 
+  const handleLearningStatusChange = async (wordId: string, status: LearningStatus) => {
+    if (!currentFile) return;
+    
+    logger.info('Updating learning status', { wordId, status });
+    
+    try {
+      // 単語の学習状況を更新
+      const updatedWords = currentFile.words.map(word => 
+        word.id === wordId 
+          ? { ...word, learningStatus: status }
+          : word
+      );
+      
+      const updatedFile = {
+        ...currentFile,
+        words: updatedWords
+      };
+      
+      // ファイルを保存
+      await updateVocabularyFile(updatedFile);
+      setCurrentFile(updatedFile);
+      
+      logger.info('Learning status updated successfully');
+    } catch (error) {
+      logger.error('Failed to update learning status:', error);
+    }
+  };
+
   const handleDiagnosticsClick = () => {
     debugLocalStorageData();
   };
@@ -275,6 +303,8 @@ export default function Home() {
             currentIndex={currentWordIndex}
             onIndexChange={setCurrentWordIndex}
             onBack={() => setAppState('word-manager')}
+            onLearningStatusChange={handleLearningStatusChange}
+            wordBookId={currentFile.id}
           />
         )}
     </div>

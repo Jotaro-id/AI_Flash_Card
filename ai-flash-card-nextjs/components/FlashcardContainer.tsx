@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { VocabularyFile } from '@/types';
+import { VocabularyFile, LearningStatus } from '@/types';
 import { Flashcard } from './Flashcard';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -8,6 +8,8 @@ interface FlashcardContainerProps {
   currentIndex: number;
   onIndexChange: (index: number) => void;
   onBack: () => void;
+  onLearningStatusChange?: (wordId: string, status: LearningStatus) => void;
+  wordBookId?: string;
 }
 
 export const FlashcardContainer: React.FC<FlashcardContainerProps> = ({
@@ -15,6 +17,8 @@ export const FlashcardContainer: React.FC<FlashcardContainerProps> = ({
   currentIndex,
   onIndexChange,
   onBack,
+  onLearningStatusChange,
+  wordBookId,
 }) => {
   const { currentTheme, setTheme, availableThemes } = useTheme();
   const [shuffledIndices, setShuffledIndices] = useState<number[]>(
@@ -81,6 +85,8 @@ export const FlashcardContainer: React.FC<FlashcardContainerProps> = ({
       currentTheme={currentTheme}
       availableThemes={availableThemes}
       onThemeChange={setTheme}
+      onLearningStatusChange={onLearningStatusChange}
+      wordBookId={wordBookId}
     />
   );
 };
