@@ -63,7 +63,7 @@ export interface AIWordInfo {
       gerund?: string;
       pastParticiple?: string;
       languageSpecific?: {
-        [key: string]: string;
+        [key: string]: string | undefined;
       };
     };
     genderNumberChanges?: {

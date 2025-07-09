@@ -36,102 +36,148 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
           
           {isExpanded && (
             <>
-              {/* 現在形 */}
-              <div className="mb-4">
-                <h4 className="text-white/90 font-medium mb-2">現在形</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-white/10">
-                    <th className="border border-white/20 text-white/80 p-2 text-center">人称</th>
-                    <th className="border border-white/20 text-white/80 p-2 text-center">単数</th>
-                    <th className="border border-white/20 text-white/80 p-2 text-center">複数</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-white/20 text-white/80 p-2 bg-white/5">1人称</td>
-                    <td className="border border-white/20 text-white font-medium p-2 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {conjugations.languageSpecific?.['present_1sg'] || conjugations.present}
-                        <SpeechButton 
-                          text={conjugations.languageSpecific?.['present_1sg'] || conjugations.present || ''} 
-                          language={targetLanguage} 
-                          size={14} 
-                        />
+              {/* 活用表を表示する関数 */}
+              {(() => {
+                const renderConjugationTable = (
+                  title: string,
+                  prefix: string,
+                  showIfAny: boolean = true
+                ) => {
+                  const hasConjugations = showIfAny ? 
+                    ['1sg', '2sg', '3sg', '1pl', '2pl', '3pl'].some(
+                      person => conjugations.languageSpecific?.[`${prefix}_${person}`]
+                    ) : true;
+
+                  if (!hasConjugations) return null;
+
+                  return (
+                    <div className="mb-4">
+                      <h4 className="text-white/90 font-medium mb-2">{title}</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm border-collapse">
+                          <thead>
+                            <tr className="bg-white/10">
+                              <th className="border border-white/20 text-white/80 p-2 text-center">人称</th>
+                              <th className="border border-white/20 text-white/80 p-2 text-center">単数</th>
+                              <th className="border border-white/20 text-white/80 p-2 text-center">複数</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td className="border border-white/20 text-white/80 p-2 bg-white/5">1人称</td>
+                              <td className="border border-white/20 text-white font-medium p-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  {conjugations.languageSpecific?.[`${prefix}_1sg`] || 
+                                   (prefix === 'present' ? conjugations.present : '')}
+                                  {(conjugations.languageSpecific?.[`${prefix}_1sg`] || 
+                                    (prefix === 'present' && conjugations.present)) && (
+                                    <SpeechButton 
+                                      text={conjugations.languageSpecific?.[`${prefix}_1sg`] || conjugations.present || ''} 
+                                      language={targetLanguage} 
+                                      size={14} 
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="border border-white/20 text-white font-medium p-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  {conjugations.languageSpecific?.[`${prefix}_1pl`]}
+                                  {conjugations.languageSpecific?.[`${prefix}_1pl`] && (
+                                    <SpeechButton 
+                                      text={conjugations.languageSpecific[`${prefix}_1pl`] || ''} 
+                                      language={targetLanguage} 
+                                      size={14} 
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="border border-white/20 text-white/80 p-2 bg-white/5">2人称</td>
+                              <td className="border border-white/20 text-white font-medium p-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  {conjugations.languageSpecific?.[`${prefix}_2sg`]}
+                                  {conjugations.languageSpecific?.[`${prefix}_2sg`] && (
+                                    <SpeechButton 
+                                      text={conjugations.languageSpecific[`${prefix}_2sg`] || ''} 
+                                      language={targetLanguage} 
+                                      size={14} 
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="border border-white/20 text-white font-medium p-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  {conjugations.languageSpecific?.[`${prefix}_2pl`]}
+                                  {conjugations.languageSpecific?.[`${prefix}_2pl`] && (
+                                    <SpeechButton 
+                                      text={conjugations.languageSpecific[`${prefix}_2pl`] || ''} 
+                                      language={targetLanguage} 
+                                      size={14} 
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="border border-white/20 text-white/80 p-2 bg-white/5">3人称</td>
+                              <td className="border border-white/20 text-white font-medium p-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  {conjugations.languageSpecific?.[`${prefix}_3sg`]}
+                                  {conjugations.languageSpecific?.[`${prefix}_3sg`] && (
+                                    <SpeechButton 
+                                      text={conjugations.languageSpecific[`${prefix}_3sg`] || ''} 
+                                      language={targetLanguage} 
+                                      size={14} 
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="border border-white/20 text-white font-medium p-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  {conjugations.languageSpecific?.[`${prefix}_3pl`]}
+                                  {conjugations.languageSpecific?.[`${prefix}_3pl`] && (
+                                    <SpeechButton 
+                                      text={conjugations.languageSpecific[`${prefix}_3pl`] || ''} 
+                                      language={targetLanguage} 
+                                      size={14} 
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
-                    </td>
-                    <td className="border border-white/20 text-white font-medium p-2 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {conjugations.languageSpecific?.['present_1pl']}
-                        {conjugations.languageSpecific?.['present_1pl'] && (
-                          <SpeechButton 
-                            text={conjugations.languageSpecific['present_1pl']} 
-                            language={targetLanguage} 
-                            size={14} 
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-white/20 text-white/80 p-2 bg-white/5">2人称</td>
-                    <td className="border border-white/20 text-white font-medium p-2 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {conjugations.languageSpecific?.['present_2sg']}
-                        {conjugations.languageSpecific?.['present_2sg'] && (
-                          <SpeechButton 
-                            text={conjugations.languageSpecific['present_2sg']} 
-                            language={targetLanguage} 
-                            size={14} 
-                          />
-                        )}
-                      </div>
-                    </td>
-                    <td className="border border-white/20 text-white font-medium p-2 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {conjugations.languageSpecific?.['present_2pl']}
-                        {conjugations.languageSpecific?.['present_2pl'] && (
-                          <SpeechButton 
-                            text={conjugations.languageSpecific['present_2pl']} 
-                            language={targetLanguage} 
-                            size={14} 
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-white/20 text-white/80 p-2 bg-white/5">3人称</td>
-                    <td className="border border-white/20 text-white font-medium p-2 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {conjugations.languageSpecific?.['present_3sg']}
-                        {conjugations.languageSpecific?.['present_3sg'] && (
-                          <SpeechButton 
-                            text={conjugations.languageSpecific['present_3sg']} 
-                            language={targetLanguage} 
-                            size={14} 
-                          />
-                        )}
-                      </div>
-                    </td>
-                    <td className="border border-white/20 text-white font-medium p-2 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {conjugations.languageSpecific?.['present_3pl']}
-                        {conjugations.languageSpecific?.['present_3pl'] && (
-                          <SpeechButton 
-                            text={conjugations.languageSpecific['present_3pl']} 
-                            language={targetLanguage} 
-                            size={14} 
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    </div>
+                  );
+                };
+
+                return (
+                  <>
+                    {/* 直接法現在形 */}
+                    {renderConjugationTable('直接法現在形', 'present', false)}
+                    
+                    {/* 点過去形 */}
+                    {renderConjugationTable('点過去形', 'preterite')}
+                    
+                    {/* 線過去形 */}
+                    {renderConjugationTable('線過去形', 'imperfect')}
+                    
+                    {/* 未来形 */}
+                    {renderConjugationTable('未来形', 'future')}
+                    
+                    {/* 条件法現在 */}
+                    {renderConjugationTable('条件法現在', 'conditional')}
+                    
+                    {/* 接続法現在 */}
+                    {renderConjugationTable('接続法現在', 'subjunctive_present')}
+                    
+                    {/* 接続法過去 */}
+                    {renderConjugationTable('接続法過去', 'subjunctive_past')}
+                  </>
+                );
+              })()}
 
           {/* その他の時制 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

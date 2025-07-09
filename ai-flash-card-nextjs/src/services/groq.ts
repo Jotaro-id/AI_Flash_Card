@@ -223,7 +223,54 @@ export class GroqService {
     "zh": "${word}の中国語訳（簡体字）",
     "ko": "${word}の韓国語訳"
   },
-  "conjugations": "動詞の活用形や名詞・形容詞の性数変化（該当する場合のみ）"
+  "conjugations": ${word}が動詞の場合、以下の形式で活用形を詳細に記載してください。動詞以外の場合は、名詞・形容詞の性数変化を記載してください：
+  {
+    "verbConjugations": {
+      "present": "現在形の基本形",
+      "past": "過去形",
+      "future": "未来形",
+      "gerund": "動名詞",
+      "pastParticiple": "過去分詞",
+      "languageSpecific": {
+        "present_1sg": "現在形1人称単数",
+        "present_2sg": "現在形2人称単数",
+        "present_3sg": "現在形3人称単数",
+        "present_1pl": "現在形1人称複数",
+        "present_2pl": "現在形2人称複数",
+        "present_3pl": "現在形3人称複数",
+        "preterite_1sg": "点過去形1人称単数（スペイン語等）",
+        "preterite_2sg": "点過去形2人称単数",
+        "preterite_3sg": "点過去形3人称単数",
+        "preterite_1pl": "点過去形1人称複数",
+        "preterite_2pl": "点過去形2人称複数",
+        "preterite_3pl": "点過去形3人称複数",
+        "imperfect_1sg": "線過去形1人称単数（スペイン語等）",
+        "imperfect_2sg": "線過去形2人称単数",
+        "imperfect_3sg": "線過去形3人称単数",
+        "imperfect_1pl": "線過去形1人称複数",
+        "imperfect_2pl": "線過去形2人称複数",
+        "imperfect_3pl": "線過去形3人称複数",
+        "future_1sg": "未来形1人称単数",
+        "future_2sg": "未来形2人称単数",
+        "future_3sg": "未来形3人称単数",
+        "future_1pl": "未来形1人称複数",
+        "future_2pl": "未来形2人称複数",
+        "future_3pl": "未来形3人称複数",
+        "conditional_1sg": "条件法現在1人称単数",
+        "conditional_2sg": "条件法現在2人称単数",
+        "conditional_3sg": "条件法現在3人称単数",
+        "conditional_1pl": "条件法現在1人称複数",
+        "conditional_2pl": "条件法現在2人称複数",
+        "conditional_3pl": "条件法現在3人称複数",
+        "subjunctive_present_1sg": "接続法現在1人称単数",
+        "subjunctive_present_2sg": "接続法現在2人称単数",
+        "subjunctive_present_3sg": "接続法現在3人称単数",
+        "subjunctive_present_1pl": "接続法現在1人称複数",
+        "subjunctive_present_2pl": "接続法現在2人称複数",
+        "subjunctive_present_3pl": "接続法現在3人称複数"
+      }
+    }
+  }
 }`;
     
     return prompt;
