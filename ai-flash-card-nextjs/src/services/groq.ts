@@ -94,10 +94,70 @@ export class GroqService {
     translations: Record<string, string>;
     conjugations?: string;
   }> {
+    if (!this.isConfigured) {
+      return this.parseFlashcardResponse(this.generateFallbackWordInfo(word), word);
+    }
+
     const prompt = this.createFlashcardPrompt(word, context, difficulty);
     
-    const response = await this.generateWordInfo(prompt);
-    return this.parseFlashcardResponse(response, word);
+    for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
+      try {
+        const completion = await this.groq!.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: `あなたは多言語の単語学習を支援する専門家です。必ずJSON形式のみで回答してください。追加の説明や前置きは一切不要です。
+
+以下は期待される出力の例です：
+{
+  "word": "beautiful",
+  "meaning": "美しい、きれいな",
+  "pronunciation": "/ˈbjuːtɪfəl/",
+  "example": "The sunset over the ocean was absolutely beautiful, painting the sky in shades of orange and pink.",
+  "example_translation": "海に沈む夕日は本当に美しく、空をオレンジとピンクの色合いに染めていました。",
+  "english_example": "The sunset over the ocean was absolutely beautiful, painting the sky in shades of orange and pink.",
+  "notes": "感情を表現する形容詞で、人・物・風景など幅広く使えます。"
+}`
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          model: "llama-3.3-70b-versatile",
+          temperature: 0.3,
+          max_tokens: 2048,
+        });
+
+        const content = completion.choices[0]?.message?.content || '';
+        console.log('Groq generateFlashcard response:', content);
+        
+        // レスポンスの検証
+        const parsed = this.validateAndParseJSON(content);
+        if (parsed && 'example' in parsed && 'example_translation' in parsed) {
+          const example = parsed.example as string;
+          const exampleTranslation = parsed.example_translation as string;
+          if (!example || example.trim() === '' || !exampleTranslation || exampleTranslation.trim() === '') {
+            console.warn('Empty example or translation detected, retrying with enhanced prompt...');
+            if (attempt < this.MAX_RETRIES - 1) {
+              await this.delay(this.RETRY_DELAY * (attempt + 1));
+              continue;
+            }
+          }
+        }
+        
+        return this.parseFlashcardResponse(content, word);
+      } catch (error) {
+        if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429 && attempt < this.MAX_RETRIES - 1) {
+          // レート制限エラーの場合、リトライ
+          await this.delay(this.RETRY_DELAY * (attempt + 1));
+          continue;
+        }
+        throw error;
+      }
+    }
+    
+    throw new Error('Max retries exceeded');
   }
 
   private createWordInfoPrompt(word: string, targetLanguage: string): string {
@@ -174,6 +234,8 @@ export class GroqService {
     meaning: string;
     pronunciation: string;
     example: string;
+    example_translation?: string;
+    english_example?: string;
     notes: string;
     translations: Record<string, string>;
     conjugations?: string;
@@ -197,6 +259,8 @@ export class GroqService {
         meaning: parsed.meaning || '',
         pronunciation: parsed.pronunciation || '',
         example: parsed.example || '',
+        example_translation: parsed.example_translation,
+        english_example: parsed.english_example,
         notes,
         translations: parsed.translations || {},
         conjugations: parsed.conjugations
@@ -222,6 +286,8 @@ export class GroqService {
       meaning: 'エラー: 単語情報の取得に失敗しました',
       pronunciation: '',
       example: '',
+      example_translation: undefined,
+      english_example: undefined,
       notes: '',
       translations: {},
       conjugations: undefined
