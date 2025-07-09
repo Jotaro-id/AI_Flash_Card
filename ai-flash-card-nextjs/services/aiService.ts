@@ -126,6 +126,8 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
 
 // Groqの回答をパースしてAIWordInfo形式に変換
 const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
+  console.log('[aiService] Parsing Groq response for word:', word);
+  console.log('[aiService] Raw response:', response);
   try {
     const resp = response as {
       translations?: Record<string, string>;
@@ -155,6 +157,21 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       }
     }
     
+    const detectedLanguage = speechService.detectLanguage(word) as SupportedLanguage;
+    console.log('[aiService] Detected language for', word, ':', detectedLanguage);
+    console.log('[aiService] example:', resp.example);
+    console.log('[aiService] example_translation:', resp.example_translation);
+    console.log('[aiService] english_example:', resp.english_example);
+    
+    const enhancedExample = {
+      originalLanguage: detectedLanguage,
+      originalSentence: resp.example || `Example sentence with "${word}".`,
+      japaneseTranslation: resp.example_translation || `「${word}」を使った例文です。`,
+      englishTranslation: resp.english_example || (translations.en && translations.en !== word ? `Example: ${resp.example}` : resp.example) || `Example sentence with "${word}".`
+    };
+    
+    console.log('[aiService] Created enhancedExample:', enhancedExample);
+    
     return {
       englishEquivalent: translations.en || `English meaning of "${word}"`,
       japaneseEquivalent: translations.ja || resp.meaning || `${word}の日本語意味`,
@@ -165,12 +182,7 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       usageNotes: resp.notes || `Usage notes for "${word}".`,
       wordClass: determineWordClass(word),
       grammaticalChanges,
-      enhancedExample: {
-        originalLanguage: speechService.detectLanguage(word) as SupportedLanguage,
-        originalSentence: resp.example || `Example sentence with "${word}".`,
-        japaneseTranslation: resp.example_translation || `「${word}」を使った例文です。`,
-        englishTranslation: resp.english_example || (translations.en && translations.en !== word ? `Example: ${resp.example}` : resp.example) || `Example sentence with "${word}".`
-      },
+      enhancedExample,
       translations: {
         spanish: translations.es || `Significado en español de "${word}"`,
         french: translations.fr || `Signification française de "${word}"`,
