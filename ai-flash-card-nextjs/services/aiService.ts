@@ -5,21 +5,34 @@ import { aiWordInfoCache } from './aiCacheService';
 
 // Groq APIクライアントを使用
 async function callGroqAPI(action: string, data: Record<string, unknown>): Promise<unknown> {
-  const response = await fetch('/api/groq', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ action, ...data }),
-  });
+  try {
+    const response = await fetch('/api/groq', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, ...data }),
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Groq API request failed');
+    // レスポンスのコンテンツタイプを確認
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('Non-JSON response:', text);
+      throw new Error('Server returned non-JSON response. API route may not be found.');
+    }
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Groq API request failed');
+    }
+
+    const result = await response.json();
+    return result.data;
+  } catch (error) {
+    console.error('CallGroqAPI error:', error);
+    throw error;
   }
-
-  const result = await response.json();
-  return result.data;
 }
 
 // Groq APIを使用した単語情報生成サービス

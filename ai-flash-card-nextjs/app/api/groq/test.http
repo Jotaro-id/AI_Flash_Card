@@ -1,0 +1,8 @@
+### Test Groq API endpoint
+POST http://localhost:3000/api/groq
+Content-Type: application/json
+
+{
+  "action": "generateFlashcard",
+  "word": "hello"
+}

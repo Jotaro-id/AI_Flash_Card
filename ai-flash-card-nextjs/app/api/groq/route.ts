@@ -3,6 +3,15 @@ import { GroqService } from '@/src/services/groq';
 
 export async function POST(request: NextRequest) {
   try {
+    // 環境変数の確認
+    if (!process.env.GROQ_API_KEY) {
+      console.error('GROQ_API_KEY is not set');
+      return NextResponse.json(
+        { error: 'Groq API configuration error' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { word, action, context, difficulty, targetLanguage } = body;
 
@@ -36,6 +45,10 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('Groq API error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     
     if (error instanceof Error && 'status' in error && (error as { status: number }).status === 429) {
       return NextResponse.json(
