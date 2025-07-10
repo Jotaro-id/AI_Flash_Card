@@ -7,7 +7,7 @@ import { FillBlanksExercise } from './conjugation/FillBlanksExercise';
 import { SpellInputExercise } from './conjugation/SpellInputExercise';
 import { TenseMoodSelector } from './conjugation/TenseMoodSelector';
 import { PracticeFilter, FilterSettings } from './conjugation/PracticeFilter';
-import { conjugationHistoryService } from '@/services/conjugationHistoryService';
+import { conjugationHistoryService } from '@/services/conjugationHistoryLocalService';
 import { logger } from '@/utils/logger';
 
 interface VerbConjugationContainerProps {
@@ -137,21 +137,9 @@ export function VerbConjugationContainer({
             .map(stat => stat.word_card_id);
           filtered = verbs.filter(v => v.id && dueVerbIds.includes(v.id));
         } else if (filterSettings.mode === 'custom') {
-          // カスタムフィルター
-          const customStats = relevantStats.filter(stat => {
-            if (filterSettings.includeTenses && stat.tense && !filterSettings.includeTenses.includes(stat.tense)) {
-              return false;
-            }
-            if (filterSettings.includeMoods && stat.mood && !filterSettings.includeMoods.includes(stat.mood)) {
-              return false;
-            }
-            if (filterSettings.includePersons && stat.person && !filterSettings.includePersons.includes(stat.person)) {
-              return false;
-            }
-            return true;
-          });
-          const customVerbIds = [...new Set(customStats.map(stat => stat.word_card_id))];
-          filtered = verbs.filter(v => v.id && customVerbIds.includes(v.id));
+          // カスタムフィルター（現在は全ての動詞を表示）
+          // TODO: 履歴データから詳細なフィルタリングを実装
+          filtered = verbs;
         }
 
         setFilteredVerbs(filtered);

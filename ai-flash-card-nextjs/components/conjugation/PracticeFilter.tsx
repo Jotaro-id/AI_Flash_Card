@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Filter, BarChart3, Target, Clock } from 'lucide-react';
-import { conjugationHistoryService, ConjugationStats } from '@/services/conjugationHistoryService';
+import { conjugationHistoryService, ConjugationStats } from '@/services/conjugationHistoryLocalService';
 import { logger } from '@/utils/logger';
 
 interface PracticeFilterProps {

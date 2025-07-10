@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { conjugationHistoryService, ConjugationHistoryEntry } from '@/services/conjugationHistoryService';
+import { conjugationHistoryService, ConjugationHistoryEntry } from '@/services/conjugationHistoryLocalService';
 import { logger } from '@/utils/logger';
 
 interface TrackingParams {
