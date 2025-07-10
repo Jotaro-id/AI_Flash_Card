@@ -79,6 +79,7 @@ export default function Home() {
             email: supabaseUser.email,
             id: supabaseUser.id 
           });
+          console.log('[Auth] Initial check: Setting isSupabaseUser to true');
           setIsAuthenticated(true);
           setIsSupabaseUser(true);
           setCurrentUser({ 
@@ -120,8 +121,10 @@ export default function Home() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         logger.info('Auth state changed', { event, user: session?.user?.email });
+        console.log('onAuthStateChange triggered:', { event, session });
         
         if (session?.user) {
+          console.log('[Auth] onAuthStateChange: Setting isSupabaseUser to true');
           setIsAuthenticated(true);
           setIsSupabaseUser(true);
           setCurrentUser({ 
@@ -133,11 +136,13 @@ export default function Home() {
           // Supabaseからログアウトした場合、ローカルストレージもチェック
           const localUser = await getCurrentUser();
           if (!localUser) {
+            console.log('[Auth] Setting isSupabaseUser to false (no user)');
             setIsAuthenticated(false);
             setIsSupabaseUser(false);
             setCurrentUser(null);
             setFiles([]);
           } else {
+            console.log('[Auth] Setting isSupabaseUser to false (local user)');
             setIsSupabaseUser(false);
           }
         }
@@ -291,8 +296,24 @@ export default function Home() {
     }
   };
 
-  const handleDiagnosticsClick = () => {
+  const handleDiagnosticsClick = async () => {
     debugLocalStorageData();
+    
+    // 認証と同期状態も確認
+    console.log('\n=== 認証・同期状態の確認 ===');
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      console.log('✅ Supabaseユーザーとしてログイン中');
+      console.log('ユーザーID:', user.id);
+      console.log('メールアドレス:', user.email);
+    } else {
+      console.log('❌ Supabaseユーザーとしてログインしていません');
+    }
+    
+    console.log('[Debug] isSupabaseUser state:', isSupabaseUser);
+    console.log('[Debug] isAuthenticated state:', isAuthenticated);
+    console.log('[Debug] currentUser:', currentUser);
   };
 
   if (!isAuthenticated && isLoading) {
@@ -342,7 +363,17 @@ export default function Home() {
       {/* 同期ステータス表示（Supabaseユーザーのみ） */}
       {isSupabaseUser && (
         <div className="fixed top-4 right-4 z-50">
+          {console.log('[Debug] SyncStatus コンポーネントを表示します')}
           <SyncStatus showDetails={true} />
+        </div>
+      )}
+      
+      {/* デバッグ情報 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 left-4 text-xs text-gray-500 bg-white/80 p-2 rounded">
+          <div>Auth: {isAuthenticated ? '✓' : '✗'}</div>
+          <div>Supabase: {isSupabaseUser ? '✓' : '✗'}</div>
+          <div>User: {currentUser?.email || 'none'}</div>
         </div>
       )}
       

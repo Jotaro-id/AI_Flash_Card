@@ -55,7 +55,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           
           if (data.user) {
             console.log('Supabase新規登録成功:', { email });
-            onSuccess(email);
+            // Supabaseサインアップの場合、onSuccessは呼ばない
+            // 認証状態の変更はonAuthStateChangeで処理される
+            setError('サインアップ成功！ログインしてください。');
           } else {
             throw new Error('確認メールをチェックしてください');
           }
@@ -69,7 +71,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           
           if (data.user) {
             console.log('Supabaseログイン成功:', { email });
-            onSuccess(email);
+            // Supabaseログインの場合、onSuccessは呼ばない
+            // 認証状態の変更はonAuthStateChangeで処理される
+            // ページをリロードして認証状態を反映
+            setTimeout(() => {
+              window.location.reload();
+            }, 500);
           } else {
             throw new Error('ログインに失敗しました');
           }

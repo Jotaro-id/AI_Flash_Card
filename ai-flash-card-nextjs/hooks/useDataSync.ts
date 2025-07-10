@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { dataSyncService } from '@/services/dataSyncService';
+import { supabase } from '@/lib/supabase';
 
 interface SyncStatus {
   lastSyncTime: string | null;
@@ -80,15 +81,7 @@ export const useDataSync = () => {
     };
   }, [updateSyncStatus]);
 
-  // アプリ開始時に定期同期を開始
-  useEffect(() => {
-    startPeriodicSync();
-    
-    // アプリ終了時に定期同期を停止
-    return () => {
-      stopPeriodicSync();
-    };
-  }, [startPeriodicSync, stopPeriodicSync]);
+  // 定期同期の管理はSyncStatusコンポーネントで行うため、ここでは行わない
 
   return {
     syncStatus,

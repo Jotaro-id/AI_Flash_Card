@@ -126,12 +126,25 @@ class DataSyncService {
         for (const word of file.words || []) {
           try {
             // 単語カードが存在するか確認
-            const { data: existingCard } = await supabase
+            const { data: existingCard, error: selectError } = await supabase
               .from('word_cards')
               .select('id')
               .eq('word', word.word)
               .eq('user_id', userId)
-              .single();
+              .maybeSingle();
+
+            if (selectError) {
+              console.error('word_cards SELECT error:', {
+                error: selectError,
+                code: selectError.code,
+                details: selectError.details,
+                hint: selectError.hint,
+                message: selectError.message,
+                word: word.word,
+                userId
+              });
+              throw selectError;
+            }
 
             const wordCardId = existingCard?.id || word.id;
 
@@ -154,30 +167,65 @@ class DataSyncService {
                 .eq('id', wordCardId)
                 .eq('user_id', userId);
 
-              if (error) throw error;
+              if (error) {
+                console.error('word_cards UPDATE error:', {
+                  error,
+                  code: error.code,
+                  details: error.details,
+                  hint: error.hint,
+                  message: error.message,
+                  wordCardId,
+                  userId
+                });
+                throw error;
+              }
             } else {
               // 新規作成
+              const insertData = {
+                id: wordCardId,
+                word: word.word,
+                user_id: userId,
+                ai_generated_info: word.aiGenerated,
+                english_equivalent: word.aiGenerated?.englishEquivalent || null,
+                japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
+                pronunciation: word.aiGenerated?.pronunciation || null,
+                example_sentence: word.aiGenerated?.exampleSentence || null,
+                usage_notes: word.aiGenerated?.usageNotes || null,
+                word_class: word.aiGenerated?.wordClass || null,
+                gender_variations: null,
+                tense_variations: null,
+                created_at: word.createdAt || new Date().toISOString()
+              };
+
+              console.log('Attempting to insert word_card:', insertData);
+
               const { error } = await supabase
                 .from('word_cards')
-                .insert({
-                  id: wordCardId,
-                  word: word.word,
-                  user_id: userId,
-                  ai_generated_info: word.aiGenerated,
-                  english_equivalent: word.aiGenerated?.englishEquivalent || null,
-                  japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
-                  pronunciation: word.aiGenerated?.pronunciation || null,
-                  example_sentence: word.aiGenerated?.exampleSentence || null,
-                  usage_notes: word.aiGenerated?.usageNotes || null,
-                  word_class: word.aiGenerated?.wordClass || null,
-                  gender_variations: null,
-                  tense_variations: null,
-                  created_at: word.createdAt || new Date().toISOString()
-                })
+                .insert(insertData)
                 .select()
                 .single();
 
-              if (error) throw error;
+              if (error) {
+                console.error('word_cards INSERT error:', {
+                  error: error,
+                  errorString: JSON.stringify(error),
+                  code: error?.code || 'unknown',
+                  details: error?.details || 'no details',
+                  hint: error?.hint || 'no hint',
+                  message: error?.message || 'no message',
+                  insertData
+                });
+                
+                // Supabaseの認証状態を確認
+                const { data: { user } } = await supabase.auth.getUser();
+                console.error('Current auth state:', {
+                  userId: user?.id,
+                  userEmail: user?.email,
+                  insertUserId: userId
+                });
+                
+                throw error;
+              }
             }
 
             // 単語帳と単語の関連を作成
@@ -195,7 +243,9 @@ class DataSyncService {
 
             syncedCount++;
           } catch (error) {
-            errors.push(`単語「${word.word}」の同期エラー: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`単語「${word.word}」の同期エラー:`, error);
+            errors.push(`単語「${word.word}」の同期エラー: ${errorMessage}`);
           }
         }
       }
@@ -287,7 +337,10 @@ class DataSyncService {
    * すべてのデータを同期
    */
   async syncAllData(): Promise<SyncResult> {
+    console.log('[DataSync] syncAllData が呼ばれました', new Date().toISOString());
+    
     if (this.syncStatus.isSyncing) {
+      console.log('[DataSync] 同期処理が既に実行中のためスキップ');
       return {
         success: false,
         syncedItems: { wordBooks: 0, wordCards: 0, conjugationHistory: 0, settings: 0 },
@@ -295,6 +348,7 @@ class DataSyncService {
       };
     }
 
+    console.log('[DataSync] 同期処理を開始します');
     this.syncStatus.isSyncing = true;
     this.syncStatus.errors = [];
     this.saveSyncStatus();
@@ -312,27 +366,43 @@ class DataSyncService {
 
     try {
       // ログイン中のユーザーIDを取得
+      console.log('[DataSync] Supabaseへの接続を確認中...');
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
+      
+      if (authError) {
+        console.error('[DataSync] Supabase認証エラー:', authError);
+        throw new Error(`ユーザー認証エラー: ${authError.message}`);
+      }
+      
+      if (!user) {
+        console.log('[DataSync] ユーザーがログインしていません');
         throw new Error('ユーザー認証エラー: ログインしてください');
       }
+      
+      console.log('[DataSync] Supabase接続成功 - ユーザーID:', user.id);
 
       // 各データを同期
+      console.log('[DataSync] 単語帳の同期を開始...');
       const wordBooksResult = await this.syncWordBooks(user.id);
       result.syncedItems.wordBooks = wordBooksResult.count;
       result.errors.push(...wordBooksResult.errors);
+      console.log('[DataSync] 単語帳の同期完了:', wordBooksResult.count, '件');
 
+      console.log('[DataSync] 単語カードの同期を開始...');
       const wordCardsResult = await this.syncWordCards(user.id);
       result.syncedItems.wordCards = wordCardsResult.count;
       result.errors.push(...wordCardsResult.errors);
+      console.log('[DataSync] 単語カードの同期完了:', wordCardsResult.count, '件');
 
       // 動詞活用履歴の同期は一時的に無効化（テーブル作成後に有効化）
       try {
+        console.log('[DataSync] 動詞活用履歴の同期を開始...');
         const historyResult = await this.syncConjugationHistory(user.id);
         result.syncedItems.conjugationHistory = historyResult.count;
         result.errors.push(...historyResult.errors);
+        console.log('[DataSync] 動詞活用履歴の同期完了:', historyResult.count, '件');
       } catch (error) {
-        console.warn('動詞活用履歴テーブルが存在しません。マイグレーションを実行してください。');
+        console.warn('[DataSync] 動詞活用履歴テーブルが存在しません。マイグレーションを実行してください。');
         result.syncedItems.conjugationHistory = 0;
         result.errors.push('動詞活用履歴テーブルが見つかりません（マイグレーション未実行）');
       }
@@ -344,14 +414,23 @@ class DataSyncService {
       if (result.errors.length > 0) {
         result.success = false;
         this.syncStatus.errors = result.errors;
+        console.log('[DataSync] 同期完了（エラーあり）:', result.errors.length, '件のエラー');
+      } else {
+        console.log('[DataSync] 同期が正常に完了しました');
       }
     } catch (error) {
+      console.error('[DataSync] 同期処理でエラーが発生:', error);
       result.success = false;
       result.errors.push(`同期エラー: ${error}`);
       this.syncStatus.errors = result.errors;
     } finally {
       this.syncStatus.isSyncing = false;
       this.saveSyncStatus();
+      console.log('[DataSync] 同期処理終了 - 結果:', {
+        success: result.success,
+        syncedItems: result.syncedItems,
+        errorCount: result.errors.length
+      });
     }
 
     return result;
@@ -361,26 +440,40 @@ class DataSyncService {
    * 定期同期を開始
    */
   startPeriodicSync(): void {
+    console.log('[DataSync] startPeriodicSync が呼ばれました');
+    
     if (this.syncIntervalId) {
+      console.log('[DataSync] 定期同期は既に実行中です（IntervalID:', this.syncIntervalId, '）');
       return; // 既に実行中
     }
 
+    console.log('[DataSync] 定期同期を開始します（間隔:', this.SYNC_INTERVAL, 'ms）');
+    
     // 初回同期
+    console.log('[DataSync] 初回同期を実行します');
     this.syncAllData();
 
     // 定期実行
     this.syncIntervalId = window.setInterval(() => {
+      console.log('[DataSync] 定期同期タイマーが発火しました');
       this.syncAllData();
     }, this.SYNC_INTERVAL);
+    
+    console.log('[DataSync] 定期同期が設定されました（IntervalID:', this.syncIntervalId, '）');
   }
 
   /**
    * 定期同期を停止
    */
   stopPeriodicSync(): void {
+    console.log('[DataSync] stopPeriodicSync が呼ばれました');
+    
     if (this.syncIntervalId) {
+      console.log('[DataSync] 定期同期を停止します（IntervalID:', this.syncIntervalId, '）');
       window.clearInterval(this.syncIntervalId);
       this.syncIntervalId = null;
+    } else {
+      console.log('[DataSync] 定期同期は実行されていません');
     }
   }
 

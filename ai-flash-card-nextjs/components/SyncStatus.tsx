@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useDataSync } from '@/hooks/useDataSync';
 import { RotateCw, CheckCircle, AlertCircle, Clock, WifiOff } from 'lucide-react';
 
@@ -15,7 +15,9 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
     syncStatus, 
     lastSyncResult, 
     syncNow, 
-    clearErrors 
+    clearErrors,
+    startPeriodicSync,
+    stopPeriodicSync 
   } = useDataSync();
 
   const formatTime = (dateString: string | null): string => {
@@ -67,6 +69,20 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
     
     return '未同期';
   };
+
+  // Supabaseユーザーのみ定期同期を開始
+  useEffect(() => {
+    console.log('[SyncStatus] コンポーネントがマウントされました');
+    console.log('[SyncStatus] 定期同期を開始します');
+    startPeriodicSync();
+    
+    // コンポーネントのアンマウント時に停止
+    return () => {
+      console.log('[SyncStatus] コンポーネントがアンマウントされます');
+      console.log('[SyncStatus] 定期同期を停止します');
+      stopPeriodicSync();
+    };
+  }, [startPeriodicSync, stopPeriodicSync]);
 
   const handleSyncNow = async () => {
     try {

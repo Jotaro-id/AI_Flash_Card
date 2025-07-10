@@ -38,6 +38,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 1. Supabaseダッシュボードの **SQL Editor** を開く
 2. `supabase/migrations/20250110000002_add_missing_tables_fixed.sql` の内容を実行
 
+#### トラブルシューティング
+
+**word_cardsテーブルのエラーが発生する場合：**
+1. Supabaseダッシュボードの **SQL Editor** を開く
+2. `scripts/fix-word-cards-table.sql` の内容を実行
+3. これにより、word_cardsテーブルの構造が正しく修正されます
+
+**診断が必要な場合：**
+1. `scripts/diagnose-word-cards.sql` を実行して、現在のテーブル構造を確認できます
+
 ### 3. 認証の設定
 
 Supabaseダッシュボードの **Authentication** > **Settings** で：
