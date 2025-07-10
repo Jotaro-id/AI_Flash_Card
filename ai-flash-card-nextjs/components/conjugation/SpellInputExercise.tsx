@@ -14,6 +14,10 @@ interface SpellInputExerciseProps {
   mood: string;
   onComplete: () => void;
   filterSettings?: FilterSettings;
+  currentVerbIndex?: number;
+  totalVerbCount?: number;
+  onPreviousVerb?: () => void;
+  onNextVerb?: () => void;
 }
 
 interface Question {
@@ -27,7 +31,11 @@ export function SpellInputExercise({
   tense,
   mood,
   onComplete,
-  filterSettings
+  filterSettings,
+  currentVerbIndex = 0,
+  totalVerbCount = 1,
+  onPreviousVerb,
+  onNextVerb
 }: SpellInputExerciseProps) {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -333,7 +341,7 @@ export function SpellInputExercise({
   return (
     <div>
       {/* 進捗表示とナビゲーション */}
-      <div className="flex items-center justify-center gap-4 mb-6">
+      <div className="flex items-center justify-center gap-4 mb-2">
         <button
           onClick={goToPreviousQuestion}
           disabled={currentQuestionIndex === 0}
@@ -357,6 +365,34 @@ export function SpellInputExercise({
           aria-label="次の問題"
         >
           <ChevronRight size={24} />
+        </button>
+      </div>
+
+      {/* 動詞単位のナビゲーション */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        <button
+          onClick={onPreviousVerb}
+          disabled={!onPreviousVerb || currentVerbIndex === 0}
+          className={`p-2 rounded-lg transition-colors ${
+            !onPreviousVerb || currentVerbIndex === 0
+              ? 'text-gray-300 cursor-not-allowed'
+              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+          }`}
+          aria-label="前の動詞"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        
+        <div className="text-sm text-gray-600">
+          動詞: {currentVerbIndex + 1} / {totalVerbCount}
+        </div>
+        
+        <button
+          onClick={onNextVerb || onComplete}
+          className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="次の動詞"
+        >
+          <ChevronRight size={20} />
         </button>
       </div>
 

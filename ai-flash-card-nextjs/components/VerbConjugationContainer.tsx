@@ -347,6 +347,10 @@ export function VerbConjugationContainer({
                 mood={selectedMood}
                 onComplete={handleNextVerb}
                 filterSettings={filterSettings}
+                currentVerbIndex={filteredVerbs.findIndex(v => v.id === currentVerb?.id)}
+                totalVerbCount={filteredVerbs.length}
+                onPreviousVerb={handlePreviousVerb}
+                onNextVerb={handleNextVerb}
               />
             )}
           </>
