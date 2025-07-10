@@ -6,6 +6,8 @@ import { VocabularyFile, Word, SupportedLanguage } from '@/types';
 import { FillBlanksExercise } from './conjugation/FillBlanksExercise';
 import { SpellInputExercise } from './conjugation/SpellInputExercise';
 import { TenseMoodSelector } from './conjugation/TenseMoodSelector';
+import { PracticeFilter, FilterSettings } from './conjugation/PracticeFilter';
+import { conjugationHistoryService } from '@/services/conjugationHistoryService';
 import { logger } from '@/utils/logger';
 
 interface VerbConjugationContainerProps {
@@ -22,10 +24,16 @@ export function VerbConjugationContainer({
   targetLanguage 
 }: VerbConjugationContainerProps) {
   const [verbs, setVerbs] = useState<Word[]>([]);
+  const [filteredVerbs, setFilteredVerbs] = useState<Word[]>([]);
   const [currentVerb, setCurrentVerb] = useState<Word | null>(null);
   const [practiceType, setPracticeType] = useState<PracticeType>('fill-blanks');
   const [selectedTense, setSelectedTense] = useState<string>('present');
   const [selectedMood, setSelectedMood] = useState<string>('indicative');
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({
+    mode: 'all',
+    accuracyThreshold: 80
+  });
+  const [showFilter, setShowFilter] = useState(false);
   
   useEffect(() => {
     // 動詞のみをフィルタリング（原型でない動詞は除外）
@@ -73,6 +81,7 @@ export function VerbConjugationContainer({
     );
     logger.info('Filtered verbs:', { count: filteredVerbs.length });
     setVerbs(filteredVerbs);
+    setFilteredVerbs(filteredVerbs); // 初期状態では全ての動詞を表示
     
     if (filteredVerbs.length > 0) {
       setCurrentVerb(filteredVerbs[0]);
@@ -81,16 +90,80 @@ export function VerbConjugationContainer({
     }
   }, [vocabularyFile, targetLanguage]);
 
+  // フィルター設定に基づいて動詞をフィルタリング
+  useEffect(() => {
+    const applyFilter = async () => {
+      if (filterSettings.mode === 'all') {
+        setFilteredVerbs(verbs);
+        return;
+      }
+
+      try {
+        // 統計情報を取得
+        const stats = await conjugationHistoryService.getUserStats();
+        const verbIds = verbs.map(v => v.id).filter(Boolean);
+        const relevantStats = stats.filter(stat => verbIds.includes(stat.word_card_id));
+
+        let filtered = verbs;
+
+        if (filterSettings.mode === 'weak') {
+          // 苦手な動詞のみ
+          const weakVerbIds = relevantStats
+            .filter(stat => stat.accuracy_rate < filterSettings.accuracyThreshold)
+            .map(stat => stat.word_card_id);
+          filtered = verbs.filter(v => v.id && weakVerbIds.includes(v.id));
+        } else if (filterSettings.mode === 'due') {
+          // 復習が必要な動詞のみ
+          const now = new Date();
+          const dueVerbIds = relevantStats
+            .filter(stat => new Date(stat.next_review_at) <= now)
+            .map(stat => stat.word_card_id);
+          filtered = verbs.filter(v => v.id && dueVerbIds.includes(v.id));
+        } else if (filterSettings.mode === 'custom') {
+          // カスタムフィルター
+          const customStats = relevantStats.filter(stat => {
+            if (filterSettings.includeTenses && !filterSettings.includeTenses.includes(stat.tense)) {
+              return false;
+            }
+            if (filterSettings.includeMoods && !filterSettings.includeMoods.includes(stat.mood)) {
+              return false;
+            }
+            if (filterSettings.includePersons && !filterSettings.includePersons.includes(stat.person)) {
+              return false;
+            }
+            return true;
+          });
+          const customVerbIds = [...new Set(customStats.map(stat => stat.word_card_id))];
+          filtered = verbs.filter(v => v.id && customVerbIds.includes(v.id));
+        }
+
+        setFilteredVerbs(filtered);
+        if (filtered.length > 0 && !filtered.find(v => v.id === currentVerb?.id)) {
+          setCurrentVerb(filtered[0]);
+        }
+      } catch (error) {
+        logger.error('Failed to apply filter:', error);
+        setFilteredVerbs(verbs);
+      }
+    };
+
+    applyFilter();
+  }, [filterSettings, verbs, currentVerb]);
+
   const handleNextVerb = () => {
-    const currentIndex = verbs.findIndex(v => v.id === currentVerb?.id);
-    const nextIndex = (currentIndex + 1) % verbs.length;
-    setCurrentVerb(verbs[nextIndex]);
+    const currentIndex = filteredVerbs.findIndex(v => v.id === currentVerb?.id);
+    const nextIndex = (currentIndex + 1) % filteredVerbs.length;
+    setCurrentVerb(filteredVerbs[nextIndex]);
   };
 
   const handlePreviousVerb = () => {
-    const currentIndex = verbs.findIndex(v => v.id === currentVerb?.id);
-    const prevIndex = currentIndex - 1 < 0 ? verbs.length - 1 : currentIndex - 1;
-    setCurrentVerb(verbs[prevIndex]);
+    const currentIndex = filteredVerbs.findIndex(v => v.id === currentVerb?.id);
+    const prevIndex = currentIndex - 1 < 0 ? filteredVerbs.length - 1 : currentIndex - 1;
+    setCurrentVerb(filteredVerbs[prevIndex]);
+  };
+
+  const handleFilterChange = (settings: FilterSettings) => {
+    setFilterSettings(settings);
   };
 
   const handlePracticeTypeChange = (type: PracticeType) => {
@@ -133,24 +206,57 @@ export function VerbConjugationContainer({
         
         <div className="flex items-center gap-4">
           <button
+            onClick={() => setShowFilter(!showFilter)}
+            className={`p-2 rounded-lg transition-colors ${
+              showFilter 
+                ? 'bg-blue-100 text-blue-700' 
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+            }`}
+            title="フィルター"
+          >
+            <Filter size={20} />
+          </button>
+          <button
             onClick={handlePreviousVerb}
             className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             title="前の動詞"
+            disabled={filteredVerbs.length === 0}
           >
             <ChevronRight size={20} className="rotate-180" />
           </button>
           <span className="text-sm text-gray-600">
-            {verbs.indexOf(currentVerb!) + 1} / {verbs.length}
+            {filteredVerbs.length > 0 ? filteredVerbs.indexOf(currentVerb!) + 1 : 0} / {filteredVerbs.length}
+            {filterSettings.mode !== 'all' && ` (全{verbs.length}個中)`}
           </span>
           <button
             onClick={handleNextVerb}
             className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             title="次の動詞"
+            disabled={filteredVerbs.length === 0}
           >
             <ChevronRight size={20} />
           </button>
         </div>
       </div>
+
+      {/* フィルター */}
+      {showFilter && (
+        <PracticeFilter
+          onFilterChange={handleFilterChange}
+          wordCardIds={verbs.map(v => v.id).filter(Boolean) as string[]}
+        />
+      )}
+
+      {/* フィルタリング結果の表示 */}
+      {filterSettings.mode !== 'all' && filteredVerbs.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <p className="text-yellow-800">
+            フィルター条件に一致する動詞がありません。
+            {filterSettings.mode === 'weak' && 'まずいくつかの動詞を練習してからお試しください。'}
+            {filterSettings.mode === 'due' && '復習が必要な動詞はまだありません。'}
+          </p>
+        </div>
+      )}
 
       {/* 練習タイプ選択 */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -210,7 +316,7 @@ export function VerbConjugationContainer({
 
       {/* 練習エリア */}
       <div className="bg-white rounded-lg shadow p-6">
-        {currentVerb && (
+        {currentVerb && filteredVerbs.length > 0 ? (
           <>
             {practiceType === 'fill-blanks' && (
               <FillBlanksExercise
@@ -232,7 +338,17 @@ export function VerbConjugationContainer({
               />
             )}
           </>
-        )}
+        ) : filterSettings.mode !== 'all' ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">フィルター条件に一致する動詞がありません。</p>
+            <button
+              onClick={() => setFilterSettings({ mode: 'all', accuracyThreshold: 80 })}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              フィルターを解除
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

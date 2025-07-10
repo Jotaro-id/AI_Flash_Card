@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Word, SupportedLanguage } from '@/types';
 import { Check, X, RotateCcw, ChevronRight } from 'lucide-react';
 import { logger } from '@/utils/logger';
+import { useConjugationTracking } from '@/hooks/useConjugationTracking';
 
 interface FillBlanksExerciseProps {
   verb: Word;
@@ -30,6 +31,7 @@ export function FillBlanksExercise({
   const [showResults, setShowResults] = useState<{ [key: number]: boolean }>({});
   const [attempts, setAttempts] = useState<{ [key: number]: number }>({});
   const [conjugations, setConjugations] = useState<ConjugationForm[]>([]);
+  const { startTracking, recordAnswer } = useConjugationTracking();
 
   useEffect(() => {
     // 活用形データを取得
@@ -141,16 +143,37 @@ export function FillBlanksExercise({
   }, [verb, tense, mood]);
 
   const handleInputChange = (index: number, value: string) => {
+    // 初回入力時に時間計測を開始
+    if (!userAnswers[index]) {
+      startTracking();
+    }
     setUserAnswers(prev => ({ ...prev, [index]: value }));
   };
 
-  const checkAnswer = (index: number) => {
-    const userAnswer = userAnswers[index]?.trim().toLowerCase();
-    const correctAnswer = conjugations[index].conjugation.toLowerCase();
-    const isCorrect = userAnswer === correctAnswer;
+  const checkAnswer = async (index: number) => {
+    const userAnswer = userAnswers[index]?.trim();
+    const correctAnswer = conjugations[index].conjugation;
+    const isCorrect = userAnswer.toLowerCase() === correctAnswer.toLowerCase();
+    const currentAttempts = (attempts[index] || 0) + 1;
 
     setShowResults(prev => ({ ...prev, [index]: isCorrect }));
-    setAttempts(prev => ({ ...prev, [index]: (prev[index] || 0) + 1 }));
+    setAttempts(prev => ({ ...prev, [index]: currentAttempts }));
+
+    // 学習履歴を保存
+    if (verb.id) {
+      const personKeys = ['1sg', '2sg', '3sg', '1pl', '2pl', '3pl'];
+      await recordAnswer({
+        wordCardId: verb.id,
+        practiceType: 'fill-blanks',
+        tense,
+        mood,
+        person: personKeys[index] || `person_${index}`,
+        correctAnswer,
+        userAnswer,
+        isCorrect,
+        attempts: currentAttempts
+      });
+    }
 
     // すべての空欄が正解したらコンプリート
     if (isCorrect) {

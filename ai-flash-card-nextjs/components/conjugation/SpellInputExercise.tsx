@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Word, SupportedLanguage } from '@/types';
 import { Check, X, RotateCcw, ChevronRight, Info } from 'lucide-react';
 import { logger } from '@/utils/logger';
+import { useConjugationTracking } from '@/hooks/useConjugationTracking';
 
 interface SpellInputExerciseProps {
   verb: Word;
@@ -36,6 +37,7 @@ export function SpellInputExercise({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionHistory, setQuestionHistory] = useState<number[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { startTracking, recordAnswer } = useConjugationTracking();
 
   const selectQuestion = useCallback((questionIndex: number) => {
     if (questions.length === 0) return;
@@ -45,9 +47,12 @@ export function SpellInputExercise({
     setShowResult(null);
     setAttempts(0);
     
+    // 時間計測を開始
+    startTracking();
+    
     // 入力フィールドにフォーカス
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, [questions]);
+  }, [questions, startTracking]);
 
   const selectNextQuestion = useCallback((availableQuestions: Question[]) => {
     const remainingIndices = availableQuestions
@@ -196,7 +201,7 @@ export function SpellInputExercise({
     }
   }, [verb, tense, mood]);
 
-  const checkAnswer = () => {
+  const checkAnswer = async () => {
     if (!currentQuestion || !userAnswer.trim()) return;
 
     // 正規化関数：見えない文字を削除し、アクセント記号を考慮
@@ -223,8 +228,33 @@ export function SpellInputExercise({
     });
     
     const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
+    const currentAttempts = attempts + 1;
     setShowResult(isCorrect);
-    setAttempts(attempts + 1);
+    setAttempts(currentAttempts);
+
+    // 学習履歴を保存
+    if (verb.id) {
+      const personToCode: { [key: string]: string } = {
+        'yo': '1sg',
+        'tú': '2sg',
+        'él/ella/usted': '3sg',
+        'nosotros/nosotras': '1pl',
+        'vosotros/vosotras': '2pl',
+        'ellos/ellas/ustedes': '3pl'
+      };
+      
+      await recordAnswer({
+        wordCardId: verb.id,
+        practiceType: 'spell-input',
+        tense,
+        mood,
+        person: personToCode[currentQuestion.person] || currentQuestion.person,
+        correctAnswer: currentQuestion.correctAnswer,
+        userAnswer: userAnswer.trim(),
+        isCorrect,
+        attempts: currentAttempts
+      });
+    }
 
     if (isCorrect) {
       setCorrectCount(correctCount + 1);

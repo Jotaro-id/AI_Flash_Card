@@ -30,4 +30,26 @@ export interface WordBookCard {
   word_book_id: string
   word_card_id: string
   created_at: string
+  learning_status?: string
+  last_reviewed_at?: string
+  review_count?: number
+}
+
+export interface VerbConjugationHistory {
+  id: string
+  user_id: string
+  word_card_id: string
+  practice_type: 'fill-blanks' | 'spell-input'
+  tense: string
+  mood: string
+  person: string
+  correct_answer: string
+  user_answer?: string
+  is_correct: boolean
+  response_time_ms?: number
+  attempts?: number
+  created_at: string
+  review_interval_days?: number
+  next_review_at?: string
+  ease_factor?: number
 }
