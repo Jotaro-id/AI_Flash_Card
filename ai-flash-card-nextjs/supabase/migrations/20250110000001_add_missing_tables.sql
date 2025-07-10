@@ -55,7 +55,8 @@ CREATE INDEX IF NOT EXISTS idx_verb_conjugation_history_created_at ON public.ver
 ALTER TABLE public.verb_conjugation_history ENABLE ROW LEVEL SECURITY;
 
 -- 6. RLSポリシーの作成
-CREATE POLICY IF NOT EXISTS "Users can manage their own conjugation history"
+DROP POLICY IF EXISTS "Users can manage their own conjugation history" ON public.verb_conjugation_history;
+CREATE POLICY "Users can manage their own conjugation history"
 ON public.verb_conjugation_history
 FOR ALL
 USING (auth.uid() = user_id);
@@ -70,12 +71,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 8. 更新時刻の自動更新トリガー
-CREATE TRIGGER IF NOT EXISTS update_word_books_updated_at
+DROP TRIGGER IF EXISTS update_word_books_updated_at ON public.word_books;
+CREATE TRIGGER update_word_books_updated_at
     BEFORE UPDATE ON public.word_books
     FOR EACH ROW
     EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE TRIGGER IF NOT EXISTS update_word_cards_updated_at
+DROP TRIGGER IF EXISTS update_word_cards_updated_at ON public.word_cards;
+CREATE TRIGGER update_word_cards_updated_at
     BEFORE UPDATE ON public.word_cards
     FOR EACH ROW
     EXECUTE FUNCTION public.update_updated_at_column();
@@ -99,7 +102,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 10. SRS更新トリガーの作成
-CREATE TRIGGER IF NOT EXISTS srs_update_trigger
+DROP TRIGGER IF EXISTS srs_update_trigger ON public.verb_conjugation_history;
+CREATE TRIGGER srs_update_trigger
     BEFORE INSERT ON public.verb_conjugation_history
     FOR EACH ROW
     EXECUTE FUNCTION public.update_srs_on_answer();
@@ -125,9 +129,18 @@ JOIN public.word_cards wc ON vch.word_card_id = wc.id
 GROUP BY vch.user_id, vch.word_card_id, wc.word, vch.practice_type, vch.tense, vch.mood, vch.person;
 
 -- 12. word_book_cardsテーブルにUNIQUE制約を追加（存在しない場合のみ）
-ALTER TABLE public.word_book_cards 
-ADD CONSTRAINT IF NOT EXISTS word_book_cards_unique_book_card 
-UNIQUE(word_book_id, word_card_id);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'word_book_cards_unique_book_card' 
+        AND table_name = 'word_book_cards'
+    ) THEN
+        ALTER TABLE public.word_book_cards 
+        ADD CONSTRAINT word_book_cards_unique_book_card 
+        UNIQUE(word_book_id, word_card_id);
+    END IF;
+END $$;
 
 -- 13. 必要なNOT NULL制約を追加
 ALTER TABLE public.word_books 
