@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Word, SupportedLanguage } from '@/types';
-import { Check, X, RotateCcw, ChevronRight, Info } from 'lucide-react';
+import { Check, X, RotateCcw, ChevronRight, ChevronLeft, Info } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { useConjugationTracking } from '@/hooks/useConjugationTracking';
 import { FilterSettings } from './PracticeFilter';
@@ -332,6 +332,34 @@ export function SpellInputExercise({
 
   return (
     <div>
+      {/* 進捗表示とナビゲーション */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        <button
+          onClick={goToPreviousQuestion}
+          disabled={currentQuestionIndex === 0}
+          className={`p-2 rounded-lg transition-colors ${
+            currentQuestionIndex === 0
+              ? 'text-gray-300 cursor-not-allowed'
+              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+          }`}
+          aria-label="前の問題"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        
+        <div className="text-lg font-medium text-gray-700">
+          {currentQuestionIndex + 1} / {totalQuestions}
+        </div>
+        
+        <button
+          onClick={goToNextQuestion}
+          className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="次の問題"
+        >
+          <ChevronRight size={24} />
+        </button>
+      </div>
+
       <div className="mb-6">
         <div className="flex justify-between items-start mb-4">
           <div>
