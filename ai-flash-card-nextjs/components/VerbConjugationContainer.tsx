@@ -331,6 +331,7 @@ export function VerbConjugationContainer({
                 tense={selectedTense}
                 mood={selectedMood}
                 onComplete={handleNextVerb}
+                filterSettings={filterSettings}
               />
             )}
             
@@ -341,6 +342,7 @@ export function VerbConjugationContainer({
                 tense={selectedTense}
                 mood={selectedMood}
                 onComplete={handleNextVerb}
+                filterSettings={filterSettings}
               />
             )}
           </>

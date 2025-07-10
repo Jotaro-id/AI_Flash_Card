@@ -5,6 +5,7 @@ import { Word, SupportedLanguage } from '@/types';
 import { Check, X, RotateCcw, ChevronRight, Info } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { useConjugationTracking } from '@/hooks/useConjugationTracking';
+import { FilterSettings } from './PracticeFilter';
 
 interface SpellInputExerciseProps {
   verb: Word;
@@ -12,6 +13,7 @@ interface SpellInputExerciseProps {
   tense: string;
   mood: string;
   onComplete: () => void;
+  filterSettings?: FilterSettings;
 }
 
 interface Question {
@@ -24,7 +26,8 @@ export function SpellInputExercise({
   verb,
   tense,
   mood,
-  onComplete
+  onComplete,
+  filterSettings
 }: SpellInputExerciseProps) {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -181,25 +184,62 @@ export function SpellInputExercise({
       logger.info('Generated questions:', newQuestions);
     }
 
-    setQuestions(newQuestions);
-    setTotalQuestions(newQuestions.length);
+    // 苦手モードの場合、フィルタリング
+    let filteredQuestions = newQuestions;
+    if (filterSettings?.mode === 'weak' && filterSettings.weakConjugations) {
+      const personMap: { [key: string]: string } = {
+        'yo': '1sg',
+        'tú': '2sg',
+        'él/ella/usted': '3sg',
+        'nosotros/nosotras': '1pl',
+        'vosotros/vosotras': '2pl',
+        'ellos/ellas/ustedes': '3pl'
+      };
+      
+      filteredQuestions = newQuestions.filter(question => {
+        const personKey = personMap[question.person];
+        return filterSettings.weakConjugations!.some(weak => 
+          weak.word_card_id === verb.id &&
+          weak.tense === tense &&
+          weak.mood === mood &&
+          weak.person === personKey
+        );
+      });
+      
+      logger.info('Weak mode filtering:', {
+        verbId: verb.id,
+        tense,
+        mood,
+        originalQuestions: newQuestions.length,
+        filteredQuestions: filteredQuestions.length
+      });
+      
+      // 苦手な活用形がない場合は、全ての問題を使用
+      if (filteredQuestions.length === 0) {
+        logger.info('No weak conjugations for this verb/tense/mood, using all questions');
+        filteredQuestions = newQuestions;
+      }
+    }
+
+    setQuestions(filteredQuestions);
+    setTotalQuestions(filteredQuestions.length);
     setUsedQuestions([]);
     setCorrectCount(0);
     setQuestionHistory([]);
     setCurrentQuestionIndex(0);
     
     // 最初の問題を選択
-    if (newQuestions.length > 0) {
-      const firstIndex = Math.floor(Math.random() * newQuestions.length);
+    if (filteredQuestions.length > 0) {
+      const firstIndex = Math.floor(Math.random() * filteredQuestions.length);
       setQuestionHistory([firstIndex]);
       setUsedQuestions([firstIndex]);
-      setCurrentQuestion(newQuestions[firstIndex]);
+      setCurrentQuestion(filteredQuestions[firstIndex]);
       setUserAnswer('');
       setShowResult(null);
       setAttempts(0);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [verb, tense, mood]);
+  }, [verb, tense, mood, filterSettings]);
 
   const checkAnswer = async () => {
     if (!currentQuestion || !userAnswer.trim()) return;

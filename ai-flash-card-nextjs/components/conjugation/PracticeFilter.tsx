@@ -16,6 +16,12 @@ export interface FilterSettings {
   includeTenses?: string[];
   includeMoods?: string[];
   includePersons?: string[];
+  weakConjugations?: Array<{
+    word_card_id: string;
+    tense: string;
+    mood: string;
+    person: string;
+  }>;
 }
 
 export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterProps) {
@@ -79,6 +85,19 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
       includeMoods: selectedMoods.length > 0 ? selectedMoods : undefined,
       includePersons: selectedPersons.length > 0 ? selectedPersons : undefined
     };
+    
+    // 苦手モードの場合、苦手な活用形の情報を追加
+    if (mode === 'weak') {
+      const weakConjugations = stats
+        .filter(stat => stat.has_failed || stat.accuracy_rate < threshold)
+        .map(stat => ({
+          word_card_id: stat.word_card_id,
+          tense: stat.tense,
+          mood: stat.mood,
+          person: stat.person
+        }));
+      settings.weakConjugations = weakConjugations;
+    }
     
     onFilterChange(settings);
   };

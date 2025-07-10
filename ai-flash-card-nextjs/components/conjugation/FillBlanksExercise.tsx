@@ -5,6 +5,7 @@ import { Word, SupportedLanguage } from '@/types';
 import { Check, X, RotateCcw, ChevronRight } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { useConjugationTracking } from '@/hooks/useConjugationTracking';
+import { FilterSettings } from './PracticeFilter';
 
 interface FillBlanksExerciseProps {
   verb: Word;
@@ -12,6 +13,7 @@ interface FillBlanksExerciseProps {
   tense: string;
   mood: string;
   onComplete: () => void;
+  filterSettings?: FilterSettings;
 }
 
 interface ConjugationForm {
@@ -24,7 +26,8 @@ export function FillBlanksExercise({
   verb,
   tense,
   mood,
-  onComplete
+  onComplete,
+  filterSettings
 }: FillBlanksExerciseProps) {
   const [blanks, setBlanks] = useState<number[]>([]);
   const [userAnswers, setUserAnswers] = useState<{ [key: number]: string }>({});
@@ -127,20 +130,73 @@ export function FillBlanksExercise({
 
     setConjugations(forms);
 
-    // ランダムに2-3個の空欄を作成
-    const blankCount = Math.floor(Math.random() * 2) + 2; // 2-3個
+    // 空欄を作成
     const blankIndices: number[] = [];
-    while (blankIndices.length < blankCount && blankIndices.length < forms.length) {
-      const index = Math.floor(Math.random() * forms.length);
-      if (!blankIndices.includes(index)) {
-        blankIndices.push(index);
+    
+    if (filterSettings?.mode === 'weak' && filterSettings.weakConjugations) {
+      // 苦手モード: 現在の動詞・時制・法の苦手な活用形のみを出題
+      const personKeys = ['1sg', '2sg', '3sg', '1pl', '2pl', '3pl'];
+      const personMap: { [key: string]: string } = {
+        'yo': '1sg',
+        'tú': '2sg',
+        'él/ella/usted': '3sg',
+        'él/ella/Ud.': '3sg',
+        'nosotros/nosotras': '1pl',
+        'nosotros': '1pl',
+        'vosotros/vosotras': '2pl',
+        'vosotros': '2pl',
+        'ellos/ellas/ustedes': '3pl',
+        'ellos/ellas/Uds.': '3pl'
+      };
+      
+      // 現在の動詞・時制・法で苦手な活用形を探す
+      forms.forEach((form, index) => {
+        const personKey = personMap[form.person] || personKeys[index];
+        const isWeak = filterSettings.weakConjugations!.some(weak => 
+          weak.word_card_id === verb.id &&
+          weak.tense === tense &&
+          weak.mood === mood &&
+          weak.person === personKey
+        );
+        
+        if (isWeak) {
+          blankIndices.push(index);
+        }
+      });
+      
+      logger.info('Weak mode blanks:', {
+        verbId: verb.id,
+        tense,
+        mood,
+        weakConjugations: filterSettings.weakConjugations.filter(w => w.word_card_id === verb.id),
+        blankIndices
+      });
+      
+      // 苦手な活用形がない場合は、通常のランダム選択にフォールバック
+      if (blankIndices.length === 0) {
+        logger.info('No weak conjugations found for this verb/tense/mood, falling back to random');
+        const blankCount = Math.floor(Math.random() * 2) + 2;
+        const indices = Array.from({ length: forms.length }, (_, i) => i);
+        for (let i = 0; i < blankCount && i < forms.length; i++) {
+          const randomIndex = Math.floor(Math.random() * indices.length);
+          blankIndices.push(indices.splice(randomIndex, 1)[0]);
+        }
+      }
+    } else {
+      // 通常モード: ランダムに2-3個の空欄を作成
+      const blankCount = Math.floor(Math.random() * 2) + 2;
+      const indices = Array.from({ length: forms.length }, (_, i) => i);
+      for (let i = 0; i < blankCount && i < forms.length; i++) {
+        const randomIndex = Math.floor(Math.random() * indices.length);
+        blankIndices.push(indices.splice(randomIndex, 1)[0]);
       }
     }
+    
     setBlanks(blankIndices);
     setUserAnswers({});
     setShowResults({});
     setAttempts({});
-  }, [verb, tense, mood]);
+  }, [verb, tense, mood, filterSettings]);
 
   const handleInputChange = (index: number, value: string) => {
     // 初回入力時に時間計測を開始
