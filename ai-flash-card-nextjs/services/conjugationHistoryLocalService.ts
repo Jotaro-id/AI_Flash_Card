@@ -172,3 +172,5 @@ export const conjugationHistoryService = {
     }
   }
 };
+
+export const conjugationHistoryLocalService = conjugationHistoryService;

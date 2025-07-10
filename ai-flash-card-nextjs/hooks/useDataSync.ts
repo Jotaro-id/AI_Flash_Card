@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { dataSyncService } from '../services/dataSyncService';
+import { dataSyncService } from '@/services/dataSyncService';
 
 interface SyncStatus {
   lastSyncTime: string | null;

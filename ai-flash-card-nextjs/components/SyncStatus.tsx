@@ -1,6 +1,6 @@
 import React from 'react';
-import { useDataSync } from '../hooks/useDataSync';
-import { Sync, CheckCircle, AlertCircle, Clock, WifiOff } from 'lucide-react';
+import { useDataSync } from '@/hooks/useDataSync';
+import { RotateCw, CheckCircle, AlertCircle, Clock, WifiOff } from 'lucide-react';
 
 interface SyncStatusProps {
   className?: string;
@@ -38,7 +38,7 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
 
   const getSyncIcon = () => {
     if (syncStatus.isSyncing) {
-      return <Sync className="w-4 h-4 animate-spin text-blue-500" />;
+      return <RotateCw className="w-4 h-4 animate-spin text-blue-500" />;
     }
     
     if (syncStatus.errors.length > 0) {
@@ -106,7 +106,7 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
             title="今すぐ同期"
           >
-            <Sync className={`w-4 h-4 ${syncStatus.isSyncing ? 'animate-spin' : ''}`} />
+            <RotateCw className={`w-4 h-4 ${syncStatus.isSyncing ? 'animate-spin' : ''}`} />
           </button>
 
           {/* エラークリアボタン */}

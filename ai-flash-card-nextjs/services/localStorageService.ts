@@ -289,3 +289,16 @@ export const createSampleData = async (): Promise<void> => {
   
   logger.info('createSampleData: サンプルデータ作成完了');
 };
+
+// Export all functions
+export const localStorageService = {
+  getAllData: getData,
+  fetchVocabularyFiles,
+  createVocabularyFile,
+  updateVocabularyFile,
+  deleteVocabularyFile,
+  createSampleData,
+  debugLocalStorageData,
+  getCurrentUser,
+  logout
+};

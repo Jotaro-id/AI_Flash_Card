@@ -1,6 +1,6 @@
-import { supabase } from './supabase';
-import { localStorageService } from './localStorageService';
-import { conjugationHistoryLocalService } from './conjugationHistoryLocalService';
+import { supabase } from '@/lib/supabase';
+import { localStorageService } from '@/services/localStorageService';
+import { conjugationHistoryLocalService } from '@/services/conjugationHistoryLocalService';
 
 interface SyncStatus {
   lastSyncTime: string | null;
@@ -37,14 +37,18 @@ class DataSyncService {
   }
 
   private loadSyncStatus(): void {
-    const storedStatus = localStorage.getItem(this.SYNC_STATUS_KEY);
-    if (storedStatus) {
-      this.syncStatus = JSON.parse(storedStatus);
+    if (typeof window !== 'undefined') {
+      const storedStatus = localStorage.getItem(this.SYNC_STATUS_KEY);
+      if (storedStatus) {
+        this.syncStatus = JSON.parse(storedStatus);
+      }
     }
   }
 
   private saveSyncStatus(): void {
-    localStorage.setItem(this.SYNC_STATUS_KEY, JSON.stringify(this.syncStatus));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.SYNC_STATUS_KEY, JSON.stringify(this.syncStatus));
+    }
   }
 
   /**
@@ -136,15 +140,15 @@ class DataSyncService {
               const { error } = await supabase
                 .from('word_cards')
                 .update({
-                  ai_generated_info: word.ai_generated_info,
-                  english_equivalent: word.ai_generated_info?.English || null,
-                  japanese_equivalent: word.ai_generated_info?.Japanese || null,
-                  pronunciation: word.ai_generated_info?.Pronunciation || null,
-                  example_sentence: word.ai_generated_info?.ExampleSentence || null,
-                  usage_notes: word.ai_generated_info?.Notes || null,
-                  word_class: word.ai_generated_info?.WordClass || null,
-                  gender_variations: word.ai_generated_info?.GenderVariations || null,
-                  tense_variations: word.ai_generated_info?.TenseVariations || null,
+                  ai_generated_info: word.aiGenerated,
+                  english_equivalent: word.aiGenerated?.englishEquivalent || null,
+                  japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
+                  pronunciation: word.aiGenerated?.pronunciation || null,
+                  example_sentence: word.aiGenerated?.exampleSentence || null,
+                  usage_notes: word.aiGenerated?.usageNotes || null,
+                  word_class: word.aiGenerated?.wordClass || null,
+                  gender_variations: null,
+                  tense_variations: null,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', wordCardId)
@@ -159,15 +163,15 @@ class DataSyncService {
                   id: wordCardId,
                   word: word.word,
                   user_id: userId,
-                  ai_generated_info: word.ai_generated_info,
-                  english_equivalent: word.ai_generated_info?.English || null,
-                  japanese_equivalent: word.ai_generated_info?.Japanese || null,
-                  pronunciation: word.ai_generated_info?.Pronunciation || null,
-                  example_sentence: word.ai_generated_info?.ExampleSentence || null,
-                  usage_notes: word.ai_generated_info?.Notes || null,
-                  word_class: word.ai_generated_info?.WordClass || null,
-                  gender_variations: word.ai_generated_info?.GenderVariations || null,
-                  tense_variations: word.ai_generated_info?.TenseVariations || null,
+                  ai_generated_info: word.aiGenerated,
+                  english_equivalent: word.aiGenerated?.englishEquivalent || null,
+                  japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
+                  pronunciation: word.aiGenerated?.pronunciation || null,
+                  example_sentence: word.aiGenerated?.exampleSentence || null,
+                  usage_notes: word.aiGenerated?.usageNotes || null,
+                  word_class: word.aiGenerated?.wordClass || null,
+                  gender_variations: null,
+                  tense_variations: null,
                   created_at: word.createdAt || new Date().toISOString()
                 })
                 .select()
@@ -182,7 +186,7 @@ class DataSyncService {
               .upsert({
                 word_book_id: file.id,
                 word_card_id: wordCardId,
-                learning_status: word.learning_status || 'not_started'
+                learning_status: word.learningStatus || 'not_started'
               }, {
                 onConflict: 'word_book_id,word_card_id'
               });
@@ -210,7 +214,7 @@ class DataSyncService {
     let syncedCount = 0;
 
     try {
-      const history = conjugationHistoryLocalService.getAllHistory();
+      const history = conjugationHistoryLocalService.getHistory();
       
       for (const entry of history) {
         try {

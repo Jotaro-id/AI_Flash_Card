@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GroqService } from '@/src/services/groq';
+import { GroqService } from '@/services/groq';
 
 export async function POST(request: NextRequest) {
   try {
