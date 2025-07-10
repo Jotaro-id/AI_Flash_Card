@@ -1,16 +1,50 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## データベースセットアップ
+## 🚀 AI単語帳アプリ
 
-### 動詞活用練習機能のマイグレーション
+ローカルストレージとクラウド同期に対応したAI単語学習アプリケーションです。
 
-動詞活用練習機能を使用するには、以下のSQLをSupabaseで実行してください：
+## 📋 機能
 
-1. Supabaseダッシュボードにログイン
-2. SQL Editorを開く
-3. `supabase/migrations/20250110_verb_conjugation_history.sql` の内容を実行
+- 💾 **ローカルモード**: パスワード不要、ブラウザ内でデータ管理
+- ☁️ **クラウドモード**: Supabase認証 + 自動同期機能
+- 🤖 **AI単語情報生成**: 多言語対応の単語情報自動生成
+- 📚 **動詞活用練習**: スペイン語動詞の活用練習機能
+- 🎯 **学習進捗管理**: 単語ごとの学習状況追跡
 
-または、`database_schema.sql` の内容を実行してください。
+## 🛠️ Supabaseセットアップ（クラウドモード用）
+
+クラウドモードで同期機能を使用するには、Supabaseでテーブルをセットアップしてください：
+
+### 1. 環境変数の設定
+
+`.env.local` ファイルを作成し、Supabaseの情報を設定：
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### 2. データベーステーブルの作成
+
+以下のいずれかの方法でテーブルを作成してください：
+
+#### 方法A: 簡単セットアップ（推奨）
+1. Supabaseダッシュボードの **SQL Editor** を開く
+2. `scripts/setup-supabase-tables.sql` の内容をコピー&ペースト
+3. **Run** ボタンをクリックして実行
+
+#### 方法B: 完全マイグレーション
+1. Supabaseダッシュボードの **SQL Editor** を開く
+2. `supabase/migrations/20250110000002_add_missing_tables_fixed.sql` の内容を実行
+
+### 3. 認証の設定
+
+Supabaseダッシュボードの **Authentication** > **Settings** で：
+- Email confirmationを有効/無効に設定
+- 必要に応じて追加の認証プロバイダーを設定
+
+## 🔧 セットアップ手順
 
 ## Getting Started
 

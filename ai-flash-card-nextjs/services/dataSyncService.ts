@@ -214,17 +214,35 @@ class DataSyncService {
     let syncedCount = 0;
 
     try {
+      // まずテーブルの存在を確認
+      const { error: tableCheckError } = await supabase
+        .from('verb_conjugation_history')
+        .select('id')
+        .limit(1);
+
+      if (tableCheckError) {
+        if (tableCheckError.message.includes('relation') && tableCheckError.message.includes('does not exist')) {
+          throw new Error('verb_conjugation_historyテーブルが存在しません');
+        }
+        throw tableCheckError;
+      }
+
       const history = conjugationHistoryLocalService.getHistory();
       
       for (const entry of history) {
         try {
           // 履歴が存在するか確認
-          const { data: existing } = await supabase
+          const { data: existing, error: selectError } = await supabase
             .from('verb_conjugation_history')
             .select('id')
             .eq('id', entry.id)
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
+
+          if (selectError) {
+            errors.push(`履歴確認エラー: ${selectError.message}`);
+            continue;
+          }
 
           if (!existing) {
             // 新規作成のみ（履歴は更新しない）
@@ -244,15 +262,22 @@ class DataSyncService {
                 created_at: entry.created_at
               });
 
-            if (error) throw error;
+            if (error) {
+              errors.push(`履歴挿入エラー: ${error.message}`);
+              continue;
+            }
             syncedCount++;
           }
         } catch (error) {
-          errors.push(`活用履歴の同期エラー: ${error}`);
+          errors.push(`活用履歴の同期エラー: ${error instanceof Error ? error.message : error}`);
         }
       }
     } catch (error) {
-      errors.push(`活用履歴同期の全体エラー: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('verb_conjugation_historyテーブルが存在しません')) {
+        throw error; // 上位でキャッチして適切に処理
+      }
+      errors.push(`活用履歴同期の全体エラー: ${errorMessage}`);
     }
 
     return { count: syncedCount, errors };
@@ -301,9 +326,16 @@ class DataSyncService {
       result.syncedItems.wordCards = wordCardsResult.count;
       result.errors.push(...wordCardsResult.errors);
 
-      const historyResult = await this.syncConjugationHistory(user.id);
-      result.syncedItems.conjugationHistory = historyResult.count;
-      result.errors.push(...historyResult.errors);
+      // 動詞活用履歴の同期は一時的に無効化（テーブル作成後に有効化）
+      try {
+        const historyResult = await this.syncConjugationHistory(user.id);
+        result.syncedItems.conjugationHistory = historyResult.count;
+        result.errors.push(...historyResult.errors);
+      } catch (error) {
+        console.warn('動詞活用履歴テーブルが存在しません。マイグレーションを実行してください。');
+        result.syncedItems.conjugationHistory = 0;
+        result.errors.push('動詞活用履歴テーブルが見つかりません（マイグレーション未実行）');
+      }
 
       // 同期成功
       this.syncStatus.lastSyncTime = new Date().toISOString();
