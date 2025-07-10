@@ -10,6 +10,7 @@ import { SyncStatus } from '@/components/SyncStatus';
 import { VocabularyFile, SupportedLanguage, LearningStatus } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 import { useDataSync } from '@/hooks/useDataSync';
+import { supabase } from '@/lib/supabase';
 // LocalStorageを使用するように変更
 import { 
   fetchVocabularyFiles, 
@@ -41,6 +42,7 @@ export default function Home() {
   const [currentFile, setCurrentFile] = useState<VocabularyFile | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [appState, setAppState] = useState<AppState>('file-manager');
+  const [isSupabaseUser, setIsSupabaseUser] = useState(false);
   const { currentTheme, setTheme, availableThemes } = useTheme();
   const { incrementPendingChanges } = useDataSync();
   
@@ -68,23 +70,39 @@ export default function Home() {
           setLoadingTimeout(true);
         }, 5000);
 
-        const user = await getCurrentUser();
+        // まずSupabase認証をチェック
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
         
-        clearTimeout(timer);
-        
-        logger.info('Auth check completed', { 
-          user,
-          isAuthenticated: !!user 
-        });
-        
-        if (user) {
+        // Supabaseユーザーがいる場合
+        if (supabaseUser) {
+          logger.info('Supabase user found', { 
+            email: supabaseUser.email,
+            id: supabaseUser.id 
+          });
           setIsAuthenticated(true);
-          setCurrentUser(user);
+          setIsSupabaseUser(true);
+          setCurrentUser({ 
+            email: supabaseUser.email || '', 
+            id: supabaseUser.id 
+          });
           loadVocabularyFiles();
         } else {
-          setIsAuthenticated(false);
-          setCurrentUser(null);
+          // ローカルストレージユーザーをチェック
+          const localUser = await getCurrentUser();
+          if (localUser) {
+            logger.info('Local user found', { user: localUser });
+            setIsAuthenticated(true);
+            setIsSupabaseUser(false);
+            setCurrentUser(localUser);
+            loadVocabularyFiles();
+          } else {
+            setIsAuthenticated(false);
+            setIsSupabaseUser(false);
+            setCurrentUser(null);
+          }
         }
+        
+        clearTimeout(timer);
         setAuthError(null);
       } catch (error) {
         logger.error('Auth check error:', error);
@@ -97,6 +115,38 @@ export default function Home() {
     };
 
     checkAuth();
+
+    // Supabase認証状態の変更を監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        logger.info('Auth state changed', { event, user: session?.user?.email });
+        
+        if (session?.user) {
+          setIsAuthenticated(true);
+          setIsSupabaseUser(true);
+          setCurrentUser({ 
+            email: session.user.email || '', 
+            id: session.user.id 
+          });
+          await loadVocabularyFiles();
+        } else {
+          // Supabaseからログアウトした場合、ローカルストレージもチェック
+          const localUser = await getCurrentUser();
+          if (!localUser) {
+            setIsAuthenticated(false);
+            setIsSupabaseUser(false);
+            setCurrentUser(null);
+            setFiles([]);
+          } else {
+            setIsSupabaseUser(false);
+          }
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadVocabularyFiles = async () => {
@@ -125,7 +175,16 @@ export default function Home() {
   const handleLogout = async () => {
     logger.info('Logging out...');
     try {
+      // Supabaseからログアウト
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.auth.signOut();
+        logger.info('Supabase logout completed');
+      }
+      
+      // ローカルストレージからもログアウト
       await signOut();
+      
       setIsAuthenticated(false);
       setCurrentUser(null);
       setCurrentFile(null);
@@ -280,10 +339,12 @@ export default function Home() {
   
   return (
     <div className="min-h-screen">
-      {/* 同期ステータス表示 */}
-      <div className="fixed top-4 right-4 z-50">
-        <SyncStatus showDetails={true} />
-      </div>
+      {/* 同期ステータス表示（Supabaseユーザーのみ） */}
+      {isSupabaseUser && (
+        <div className="fixed top-4 right-4 z-50">
+          <SyncStatus showDetails={true} />
+        </div>
+      )}
       
       {/* ヘッダーは各コンポーネント内で管理 */}
       {appState === 'file-manager' && (
