@@ -16,17 +16,18 @@ export interface ConjugationHistoryEntry {
 
 export interface ConjugationStats {
   word_card_id: string;
-  word: string;
-  practice_type: string;
-  tense: string;
-  mood: string;
-  person: string;
+  word?: string;
+  practice_type?: string;
+  tense?: string;
+  mood?: string;
+  person?: string;
   total_attempts: number;
   correct_count: number;
   accuracy_rate: number;
-  avg_response_time: number;
-  last_practiced_at: Date;
-  next_review_at: Date;
+  avg_response_time?: number;
+  last_practiced_at?: Date;
+  next_review_at?: Date;
+  has_failed?: boolean; // 一度でも失敗したか
 }
 
 export const conjugationHistoryService = {
@@ -89,47 +90,84 @@ export const conjugationHistoryService = {
         return [];
       }
       
-      const { data, error } = await supabase
-        .from('verb_conjugation_stats')
+      // 直接テーブルからデータを取得
+      const { data: historyData, error } = await supabase
+        .from('verb_conjugation_history')
         .select('*')
         .eq('user_id', session.user.id);
       
       if (error) {
-        logger.error('Failed to get user conjugation stats:', error);
-        // ビューが存在しない場合などは空配列を返す
+        logger.error('Failed to get conjugation history:', error);
         return [];
       }
       
-      return data || [];
+      if (!historyData || historyData.length === 0) {
+        return [];
+      }
+      
+      // データを集計
+      const statsMap = new Map<string, ConjugationStats>();
+      
+      historyData.forEach(record => {
+        const key = record.word_card_id;
+        
+        if (!statsMap.has(key)) {
+          statsMap.set(key, {
+            word_card_id: record.word_card_id,
+            total_attempts: 0,
+            correct_count: 0,
+            accuracy_rate: 0,
+            has_failed: false
+          });
+        }
+        
+        const stats = statsMap.get(key)!;
+        stats.total_attempts++;
+        if (record.is_correct) {
+          stats.correct_count++;
+        } else {
+          stats.has_failed = true; // 一度でも失敗したらtrue
+        }
+        
+        // 最終練習日時を更新
+        if (!stats.last_practiced_at || new Date(record.created_at) > new Date(stats.last_practiced_at)) {
+          stats.last_practiced_at = record.created_at;
+        }
+        
+        // 次回復習日時を更新
+        if (!stats.next_review_at || (record.next_review_at && new Date(record.next_review_at) < new Date(stats.next_review_at))) {
+          stats.next_review_at = record.next_review_at;
+        }
+      });
+      
+      // 正答率を計算
+      statsMap.forEach(stats => {
+        stats.accuracy_rate = stats.total_attempts > 0 
+          ? Math.round((stats.correct_count / stats.total_attempts) * 100) 
+          : 0;
+      });
+      
+      return Array.from(statsMap.values());
     } catch (error) {
       logger.error('Error getting user conjugation stats:', error);
       return [];
     }
   },
 
-  // 苦手な活用形を取得（正答率が閾値以下）
+  // 苦手な活用形を取得（一度でも不正解なら苦手に分類）
   async getWeakConjugations(accuracyThreshold: number = 80): Promise<ConjugationStats[]> {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const allStats = await this.getUserStats();
       
-      if (sessionError || !session) {
-        logger.info('No active session, returning empty weak conjugations');
-        return [];
-      }
+      // 一度でも失敗したか、正答率が閾値以下のものをフィルタリング
+      const weakStats = allStats.filter(stat => 
+        stat.has_failed || stat.accuracy_rate < accuracyThreshold
+      );
       
-      const { data, error } = await supabase
-        .from('verb_conjugation_stats')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .lt('accuracy_rate', accuracyThreshold)
-        .order('accuracy_rate', { ascending: true });
+      // 正答率の低い順にソート
+      weakStats.sort((a, b) => a.accuracy_rate - b.accuracy_rate);
       
-      if (error) {
-        logger.error('Failed to get weak conjugations:', error);
-        return [];
-      }
-      
-      return data || [];
+      return weakStats;
     } catch (error) {
       logger.error('Error getting weak conjugations:', error);
       return [];

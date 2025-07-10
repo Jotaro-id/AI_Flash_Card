@@ -84,12 +84,12 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
   };
 
   const getWeakCount = () => {
-    return stats.filter(stat => stat.accuracy_rate < accuracyThreshold).length;
+    return stats.filter(stat => stat.has_failed || stat.accuracy_rate < accuracyThreshold).length;
   };
 
   const getDueCount = () => {
     const now = new Date();
-    return stats.filter(stat => new Date(stat.next_review_at) <= now).length;
+    return stats.filter(stat => stat.next_review_at && new Date(stat.next_review_at) <= now).length;
   };
 
   const toggleTense = (tense: string) => {

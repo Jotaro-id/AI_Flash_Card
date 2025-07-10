@@ -107,28 +107,28 @@ export function VerbConjugationContainer({
         let filtered = verbs;
 
         if (filterSettings.mode === 'weak') {
-          // 苦手な動詞のみ
+          // 苦手な動詞のみ（一度でも失敗したか、正答率が閾値以下）
           const weakVerbIds = relevantStats
-            .filter(stat => stat.accuracy_rate < filterSettings.accuracyThreshold)
+            .filter(stat => stat.has_failed || stat.accuracy_rate < filterSettings.accuracyThreshold)
             .map(stat => stat.word_card_id);
           filtered = verbs.filter(v => v.id && weakVerbIds.includes(v.id));
         } else if (filterSettings.mode === 'due') {
           // 復習が必要な動詞のみ
           const now = new Date();
           const dueVerbIds = relevantStats
-            .filter(stat => new Date(stat.next_review_at) <= now)
+            .filter(stat => stat.next_review_at && new Date(stat.next_review_at) <= now)
             .map(stat => stat.word_card_id);
           filtered = verbs.filter(v => v.id && dueVerbIds.includes(v.id));
         } else if (filterSettings.mode === 'custom') {
           // カスタムフィルター
           const customStats = relevantStats.filter(stat => {
-            if (filterSettings.includeTenses && !filterSettings.includeTenses.includes(stat.tense)) {
+            if (filterSettings.includeTenses && stat.tense && !filterSettings.includeTenses.includes(stat.tense)) {
               return false;
             }
-            if (filterSettings.includeMoods && !filterSettings.includeMoods.includes(stat.mood)) {
+            if (filterSettings.includeMoods && stat.mood && !filterSettings.includeMoods.includes(stat.mood)) {
               return false;
             }
-            if (filterSettings.includePersons && !filterSettings.includePersons.includes(stat.person)) {
+            if (filterSettings.includePersons && stat.person && !filterSettings.includePersons.includes(stat.person)) {
               return false;
             }
             return true;
