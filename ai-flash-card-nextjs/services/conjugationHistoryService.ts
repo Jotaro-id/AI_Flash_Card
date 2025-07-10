@@ -33,14 +33,18 @@ export const conjugationHistoryService = {
   // 学習履歴を保存
   async saveHistory(entry: ConjugationHistoryEntry): Promise<void> {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        logger.warn('No active session, skipping history save');
+        return;
+      }
       
       const { error } = await supabase
         .from('verb_conjugation_history')
         .insert({
           ...entry,
-          user_id: userData.user?.id
+          user_id: session.user.id
         });
       
       if (error) {
@@ -51,7 +55,7 @@ export const conjugationHistoryService = {
       logger.info('Conjugation history saved successfully');
     } catch (error) {
       logger.error('Error saving conjugation history:', error);
-      throw error;
+      // エラーを再スローせずに続行
     }
   },
 
@@ -78,86 +82,103 @@ export const conjugationHistoryService = {
   // ユーザーの全体的な統計情報を取得
   async getUserStats(): Promise<ConjugationStats[]> {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        logger.info('No active session, returning empty stats');
+        return [];
+      }
       
       const { data, error } = await supabase
         .from('verb_conjugation_stats')
         .select('*')
-        .eq('user_id', userData.user?.id);
+        .eq('user_id', session.user.id);
       
       if (error) {
         logger.error('Failed to get user conjugation stats:', error);
-        throw error;
+        // ビューが存在しない場合などは空配列を返す
+        return [];
       }
       
       return data || [];
     } catch (error) {
       logger.error('Error getting user conjugation stats:', error);
-      throw error;
+      return [];
     }
   },
 
   // 苦手な活用形を取得（正答率が閾値以下）
   async getWeakConjugations(accuracyThreshold: number = 80): Promise<ConjugationStats[]> {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        logger.info('No active session, returning empty weak conjugations');
+        return [];
+      }
       
       const { data, error } = await supabase
         .from('verb_conjugation_stats')
         .select('*')
-        .eq('user_id', userData.user?.id)
+        .eq('user_id', session.user.id)
         .lt('accuracy_rate', accuracyThreshold)
         .order('accuracy_rate', { ascending: true });
       
       if (error) {
         logger.error('Failed to get weak conjugations:', error);
-        throw error;
+        return [];
       }
       
       return data || [];
     } catch (error) {
       logger.error('Error getting weak conjugations:', error);
-      throw error;
+      return [];
     }
   },
 
   // 復習が必要な活用形を取得
   async getDueForReview(): Promise<ConjugationStats[]> {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        logger.info('No active session, returning empty due reviews');
+        return [];
+      }
       
       const { data, error } = await supabase
         .from('verb_conjugation_stats')
         .select('*')
-        .eq('user_id', userData.user?.id)
+        .eq('user_id', session.user.id)
         .lte('next_review_at', new Date().toISOString())
         .order('next_review_at', { ascending: true });
       
       if (error) {
         logger.error('Failed to get conjugations due for review:', error);
-        throw error;
+        return [];
       }
       
       return data || [];
     } catch (error) {
       logger.error('Error getting conjugations due for review:', error);
-      throw error;
+      return [];
     }
   },
 
   // 学習履歴をクリア（開発・テスト用）
   async clearHistory(wordCardId?: string): Promise<void> {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        logger.warn('No active session, cannot clear history');
+        return;
+      }
       
       let query = supabase
         .from('verb_conjugation_history')
         .delete()
-        .eq('user_id', userData.user?.id);
+        .eq('user_id', session.user.id);
       
       if (wordCardId) {
         query = query.eq('word_card_id', wordCardId);
@@ -173,7 +194,6 @@ export const conjugationHistoryService = {
       logger.info('Conjugation history cleared successfully');
     } catch (error) {
       logger.error('Error clearing conjugation history:', error);
-      throw error;
     }
   }
 };
