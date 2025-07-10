@@ -119,14 +119,15 @@ export function VerbConjugationContainer({
         let filtered = verbs;
 
         if (filterSettings.mode === 'weak') {
-          // 苦手な動詞のみ（一度でも失敗したか、正答率が閾値以下）
-          const weakVerbIds = relevantStats
+          // 苦手な動詞のみ（その動詞の任意の活用形で一度でも失敗したか、正答率が閾値以下）
+          const weakVerbIds = new Set<string>();
+          relevantStats
             .filter(stat => stat.has_failed || stat.accuracy_rate < filterSettings.accuracyThreshold)
-            .map(stat => stat.word_card_id);
+            .forEach(stat => weakVerbIds.add(stat.word_card_id));
           
-          logger.info('Weak verb IDs:', weakVerbIds);
+          logger.info('Weak verb IDs:', Array.from(weakVerbIds));
           
-          filtered = verbs.filter(v => v.id && weakVerbIds.includes(v.id));
+          filtered = verbs.filter(v => v.id && weakVerbIds.has(v.id));
           
           logger.info('Filtered verbs:', filtered.length);
         } else if (filterSettings.mode === 'due') {

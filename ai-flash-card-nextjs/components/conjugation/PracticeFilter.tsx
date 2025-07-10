@@ -87,6 +87,13 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
     return stats.filter(stat => stat.has_failed || stat.accuracy_rate < accuracyThreshold).length;
   };
 
+  const getWeakCountByVerb = () => {
+    const verbSet = new Set<string>();
+    stats.filter(stat => stat.has_failed || stat.accuracy_rate < accuracyThreshold)
+      .forEach(stat => verbSet.add(stat.word_card_id));
+    return verbSet.size;
+  };
+
   const getDueCount = () => {
     const now = new Date();
     return stats.filter(stat => stat.next_review_at && new Date(stat.next_review_at) <= now).length;
@@ -193,7 +200,9 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
             <Target className="w-5 h-5" />
             <span className="font-medium">苦手</span>
             {!loading && (
-              <span className="text-xs">({getWeakCount()}問)</span>
+              <span className="text-xs">
+                ({getWeakCount()}活用 / {getWeakCountByVerb()}動詞)
+              </span>
             )}
           </div>
         </button>
@@ -340,6 +349,9 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
                 stats.reduce((sum, stat) => sum + stat.total_attempts, 0)
               )
             }%
+          </p>
+          <p className="text-xs mt-1">
+            練習済み活用形: {stats.length}種類
           </p>
         </div>
       )}

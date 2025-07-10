@@ -17,6 +17,9 @@ export interface ConjugationHistoryEntry {
 
 export interface ConjugationStats {
   word_card_id: string;
+  tense: string;
+  mood: string;
+  person: string;
   total_attempts: number;
   correct_count: number;
   accuracy_rate: number;
@@ -64,7 +67,7 @@ export const conjugationHistoryService = {
     }
   },
 
-  // ユーザーの全体的な統計情報を取得
+  // ユーザーの全体的な統計情報を取得（活用形単位）
   async getUserStats(): Promise<ConjugationStats[]> {
     try {
       const history = this.getHistory();
@@ -74,17 +77,21 @@ export const conjugationHistoryService = {
         return [];
       }
       
-      // データを集計
+      // データを集計（活用形単位: word_card_id + tense + mood + person）
       const statsMap = new Map<string, ConjugationStats>();
       
       logger.info(`Processing ${history.length} history records from localStorage`);
       
       history.forEach(record => {
-        const key = record.word_card_id;
+        // 活用形単位のキーを生成
+        const key = `${record.word_card_id}_${record.tense}_${record.mood}_${record.person}`;
         
         if (!statsMap.has(key)) {
           statsMap.set(key, {
             word_card_id: record.word_card_id,
+            tense: record.tense,
+            mood: record.mood,
+            person: record.person,
             total_attempts: 0,
             correct_count: 0,
             accuracy_rate: 0,
@@ -98,7 +105,7 @@ export const conjugationHistoryService = {
           stats.correct_count++;
         } else {
           stats.has_failed = true;
-          logger.debug(`Word ${record.word_card_id} marked as failed`);
+          logger.debug(`Conjugation ${key} marked as failed`);
         }
         
         // 最終練習日時を更新
@@ -115,7 +122,7 @@ export const conjugationHistoryService = {
       });
       
       const results = Array.from(statsMap.values());
-      logger.info(`Aggregated stats for ${results.length} words, ${results.filter(s => s.has_failed).length} marked as failed`);
+      logger.info(`Aggregated stats for ${results.length} conjugations, ${results.filter(s => s.has_failed).length} marked as failed`);
       
       return results;
     } catch (error) {
