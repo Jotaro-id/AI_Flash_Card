@@ -8,6 +8,8 @@ import { logger } from '@/utils/logger';
 interface PracticeFilterProps {
   onFilterChange: (filter: FilterSettings) => void;
   wordCardIds?: string[];
+  currentTense?: string;
+  currentMood?: string;
 }
 
 export interface FilterSettings {
@@ -24,7 +26,7 @@ export interface FilterSettings {
   }>;
 }
 
-export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterProps) {
+export function PracticeFilter({ onFilterChange, wordCardIds, currentTense, currentMood }: PracticeFilterProps) {
   const [filterMode, setFilterMode] = useState<FilterSettings['mode']>('all');
   const [accuracyThreshold, setAccuracyThreshold] = useState(80);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -86,10 +88,15 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
       includePersons: selectedPersons.length > 0 ? selectedPersons : undefined
     };
     
-    // 苦手モードの場合、苦手な活用形の情報を追加
+    // 苦手モードの場合、苦手な活用形の情報を追加（現在の時制・法でフィルタリング）
     if (mode === 'weak') {
       const weakConjugations = stats
-        .filter(stat => stat.has_failed || stat.accuracy_rate < threshold)
+        .filter(stat => {
+          // 現在の時制・法でフィルタリング
+          const matchesTenseMood = !currentTense || !currentMood || 
+                                   (stat.tense === currentTense && stat.mood === currentMood);
+          return matchesTenseMood && (stat.has_failed || stat.accuracy_rate < threshold);
+        })
         .map(stat => ({
           word_card_id: stat.word_card_id,
           tense: stat.tense,
@@ -103,13 +110,19 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
   };
 
   const getWeakCount = () => {
-    return stats.filter(stat => stat.has_failed || stat.accuracy_rate < accuracyThreshold).length;
+    // 現在の時制・法で苦手な活用形をカウント
+    return stats.filter(stat => 
+      (!currentTense || !currentMood || (stat.tense === currentTense && stat.mood === currentMood)) &&
+      (stat.has_failed || stat.accuracy_rate < accuracyThreshold)
+    ).length;
   };
 
   const getWeakCountByVerb = () => {
     const verbSet = new Set<string>();
-    stats.filter(stat => stat.has_failed || stat.accuracy_rate < accuracyThreshold)
-      .forEach(stat => verbSet.add(stat.word_card_id));
+    stats.filter(stat => 
+      (!currentTense || !currentMood || (stat.tense === currentTense && stat.mood === currentMood)) &&
+      (stat.has_failed || stat.accuracy_rate < accuracyThreshold)
+    ).forEach(stat => verbSet.add(stat.word_card_id));
     return verbSet.size;
   };
 
@@ -219,9 +232,16 @@ export function PracticeFilter({ onFilterChange, wordCardIds }: PracticeFilterPr
             <Target className="w-5 h-5" />
             <span className="font-medium">苦手</span>
             {!loading && (
-              <span className="text-xs">
-                ({getWeakCount()}活用 / {getWeakCountByVerb()}動詞)
-              </span>
+              <div className="text-center">
+                <span className="text-xs block">
+                  ({getWeakCount()}活用 / {getWeakCountByVerb()}動詞)
+                </span>
+                {currentTense && currentMood && (
+                  <span className="text-xs text-gray-500 block mt-1">
+                    {getTenseLabel(currentTense)} {getMoodLabel(currentMood)}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </button>

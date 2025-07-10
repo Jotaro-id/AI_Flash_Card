@@ -119,13 +119,21 @@ export function VerbConjugationContainer({
         let filtered = verbs;
 
         if (filterSettings.mode === 'weak') {
-          // 苦手な動詞のみ（その動詞の任意の活用形で一度でも失敗したか、正答率が閾値以下）
+          // 苦手な動詞のみ（選択された時制・法で一度でも失敗したか、正答率が閾値以下）
           const weakVerbIds = new Set<string>();
           relevantStats
-            .filter(stat => stat.has_failed || stat.accuracy_rate < filterSettings.accuracyThreshold)
+            .filter(stat => {
+              // 選択された時制・法でフィルタリング
+              return (stat.tense === selectedTense && stat.mood === selectedMood) &&
+                     (stat.has_failed || stat.accuracy_rate < filterSettings.accuracyThreshold);
+            })
             .forEach(stat => weakVerbIds.add(stat.word_card_id));
           
-          logger.info('Weak verb IDs:', Array.from(weakVerbIds));
+          logger.info('Weak verb IDs for tense/mood:', {
+            tense: selectedTense,
+            mood: selectedMood,
+            weakVerbs: Array.from(weakVerbIds)
+          });
           
           filtered = verbs.filter(v => v.id && weakVerbIds.has(v.id));
           
@@ -154,7 +162,7 @@ export function VerbConjugationContainer({
     };
 
     applyFilter();
-  }, [filterSettings, verbs, currentVerb]);
+  }, [filterSettings, verbs, currentVerb, selectedTense, selectedMood]);
 
   const handleNextVerb = () => {
     const currentIndex = filteredVerbs.findIndex(v => v.id === currentVerb?.id);
@@ -250,6 +258,8 @@ export function VerbConjugationContainer({
         <PracticeFilter
           onFilterChange={handleFilterChange}
           wordCardIds={verbs.map(v => v.id).filter(Boolean) as string[]}
+          currentTense={selectedTense}
+          currentMood={selectedMood}
         />
       )}
 

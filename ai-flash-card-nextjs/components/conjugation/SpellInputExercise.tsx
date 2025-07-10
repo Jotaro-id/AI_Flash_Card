@@ -490,12 +490,12 @@ export function SpellInputExercise({
       <div className="flex justify-between">
         <div className="flex gap-2">
           <button
-            onClick={goToPreviousQuestion}
-            disabled={currentQuestionIndex === 0 || showResult === true}
+            onClick={onPreviousVerb}
+            disabled={!onPreviousVerb || currentVerbIndex === 0 || showResult === true}
             className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
           >
             <ChevronRight size={20} className="rotate-180" />
-            前の問題
+            前の動詞へ
           </button>
           <button
             onClick={() => {
