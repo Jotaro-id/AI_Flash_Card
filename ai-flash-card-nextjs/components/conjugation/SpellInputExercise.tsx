@@ -167,7 +167,7 @@ export function SpellInputExercise({
           
           newQuestions.push({
             person: displayPerson,
-            correctAnswer: conjugationData[person],
+            correctAnswer: conjugationData[person].trim(), // 前後の空白を削除
             hint: conjugationData[person].slice(0, 2) + '...'
           });
           addedPersons.add(conjugationData[person]);
@@ -199,7 +199,30 @@ export function SpellInputExercise({
   const checkAnswer = () => {
     if (!currentQuestion || !userAnswer.trim()) return;
 
-    const isCorrect = userAnswer.trim().toLowerCase() === currentQuestion.correctAnswer.toLowerCase();
+    // 正規化関数：見えない文字を削除し、アクセント記号を考慮
+    const normalize = (str: string) => {
+      return str
+        .trim()
+        .toLowerCase()
+        .normalize('NFD') // アクセント記号を分解
+        .replace(/[\u0300-\u036f]/g, '') // アクセント記号を削除
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // ゼロ幅文字を削除
+        .replace(/\s+/g, ' '); // 複数の空白を1つに
+    };
+
+    const normalizedUserAnswer = normalize(userAnswer);
+    const normalizedCorrectAnswer = normalize(currentQuestion.correctAnswer);
+    
+    // デバッグ用ログ
+    logger.info('Answer check:', {
+      userAnswer: normalizedUserAnswer,
+      correctAnswer: normalizedCorrectAnswer,
+      userAnswerLength: normalizedUserAnswer.length,
+      correctAnswerLength: normalizedCorrectAnswer.length,
+      match: normalizedUserAnswer === normalizedCorrectAnswer
+    });
+    
+    const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
     setShowResult(isCorrect);
     setAttempts(attempts + 1);
 
