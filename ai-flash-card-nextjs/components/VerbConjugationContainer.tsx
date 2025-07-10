@@ -28,9 +28,48 @@ export function VerbConjugationContainer({
   const [selectedMood, setSelectedMood] = useState<string>('indicative');
   
   useEffect(() => {
-    // 動詞のみをフィルタリング
+    // 動詞のみをフィルタリング（原型でない動詞は除外）
     const filteredVerbs = vocabularyFile.words.filter(
-      word => word.aiGenerated?.wordClass === 'verb'
+      word => {
+        // 動詞であることを確認
+        if (word.aiGenerated?.wordClass !== 'verb') return false;
+        
+        // 原型でない動詞を除外するチェック
+        const wordText = word.word.toLowerCase();
+        
+        // 活用された形の特徴的なパターンを除外
+        // スペイン語の活用語尾パターン
+        const conjugatedPatterns = [
+          /ío$/, // río のような過去形
+          /ía$/, // 未完了過去形
+          /ieron$/, // 3人称複数過去形
+          /imos$/, // 1人称複数形
+          /éis$/, // 2人称複数形
+          /ando$/, // 現在分詞
+          /iendo$/, // 現在分詞
+          /ado$/, // 過去分詞
+          /ido$/, // 過去分詞
+        ];
+        
+        // 活用形のパターンにマッチする場合は除外
+        const isConjugated = conjugatedPatterns.some(pattern => pattern.test(wordText));
+        if (isConjugated) {
+          logger.info(`Excluding conjugated verb: ${word.word}`);
+          return false;
+        }
+        
+        // 動詞の原型の典型的な語尾をチェック（スペイン語）
+        const infinitivePatterns = [/ar$/, /er$/, /ir$/];
+        const isInfinitive = infinitivePatterns.some(pattern => pattern.test(wordText));
+        
+        // 原型でない場合は除外
+        if (!isInfinitive && targetLanguage === 'es') {
+          logger.info(`Excluding non-infinitive verb: ${word.word}`);
+          return false;
+        }
+        
+        return true;
+      }
     );
     logger.info('Filtered verbs:', { count: filteredVerbs.length });
     setVerbs(filteredVerbs);
@@ -40,7 +79,7 @@ export function VerbConjugationContainer({
       // デバッグ: 最初の動詞の活用データを確認
       logger.info('First verb conjugation data:', filteredVerbs[0].aiGenerated?.grammaticalChanges?.verbConjugations);
     }
-  }, [vocabularyFile]);
+  }, [vocabularyFile, targetLanguage]);
 
   const handleNextVerb = () => {
     const currentIndex = verbs.findIndex(v => v.id === currentVerb?.id);
