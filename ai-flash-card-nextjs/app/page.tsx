@@ -6,8 +6,10 @@ import { WordManager } from '@/components/WordManager';
 import { FlashcardContainer } from '@/components/FlashcardContainer';
 import { Auth } from '@/components/Auth';
 import { VerbConjugationContainer } from '@/components/VerbConjugationContainer';
+import { SyncStatus } from '@/components/SyncStatus';
 import { VocabularyFile, SupportedLanguage, LearningStatus } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
+import { useDataSync } from '@/hooks/useDataSync';
 // LocalStorageを使用するように変更
 import { 
   fetchVocabularyFiles, 
@@ -40,6 +42,7 @@ export default function Home() {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [appState, setAppState] = useState<AppState>('file-manager');
   const { currentTheme, setTheme, availableThemes } = useTheme();
+  const { incrementPendingChanges } = useDataSync();
   
   // filesステートの変更を監視
   useEffect(() => {
@@ -138,6 +141,7 @@ export default function Home() {
       const newFile = await createVocabularyFile(name, targetLanguage);
       logger.info('File created successfully', { fileId: newFile.id, fileName: newFile.name });
       await loadVocabularyFiles();
+      incrementPendingChanges();
     } catch (error) {
       logger.error('Failed to create file:', error);
     }
@@ -194,6 +198,7 @@ export default function Home() {
       setCurrentFile(result);
       
       await loadVocabularyFiles();
+      incrementPendingChanges();
     } catch (error) {
       logger.error('Failed to update file:', error);
     }
@@ -274,62 +279,67 @@ export default function Home() {
   logger.debug('Rendering main app state:', { appState });
   
   return (
-    <div className="min-h-screen">{/* ヘッダーは各コンポーネント内で管理 */}
+    <div className="min-h-screen">
+      {/* 同期ステータス表示 */}
+      <div className="fixed top-4 right-4 z-50">
+        <SyncStatus showDetails={true} />
+      </div>
+      
+      {/* ヘッダーは各コンポーネント内で管理 */}
+      {appState === 'file-manager' && (
+        <FileManager
+          files={files}
+          onCreateFile={handleCreateFile}
+          onDeleteFile={handleDeleteFile}
+          onSelectFile={handleSelectFile}
+          onSignOut={handleLogout}
+          currentTheme={currentTheme}
+          availableThemes={availableThemes}
+          onThemeChange={setTheme}
+          currentUser={currentUser}
+          onDebug={handleDiagnosticsClick}
+        />
+      )}
 
-        {appState === 'file-manager' && (
-          <FileManager
-            files={files}
-            onCreateFile={handleCreateFile}
-            onDeleteFile={handleDeleteFile}
-            onSelectFile={handleSelectFile}
-            onSignOut={handleLogout}
-            currentTheme={currentTheme}
-            availableThemes={availableThemes}
-            onThemeChange={setTheme}
-            currentUser={currentUser}
-            onDebug={handleDiagnosticsClick}
-          />
-        )}
+      {appState === 'word-manager' && currentFile && (
+        <WordManager
+          file={currentFile}
+          onBack={handleBack}
+          onUpdateFile={handleUpdateFile}
+          onStartFlashcards={handleStudyWords}
+          onStartVerbConjugation={handleStartVerbConjugation}
+          currentTheme={currentTheme}
+          availableThemes={availableThemes}
+          onThemeChange={setTheme}
+          currentUser={currentUser}
+          onSignOut={handleLogout}
+        />
+      )}
 
-        {appState === 'word-manager' && currentFile && (
-          <WordManager
-            file={currentFile}
-            onBack={handleBack}
-            onUpdateFile={handleUpdateFile}
-            onStartFlashcards={handleStudyWords}
-            onStartVerbConjugation={handleStartVerbConjugation}
-            currentTheme={currentTheme}
-            availableThemes={availableThemes}
-            onThemeChange={setTheme}
-            currentUser={currentUser}
-            onSignOut={handleLogout}
-          />
-        )}
+      {appState === 'flashcards' && currentFile && (
+        <FlashcardContainer
+          file={currentFile}
+          currentIndex={currentWordIndex}
+          onIndexChange={setCurrentWordIndex}
+          onBack={async () => {
+            // フィルタリングされている場合は、元のファイルを再読み込み
+            if (currentFile?.isFiltered) {
+              await loadVocabularyFiles();
+            }
+            setAppState('word-manager');
+          }}
+          onLearningStatusChange={handleLearningStatusChange}
+          wordBookId={currentFile.id}
+        />
+      )}
 
-        {appState === 'flashcards' && currentFile && (
-          <FlashcardContainer
-            file={currentFile}
-            currentIndex={currentWordIndex}
-            onIndexChange={setCurrentWordIndex}
-            onBack={async () => {
-              // フィルタリングされている場合は、元のファイルを再読み込み
-              if (currentFile?.isFiltered) {
-                await loadVocabularyFiles();
-              }
-              setAppState('word-manager');
-            }}
-            onLearningStatusChange={handleLearningStatusChange}
-            wordBookId={currentFile.id}
-          />
-        )}
-
-        {appState === 'verb-conjugation' && currentFile && (
-          <VerbConjugationContainer
-            vocabularyFile={currentFile}
-            onBack={() => setAppState('word-manager')}
-            targetLanguage={currentFile.targetLanguage || 'es'}
-          />
-        )}
+      {appState === 'verb-conjugation' && currentFile && (
+        <VerbConjugationContainer
+          vocabularyFile={currentFile}
+          onBack={() => setAppState('word-manager')}
+          targetLanguage={currentFile.targetLanguage || 'es'}
+        />
+      )}
     </div>
   );
 }
