@@ -41,12 +41,20 @@ export const conjugationHistoryService = {
         return;
       }
       
+      const insertData = {
+        ...entry,
+        user_id: session.user.id
+      };
+      
+      logger.info('Saving conjugation history:', {
+        word_card_id: insertData.word_card_id,
+        is_correct: insertData.is_correct,
+        user_id: insertData.user_id
+      });
+      
       const { error } = await supabase
         .from('verb_conjugation_history')
-        .insert({
-          ...entry,
-          user_id: session.user.id
-        });
+        .insert(insertData);
       
       if (error) {
         logger.error('Failed to save conjugation history:', error);
@@ -108,6 +116,8 @@ export const conjugationHistoryService = {
       // データを集計
       const statsMap = new Map<string, ConjugationStats>();
       
+      logger.info(`Processing ${historyData.length} history records`);
+      
       historyData.forEach(record => {
         const key = record.word_card_id;
         
@@ -127,6 +137,7 @@ export const conjugationHistoryService = {
           stats.correct_count++;
         } else {
           stats.has_failed = true; // 一度でも失敗したらtrue
+          logger.debug(`Word ${record.word_card_id} marked as failed`);
         }
         
         // 最終練習日時を更新
@@ -147,7 +158,10 @@ export const conjugationHistoryService = {
           : 0;
       });
       
-      return Array.from(statsMap.values());
+      const results = Array.from(statsMap.values());
+      logger.info(`Aggregated stats for ${results.length} words, ${results.filter(s => s.has_failed).length} marked as failed`);
+      
+      return results;
     } catch (error) {
       logger.error('Error getting user conjugation stats:', error);
       return [];

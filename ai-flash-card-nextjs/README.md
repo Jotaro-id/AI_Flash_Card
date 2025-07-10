@@ -1,5 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## データベースセットアップ
+
+### 動詞活用練習機能のマイグレーション
+
+動詞活用練習機能を使用するには、以下のSQLをSupabaseで実行してください：
+
+1. Supabaseダッシュボードにログイン
+2. SQL Editorを開く
+3. `supabase/migrations/20250110_verb_conjugation_history.sql` の内容を実行
+
+または、`database_schema.sql` の内容を実行してください。
+
 ## Getting Started
 
 First, run the development server:

@@ -44,11 +44,14 @@ export function useConjugationTracking() {
       await conjugationHistoryService.saveHistory(entry);
       
       logger.info('Recorded conjugation answer:', {
+        wordCardId: params.wordCardId,
         isCorrect: params.isCorrect,
         responseTime,
         person: params.person,
         tense: params.tense,
-        mood: params.mood
+        mood: params.mood,
+        userAnswer: params.userAnswer,
+        correctAnswer: params.correctAnswer
       });
 
       // Reset start time

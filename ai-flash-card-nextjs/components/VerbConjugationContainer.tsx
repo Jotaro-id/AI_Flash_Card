@@ -102,7 +102,19 @@ export function VerbConjugationContainer({
         // 統計情報を取得
         const stats = await conjugationHistoryService.getUserStats();
         const verbIds = verbs.map(v => v.id).filter(Boolean);
+        
+        logger.info('Filter debug:', {
+          totalVerbs: verbs.length,
+          verbIds: verbIds.length,
+          totalStats: stats.length
+        });
+        
         const relevantStats = stats.filter(stat => verbIds.includes(stat.word_card_id));
+        
+        logger.info('Relevant stats:', {
+          count: relevantStats.length,
+          failedCount: relevantStats.filter(s => s.has_failed).length
+        });
 
         let filtered = verbs;
 
@@ -111,7 +123,12 @@ export function VerbConjugationContainer({
           const weakVerbIds = relevantStats
             .filter(stat => stat.has_failed || stat.accuracy_rate < filterSettings.accuracyThreshold)
             .map(stat => stat.word_card_id);
+          
+          logger.info('Weak verb IDs:', weakVerbIds);
+          
           filtered = verbs.filter(v => v.id && weakVerbIds.includes(v.id));
+          
+          logger.info('Filtered verbs:', filtered.length);
         } else if (filterSettings.mode === 'due') {
           // 復習が必要な動詞のみ
           const now = new Date();
