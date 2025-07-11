@@ -46,7 +46,7 @@ Make sure to provide accurate and helpful information for language learners.
             content: prompt,
           },
         ],
-        model: 'llama3-8b-8192',
+        model: 'gemma2-9b-it',
         temperature: 0.3,
         max_tokens: 1000,
       });
@@ -146,7 +146,7 @@ IMPORTANT:
             content: prompt,
           },
         ],
-        model: 'llama3-8b-8192',
+        model: 'gemma2-9b-it',
         temperature: 0.3,
         max_tokens: 1500,
       });

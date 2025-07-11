@@ -14,6 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **部下にあまりに連続的な指示を出さないこと（レートリミットに達してしまうため）**
 
+**AIモデルの設定を勝手に変更しないこと。現在のAIモデルは `gemma2-9b-it` (Groq API) を使用しています。モデルの変更が必要な場合は、必ずユーザーに確認を取ってください。**
+
 ## コーディング原則
 
 - YAGNI（You Aren't Gonna Need It）：今必要じゃない機能は作らない
