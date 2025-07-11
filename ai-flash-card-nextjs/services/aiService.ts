@@ -271,12 +271,12 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
     console.log('[aiService] After formatting grammaticalChanges:', grammaticalChanges);
     
     const result = {
-      englishEquivalent: ensureString(translations.en || resp.meaning, `English meaning of "${word}"`),
-      japaneseEquivalent: ensureString(translations.ja || resp.meaning, `${word}の日本語意味`),
+      englishEquivalent: ensureString(translations.en || (detectedLanguage !== 'en' ? resp.meaning : word), `English meaning of "${word}"`),
+      japaneseEquivalent: ensureString(translations.ja || (detectedLanguage === 'ja' ? word : ''), `${word}の日本語意味`),
       pronunciation: ensureString(resp.pronunciation, `/${word.toLowerCase()}/`),
       exampleSentence: ensureString(resp.example, `Example sentence with "${word}".`),
-      japaneseExample: ensureString(resp.example_translation, `「${word}」を使った例文です。`),
-      englishExample: ensureString(resp.english_example || (translations.en ? `Usage example for "${translations.en}".` : null), `Usage example for "${word}".`),
+      japaneseExample: ensureString(resp.example_translation || '', `「${word}」を使った例文です。`),
+      englishExample: ensureString(resp.english_example || (detectedLanguage !== 'en' ? resp.example : ''), `Usage example for "${word}".`),
       usageNotes: ensureString(resp.notes, `Usage notes for "${word}".`),
       wordClass: resp.wordClass as AIWordInfo['wordClass'] || determineWordClass(word),
       grammaticalChanges: grammaticalChanges || undefined,
@@ -319,19 +319,19 @@ const generateFallbackWordInfo = (word: string): AIWordInfo => {
   
   // 基本的な単語情報を生成
   const wordInfo: AIWordInfo = {
-    englishEquivalent: detectedLang === 'en' ? word : `[翻訳取得中] ${word}`,
-    japaneseEquivalent: detectedLang === 'ja' ? word : `[翻訳取得中] ${word}`,
+    englishEquivalent: detectedLang === 'en' ? word : `[英訳取得中]`,
+    japaneseEquivalent: detectedLang === 'ja' ? word : `[日本語訳取得中]`,
     pronunciation: `/${word.toLowerCase()}/`,
     exampleSentence: generateExampleSentence(word, detectedLang),
-    japaneseExample: `「${word}」を使った例文`,
-    englishExample: `Example with "${word}"`,
+    japaneseExample: generateJapaneseExampleSentence(word, detectedLang),
+    englishExample: detectedLang === 'en' ? generateExampleSentence(word, 'en') : `Example with "${word}"`,
     usageNotes: 'API制限により詳細情報は取得できませんでした。後でもう一度お試しください。',
     wordClass: determineWordClass(word),
     enhancedExample: {
       originalLanguage: detectedLang,
       originalSentence: generateExampleSentence(word, detectedLang),
-      japaneseTranslation: `「${word}」を使った例文`,
-      englishTranslation: `Example with "${word}"`
+      japaneseTranslation: generateJapaneseExampleSentence(word, detectedLang),
+      englishTranslation: detectedLang === 'en' ? generateExampleSentence(word, 'en') : `Example with "${word}"`
     },
     translations: {
       spanish: detectedLang === 'es' ? word : `[${word}]`,
@@ -378,6 +378,28 @@ const generateExampleSentence = (word: string, language: SupportedLanguage): str
       return `"${word}"를 사용한 예문입니다.`;
     default:
       return `This is an example sentence using "${word}".`;
+  }
+};
+
+// 日本語の例文を生成
+const generateJapaneseExampleSentence = (word: string, language: SupportedLanguage): string => {
+  switch (language) {
+    case 'en':
+      return `これは「${word}」を使った例文です。`;
+    case 'es':
+      return `これは「${word}」（スペイン語）を使った例文です。`;
+    case 'fr':
+      return `これは「${word}」（フランス語）を使った例文です。`;
+    case 'de':
+      return `これは「${word}」（ドイツ語）を使った例文です。`;
+    case 'ja':
+      return `「${word}」を使用した例文です。`;
+    case 'zh':
+      return `これは「${word}」（中国語）を使った例文です。`;
+    case 'ko':
+      return `これは「${word}」（韓国語）を使った例文です。`;
+    default:
+      return `「${word}」を使った例文です。`;
   }
 };
 

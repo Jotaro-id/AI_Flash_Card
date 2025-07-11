@@ -75,16 +75,16 @@ Generate comprehensive language learning information for the word "${word}".
 
 Return a JSON object with the following structure:
 {
-  "meaning": "the meaning/definition of the word",
+  "meaning": "the meaning/definition of the word in the original language",
   "pronunciation": "phonetic pronunciation guide",
-  "example": "example sentence using the word",
-  "example_translation": "Japanese translation of the example sentence",
+  "example": "example sentence using the word in its original language",
+  "example_translation": "その例文の日本語訳（必ず日本語で翻訳してください）",
   "english_example": "English translation of the example sentence",
   "notes": "usage notes, common mistakes, or cultural context",
   "wordClass": "noun/verb/adjective/adverb/other",
   "translations": {
     "en": "English translation",
-    "ja": "Japanese translation",
+    "ja": "日本語訳（必ず日本語で翻訳してください）",
     "es": "Spanish translation",
     "fr": "French translation",
     "de": "German translation",
@@ -139,7 +139,7 @@ IMPORTANT:
         messages: [
           {
             role: 'system',
-            content: 'You are a multilingual language learning assistant. Always respond with valid JSON containing comprehensive word information.',
+            content: 'You are a multilingual language learning assistant. Always respond with valid JSON containing comprehensive word information. IMPORTANT: For the "ja" field in translations and "example_translation" field, you MUST provide actual Japanese translations (in hiragana, katakana, or kanji as appropriate), NOT English text. 例: "hello" -> "こんにちは", "run" -> "走る"',
           },
           {
             role: 'user',
