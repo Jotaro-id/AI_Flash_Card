@@ -74,7 +74,7 @@ async function callGroqAPI(action: string, data: Record<string, unknown>): Promi
 }
 
 // Groq APIを使用した単語情報生成サービス
-export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
+export const generateWordInfo = async (word: string, targetLanguage?: SupportedLanguage): Promise<AIWordInfo> => {
   console.log('[generateWordInfo] Starting for word:', word);
   // まずキャッシュをチェック
   const cachedInfo = aiWordInfoCache.get(word);
@@ -89,7 +89,7 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     // レート制限とリトライ処理付きでAPIを呼び出し
     const result = await withExponentialBackoff(
       async () => {
-        return await callGroqAPI('generateFlashcard', { word });
+        return await callGroqAPI('generateFlashcard', { word, targetLanguage });
       },
       {
         maxRetries: 3,
@@ -107,7 +107,7 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     console.log('[generateWordInfo] Result type:', typeof result);
     console.log('[generateWordInfo] Result keys:', result ? Object.keys(result) : 'null');
     
-    const wordInfo = parseGroqResponse(result, word);
+    const wordInfo = parseGroqResponse(result, word, targetLanguage);
     logger.info('Successfully generated word info', { word });
     console.log('[generateWordInfo] Parsed word info:', wordInfo);
     console.log('[generateWordInfo] WordInfo keys:', Object.keys(wordInfo));
@@ -128,7 +128,7 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
           word,
           error: error.message
         });
-        const fallbackInfo = generateFallbackWordInfo(word);
+        const fallbackInfo = generateFallbackWordInfo(word, targetLanguage);
         // レート制限の場合は使用上の注意を更新
         fallbackInfo.usageNotes = '⚠️ API制限により簡易情報を表示しています。1分後に再度お試しください。';
         aiWordInfoCache.set(word, fallbackInfo);
@@ -136,19 +136,19 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
       }
       if (error.message.includes('API_KEY_INVALID')) {
         logger.error('API key issue detected, using fallback data');
-        const fallbackInfo = generateFallbackWordInfo(word);
+        const fallbackInfo = generateFallbackWordInfo(word, targetLanguage);
         aiWordInfoCache.set(word, fallbackInfo);
         return fallbackInfo;
       }
       if (error.message.includes('fetch') || error.message.includes('network')) {
         logger.error('Network error, using fallback data');
-        const fallbackInfo = generateFallbackWordInfo(word);
+        const fallbackInfo = generateFallbackWordInfo(word, targetLanguage);
         aiWordInfoCache.set(word, fallbackInfo);
         return fallbackInfo;
       }
       if (error.message.includes('timeout')) {
         logger.error('Timeout error, using fallback data');
-        const fallbackInfo = generateFallbackWordInfo(word);
+        const fallbackInfo = generateFallbackWordInfo(word, targetLanguage);
         aiWordInfoCache.set(word, fallbackInfo);
         return fallbackInfo;
       }
@@ -156,14 +156,14 @@ export const generateWordInfo = async (word: string): Promise<AIWordInfo> => {
     
     // その他のエラーの場合もフォールバックを使用
     logger.warn('Using fallback data due to unrecoverable API error');
-    const fallbackInfo = generateFallbackWordInfo(word);
+    const fallbackInfo = generateFallbackWordInfo(word, targetLanguage);
     aiWordInfoCache.set(word, fallbackInfo);
     return fallbackInfo;
   }
 };
 
 // Groqの回答をパースしてAIWordInfo形式に変換
-const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
+const parseGroqResponse = (response: unknown, word: string, targetLanguage?: SupportedLanguage): AIWordInfo => {
   console.log('[aiService] Parsing Groq response for word:', word);
   console.log('[aiService] Raw response:', response);
   try {
@@ -199,23 +199,46 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
     
     // 文法変化情報の抽出（Groqレスポンスから）
     let grammaticalChanges = undefined;
-    if (resp.conjugations) {
-      console.log('[aiService] Processing conjugations:', resp.conjugations);
-      // レスポンスから文法変化情報を解析
-      try {
-        if (typeof resp.conjugations === 'string') {
-          // 文字列の場合はJSONとしてパース
-          grammaticalChanges = JSON.parse(resp.conjugations);
-        } else if (typeof resp.conjugations === 'object') {
-          // オブジェクトの場合はそのまま使用
-          grammaticalChanges = resp.conjugations;
+    if (resp.conjugations || resp.genderNumberChanges) {
+      console.log('[aiService] Processing grammatical changes:', { 
+        conjugations: resp.conjugations, 
+        genderNumberChanges: resp.genderNumberChanges 
+      });
+      
+      grammaticalChanges = {} as any;
+      
+      // 動詞の活用
+      if (resp.conjugations) {
+        try {
+          if (typeof resp.conjugations === 'string') {
+            // 文字列の場合はJSONとしてパース
+            grammaticalChanges.verbConjugations = JSON.parse(resp.conjugations);
+          } else if (typeof resp.conjugations === 'object') {
+            // オブジェクトの場合はそのまま使用
+            grammaticalChanges.verbConjugations = resp.conjugations;
+          }
+        } catch (error) {
+          console.error('[aiService] Failed to parse conjugations:', error);
+          // パースに失敗した場合はテキストとして扱う
+          grammaticalChanges.verbConjugations = { raw: resp.conjugations };
         }
-        console.log('[aiService] Parsed grammaticalChanges:', grammaticalChanges);
-      } catch (error) {
-        console.error('[aiService] Failed to parse conjugations:', error);
-        // パースに失敗した場合はテキストとして扱う
-        grammaticalChanges = { raw: resp.conjugations };
       }
+      
+      // 性数変化
+      if (resp.genderNumberChanges) {
+        try {
+          if (typeof resp.genderNumberChanges === 'string') {
+            grammaticalChanges.genderNumberChanges = JSON.parse(resp.genderNumberChanges);
+          } else if (typeof resp.genderNumberChanges === 'object') {
+            grammaticalChanges.genderNumberChanges = resp.genderNumberChanges;
+          }
+        } catch (error) {
+          console.error('[aiService] Failed to parse genderNumberChanges:', error);
+          grammaticalChanges.genderNumberChanges = { raw: resp.genderNumberChanges };
+        }
+      }
+      
+      console.log('[aiService] Parsed grammaticalChanges:', grammaticalChanges);
     }
     
     // 言語を判定（翻訳情報から推測）
@@ -257,18 +280,8 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
     };
     
     // grammaticalChangesの構造を整形
-    console.log('[aiService] Before formatting grammaticalChanges:', grammaticalChanges);
-    console.log('[aiService] resp.wordClass:', resp.wordClass);
-    
-    if (grammaticalChanges && typeof grammaticalChanges === 'object') {
-      // verbConjugationsオブジェクトでラップ
-      if (!grammaticalChanges.verbConjugations && resp.wordClass === 'verb') {
-        console.log('[aiService] Wrapping conjugations in verbConjugations');
-        grammaticalChanges = { verbConjugations: grammaticalChanges };
-      }
-    }
-    
-    console.log('[aiService] After formatting grammaticalChanges:', grammaticalChanges);
+    // 既に上で処理済みなので、この部分は不要
+    console.log('[aiService] grammaticalChanges structure:', grammaticalChanges);
     
     const result = {
       englishEquivalent: ensureString(translations.en || (detectedLanguage !== 'en' ? resp.meaning : word), `English meaning of "${word}"`),
@@ -308,12 +321,12 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
     return result;
   } catch (error) {
     console.error('Failed to parse Groq response:', error);
-    return generateFallbackWordInfo(word);
+    return generateFallbackWordInfo(word, targetLanguage);
   }
 };
 
 // フォールバック用のモックデータ生成（レート制限時も使用）
-const generateFallbackWordInfo = (word: string): AIWordInfo => {
+const generateFallbackWordInfo = (word: string, targetLanguage?: SupportedLanguage): AIWordInfo => {
   // 単語の言語を推測
   const detectedLang = speechService.detectLanguage(word) as SupportedLanguage;
   
@@ -322,16 +335,16 @@ const generateFallbackWordInfo = (word: string): AIWordInfo => {
     englishEquivalent: detectedLang === 'en' ? word : `[英訳取得中]`,
     japaneseEquivalent: detectedLang === 'ja' ? word : `[日本語訳取得中]`,
     pronunciation: `/${word.toLowerCase()}/`,
-    exampleSentence: generateExampleSentence(word, detectedLang),
+    exampleSentence: generateExampleSentence(word, detectedLang, targetLanguage),
     japaneseExample: generateJapaneseExampleSentence(word, detectedLang),
-    englishExample: detectedLang === 'en' ? generateExampleSentence(word, 'en') : `Example with "${word}"`,
+    englishExample: detectedLang === 'en' ? generateExampleSentence(word, 'en', targetLanguage) : `Example with "${word}"`,
     usageNotes: 'API制限により詳細情報は取得できませんでした。後でもう一度お試しください。',
     wordClass: determineWordClass(word),
     enhancedExample: {
       originalLanguage: detectedLang,
-      originalSentence: generateExampleSentence(word, detectedLang),
+      originalSentence: generateExampleSentence(word, detectedLang, targetLanguage),
       japaneseTranslation: generateJapaneseExampleSentence(word, detectedLang),
-      englishTranslation: detectedLang === 'en' ? generateExampleSentence(word, 'en') : `Example with "${word}"`
+      englishTranslation: detectedLang === 'en' ? generateExampleSentence(word, 'en', targetLanguage) : `Example with "${word}"`
     },
     translations: {
       spanish: detectedLang === 'es' ? word : `[${word}]`,
@@ -361,9 +374,10 @@ const generateFallbackWordInfo = (word: string): AIWordInfo => {
   return wordInfo;
 };
 
-// 言語に応じた例文を生成
-const generateExampleSentence = (word: string, language: SupportedLanguage): string => {
-  switch (language) {
+// 言語に応じた例文を生成（targetLanguageを優先）
+const generateExampleSentence = (word: string, language: SupportedLanguage, targetLanguage?: SupportedLanguage): string => {
+  const effectiveLanguage = targetLanguage || language;
+  switch (effectiveLanguage) {
     case 'es':
       return `Ejemplo con la palabra "${word}".`;
     case 'fr':

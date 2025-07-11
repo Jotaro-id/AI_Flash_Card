@@ -68,16 +68,17 @@ Make sure to provide accurate and helpful information for language learners.
     }
   }
 
-  async generateFlashcardContent(word: string, context?: string, difficulty?: string) {
+  async generateFlashcardContent(word: string, context?: string, difficulty?: string, targetLanguage?: string) {
     try {
       const prompt = `
 Generate comprehensive language learning information for the word "${word}".
+${targetLanguage ? `IMPORTANT: Generate the example sentences in ${this.getLanguageName(targetLanguage)} language.` : ''}
 
 Return a JSON object with the following structure:
 {
   "meaning": "the meaning/definition of the word in the original language",
   "pronunciation": "phonetic pronunciation guide",
-  "example": "example sentence using the word in its original language",
+  "example": "example sentence using the word${targetLanguage ? ` in ${this.getLanguageName(targetLanguage)}` : ' in its original language'}",
   "example_translation": "その例文の日本語訳（必ず日本語で翻訳してください）",
   "english_example": "English translation of the example sentence",
   "notes": "usage notes, common mistakes, or cultural context",
@@ -93,12 +94,12 @@ Return a JSON object with the following structure:
     "it": "Italian translation"
   },
   "multilingualExamples": {
-    "es": "Spanish example sentence",
-    "fr": "French example sentence",
-    "de": "German example sentence",
-    "zh": "Chinese example sentence",
-    "ko": "Korean example sentence",
-    "it": "Italian example sentence"
+    "es": "Spanish example sentence${targetLanguage === 'es' ? ' (MUST be in Spanish)' : ''}",
+    "fr": "French example sentence${targetLanguage === 'fr' ? ' (MUST be in French)' : ''}",
+    "de": "German example sentence${targetLanguage === 'de' ? ' (MUST be in German)' : ''}",
+    "zh": "Chinese example sentence${targetLanguage === 'zh' ? ' (MUST be in Chinese)' : ''}",
+    "ko": "Korean example sentence${targetLanguage === 'ko' ? ' (MUST be in Korean)' : ''}",
+    "it": "Italian example sentence${targetLanguage === 'it' ? ' (MUST be in Italian)' : ''}"
   },
   "conjugations": {
     // For verbs, include detailed conjugation information based on the language:
@@ -119,12 +120,37 @@ Return a JSON object with the following structure:
     "pastParticiple": "spoken",
     "gerund": "speaking",
     "presentThirdPerson": "speaks"
+  },
+  "genderNumberChanges": {
+    // REQUIRED for nouns and adjectives in gendered languages
+    "masculine": {
+      "singular": "example: alto (tall - masculine singular)",
+      "plural": "example: altos (tall - masculine plural)"
+    },
+    "feminine": {
+      "singular": "example: alta (tall - feminine singular)",
+      "plural": "example: altas (tall - feminine plural)"
+    },
+    "neuter": {
+      // Only for languages with neuter gender like German
+      "singular": "example: das Kind (the child - neuter)",
+      "plural": "example: die Kinder (the children)"
+    }
   }
 }
 
 IMPORTANT: 
 - Detect the source language of "${word}" automatically
 - Provide accurate translations in all languages
+${targetLanguage ? `- The "example" field MUST contain an example sentence in ${this.getLanguageName(targetLanguage)} language
+- If generating multilingualExamples, the "${targetLanguage}" field MUST contain an example in ${this.getLanguageName(targetLanguage)}` : ''}
+- For ALL nouns and adjectives in languages with grammatical gender (Spanish, French, Italian, German, etc.):
+  YOU MUST ALWAYS include complete gender and number variations in the "genderNumberChanges" field
+  - For Spanish/French/Italian: Include masculine/feminine forms in both singular and plural
+  - For German: Include masculine/feminine/neuter forms in both singular and plural
+  - Even if the word doesn't change form, still provide the forms with appropriate articles
+  - Example for Spanish "casa" (house): feminine only, but still show: feminine: {singular: "la casa", plural: "las casas"}
+  - NEVER return "性数変化がありません" or indicate no gender changes exist
 - If the word is a verb, YOU MUST include complete conjugation information in the "conjugations" field:
   - For Spanish verbs: Include all tenses (present, preterite, imperfect, future, conditional, subjunctive, subjunctive_imperfect, imperative) with all person conjugations (yo, tú, él/ella/usted, nosotros/nosotras, vosotros/vosotras, ellos/ellas/ustedes)
   - For English verbs: Include present, past, pastParticiple, gerund, and presentThirdPerson forms
@@ -133,6 +159,8 @@ IMPORTANT:
 - Make example sentences natural and educational
 - Ensure all JSON fields are properly filled
 - The conjugations field should contain the actual verb forms, not empty objects
+- The genderNumberChanges field MUST be filled for ALL nouns and adjectives, never empty or null
+- ALWAYS provide gender/number variations, even for words that don't change (show with articles)
 `;
 
       const response = await this.groq.chat.completions.create({
@@ -197,5 +225,19 @@ IMPORTANT:
       console.error('Error generating flashcard content:', error);
       throw error;
     }
+  }
+
+  private getLanguageName(code: string): string {
+    const languageNames: Record<string, string> = {
+      'en': 'English',
+      'ja': 'Japanese',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'zh': 'Chinese',
+      'ko': 'Korean',
+      'it': 'Italian'
+    };
+    return languageNames[code] || code;
   }
 }

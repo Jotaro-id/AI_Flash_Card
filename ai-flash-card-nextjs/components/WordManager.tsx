@@ -298,7 +298,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
     try {
       // AI情報を生成
       console.log('[DEBUG] Generating AI info...');
-      const aiInfo = await generateWordInfo(wordToAdd);
+      const aiInfo = await generateWordInfo(wordToAdd, file.targetLanguage);
       console.log('[DEBUG] AI info generated:', aiInfo);
       tempWord.aiGenerated = aiInfo;
       
@@ -509,7 +509,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
       
       console.log('[DEBUG] Calling generateWordInfo...');
       // AI情報を再生成
-      const aiInfo = await generateWordInfo(word.word);
+      const aiInfo = await generateWordInfo(word.word, file.targetLanguage);
       console.log('[DEBUG] Regenerated AI info:', aiInfo);
       
       // 単語情報を更新

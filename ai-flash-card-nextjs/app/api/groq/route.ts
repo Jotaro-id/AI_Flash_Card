@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
         const flashcard = await groqService.generateFlashcardContent(
           word,
           context,
-          difficulty
+          difficulty,
+          targetLanguage
         );
         console.log('Generated flashcard:', JSON.stringify(flashcard, null, 2));
         return NextResponse.json({ data: flashcard });
