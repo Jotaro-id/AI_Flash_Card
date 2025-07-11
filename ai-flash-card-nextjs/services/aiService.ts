@@ -256,6 +256,20 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       return fallback;
     };
     
+    // grammaticalChangesの構造を整形
+    console.log('[aiService] Before formatting grammaticalChanges:', grammaticalChanges);
+    console.log('[aiService] resp.wordClass:', resp.wordClass);
+    
+    if (grammaticalChanges && typeof grammaticalChanges === 'object') {
+      // verbConjugationsオブジェクトでラップ
+      if (!grammaticalChanges.verbConjugations && resp.wordClass === 'verb') {
+        console.log('[aiService] Wrapping conjugations in verbConjugations');
+        grammaticalChanges = { verbConjugations: grammaticalChanges };
+      }
+    }
+    
+    console.log('[aiService] After formatting grammaticalChanges:', grammaticalChanges);
+    
     const result = {
       englishEquivalent: ensureString(translations.en || resp.meaning, `English meaning of "${word}"`),
       japaneseEquivalent: ensureString(translations.ja || resp.meaning, `${word}の日本語意味`),
@@ -265,7 +279,7 @@ const parseGroqResponse = (response: unknown, word: string): AIWordInfo => {
       englishExample: ensureString(resp.english_example || (translations.en ? `Usage example for "${translations.en}".` : null), `Usage example for "${word}".`),
       usageNotes: ensureString(resp.notes, `Usage notes for "${word}".`),
       wordClass: resp.wordClass as AIWordInfo['wordClass'] || determineWordClass(word),
-      grammaticalChanges,
+      grammaticalChanges: grammaticalChanges || undefined,
       enhancedExample: {
         originalLanguage: enhancedExample.originalLanguage,
         originalSentence: ensureString(enhancedExample.originalSentence, ''),
