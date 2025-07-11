@@ -72,11 +72,14 @@ Make sure to provide accurate and helpful information for language learners.
     try {
       const prompt = `
 Generate comprehensive language learning information for the word "${word}".
-${targetLanguage ? `IMPORTANT: Generate the example sentences in ${this.getLanguageName(targetLanguage)} language.` : ''}
+${targetLanguage ? `IMPORTANT: 
+- This word is being studied in the context of ${this.getLanguageName(targetLanguage)} language learning
+- Consider "${word}" as a ${this.getLanguageName(targetLanguage)} word first, unless it's clearly from another language
+- Generate the example sentences in ${this.getLanguageName(targetLanguage)} language` : ''}
 
 Return a JSON object with the following structure:
 {
-  "meaning": "the meaning/definition of the word in the original language",
+  "meaning": "the meaning/definition of the word${targetLanguage ? ` (treating it as a ${this.getLanguageName(targetLanguage)} word)` : ' in the original language'}",
   "pronunciation": "phonetic pronunciation guide",
   "example": "example sentence using the word${targetLanguage ? ` in ${this.getLanguageName(targetLanguage)}` : ' in its original language'}",
   "example_translation": "その例文の日本語訳（必ず日本語で翻訳してください）",
@@ -140,7 +143,7 @@ Return a JSON object with the following structure:
 }
 
 IMPORTANT: 
-- Detect the language of "${word}"
+${targetLanguage ? `- Assume "${word}" is a ${this.getLanguageName(targetLanguage)} word unless clearly from another language` : '- Detect the language of "${word}"'}
 - All translations must be accurate
 ${targetLanguage ? `- The "example" field MUST be in ${this.getLanguageName(targetLanguage)}` : ''}
 - For nouns/adjectives: ALWAYS fill "genderNumberChanges" with appropriate forms (include articles)
