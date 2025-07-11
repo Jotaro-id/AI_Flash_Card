@@ -71,25 +71,51 @@ Make sure to provide accurate and helpful information for language learners.
   async generateFlashcardContent(word: string, context?: string, difficulty?: string) {
     try {
       const prompt = `
-Create a flashcard for the word "${word}"${context ? ` in the context of: ${context}` : ''}${difficulty ? ` at ${difficulty} difficulty level` : ''}.
+Generate comprehensive language learning information for the word "${word}".
 
-Return the flashcard content in JSON format:
+Return a JSON object with the following structure:
 {
-  "front": "front side content",
-  "back": "back side content",
-  "hints": ["hint1", "hint2"],
-  "difficulty": "beginner/intermediate/advanced",
-  "category": "word category"
+  "meaning": "the meaning/definition of the word",
+  "pronunciation": "phonetic pronunciation guide",
+  "example": "example sentence using the word",
+  "example_translation": "Japanese translation of the example sentence",
+  "english_example": "English translation of the example sentence",
+  "notes": "usage notes, common mistakes, or cultural context",
+  "wordClass": "noun/verb/adjective/adverb/other",
+  "translations": {
+    "en": "English translation",
+    "ja": "Japanese translation",
+    "es": "Spanish translation",
+    "fr": "French translation",
+    "de": "German translation",
+    "zh": "Chinese translation",
+    "ko": "Korean translation",
+    "it": "Italian translation"
+  },
+  "multilingualExamples": {
+    "es": "Spanish example sentence",
+    "fr": "French example sentence",
+    "de": "German example sentence",
+    "zh": "Chinese example sentence",
+    "ko": "Korean example sentence",
+    "it": "Italian example sentence"
+  },
+  "conjugations": {} // if it's a verb, include conjugation information
 }
 
-Make the flashcard engaging and educational for language learners.
+IMPORTANT: 
+- Detect the source language of "${word}" automatically
+- Provide accurate translations in all languages
+- If the word is a verb, include conjugation information
+- Make example sentences natural and educational
+- Ensure all JSON fields are properly filled
 `;
 
       const response = await this.groq.chat.completions.create({
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful language learning assistant that creates effective flashcards.',
+            content: 'You are a multilingual language learning assistant. Always respond with valid JSON containing comprehensive word information.',
           },
           {
             role: 'user',
@@ -98,7 +124,7 @@ Make the flashcard engaging and educational for language learners.
         ],
         model: 'llama3-8b-8192',
         temperature: 0.3,
-        max_tokens: 800,
+        max_tokens: 1500,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -106,10 +132,41 @@ Make the flashcard engaging and educational for language learners.
         throw new Error('No content received from Groq API');
       }
 
+      console.log('[Groq Service] Raw response:', content);
+
       try {
-        return JSON.parse(content);
+        // Clean up the response if it contains markdown code blocks
+        let cleanContent = content.trim();
+        if (cleanContent.startsWith('```json')) {
+          cleanContent = cleanContent.substring(7);
+        }
+        if (cleanContent.startsWith('```')) {
+          cleanContent = cleanContent.substring(3);
+        }
+        if (cleanContent.endsWith('```')) {
+          cleanContent = cleanContent.substring(0, cleanContent.length - 3);
+        }
+        cleanContent = cleanContent.trim();
+
+        const parsedContent = JSON.parse(cleanContent);
+        console.log('[Groq Service] Parsed response:', parsedContent);
+        return parsedContent;
       } catch (parseError) {
         console.error('Failed to parse JSON response:', content);
+        console.error('Parse error:', parseError);
+        
+        // Try to extract JSON from the response
+        const jsonMatch = content.match(/\{[\s\S]*\}/); 
+        if (jsonMatch) {
+          try {
+            const extracted = JSON.parse(jsonMatch[0]);
+            console.log('[Groq Service] Extracted JSON:', extracted);
+            return extracted;
+          } catch (e) {
+            console.error('Failed to parse extracted JSON:', e);
+          }
+        }
+        
         throw new Error('Invalid JSON response from AI service');
       }
     } catch (error) {

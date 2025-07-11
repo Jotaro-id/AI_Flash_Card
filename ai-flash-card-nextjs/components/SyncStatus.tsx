@@ -11,6 +11,7 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
   className = '', 
   showDetails = false 
 }) => {
+  console.log('[SyncStatus] コンポーネントがレンダリングされました');
   const { 
     syncStatus, 
     lastSyncResult, 

@@ -357,13 +357,21 @@ export default function Home() {
   }
 
   logger.debug('Rendering main app state:', { appState });
+  console.log('[Debug] isSupabaseUser:', isSupabaseUser);
+  console.log('[Debug] isAuthenticated:', isAuthenticated);
+  console.log('[Debug] currentUser:', currentUser);
+  
+  if (isSupabaseUser) {
+    console.log('[Debug] SyncStatus コンポーネントを表示します');
+  } else {
+    console.log('[Debug] SyncStatus コンポーネントを表示しません（isSupabaseUser = false）');
+  }
   
   return (
     <div className="min-h-screen">
       {/* 同期ステータス表示（Supabaseユーザーのみ） */}
       {isSupabaseUser && (
         <div className="fixed top-4 right-4 z-50">
-          {console.log('[Debug] SyncStatus コンポーネントを表示します')}
           <SyncStatus showDetails={true} />
         </div>
       )}
