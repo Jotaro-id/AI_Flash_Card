@@ -960,6 +960,17 @@ export const WordManager: React.FC<WordManagerProps> = ({
           onRegenerate={() => handleRegenerateWordInfo(selectedWord)}
           isRegenerating={loadingWords.has(selectedWord.id)}
           targetLanguage={file.targetLanguage}
+          onUpdateWord={async (updatedWord) => {
+            // 単語情報を更新
+            const updatedFile = {
+              ...file,
+              words: file.words.map(w => w.id === updatedWord.id ? updatedWord : w)
+            };
+            
+            // ローカルストレージに保存
+            await updateVocabularyFile(updatedFile);
+            onUpdateFile(updatedFile);
+          }}
         />
       )}
       

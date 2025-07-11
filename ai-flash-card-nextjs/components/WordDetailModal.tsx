@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff, RefreshCw, Edit2, Save, XCircle } from 'lucide-react';
 import { Word, supportedLanguages } from '@/types';
 import { SpeechButton } from './SpeechButton';
 import { GrammaticalChangesTable } from './GrammaticalChangesTable';
@@ -11,11 +11,14 @@ interface WordDetailModalProps {
   onRegenerate?: () => void;
   isRegenerating?: boolean;
   targetLanguage?: string;
+  onUpdateWord?: (updatedWord: Word) => void;
 }
 
-export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating, targetLanguage = 'en' }) => {
+export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating, targetLanguage = 'en', onUpdateWord }) => {
   const [showJapaneseTranslation, setShowJapaneseTranslation] = useState(false);
   const [showEnglishTranslation, setShowEnglishTranslation] = useState(false);
+  const [isEditingUsageNotes, setIsEditingUsageNotes] = useState(false);
+  const [editedUsageNotes, setEditedUsageNotes] = useState('');
 
   if (!isOpen || !word.aiGenerated) return null;
 
@@ -244,12 +247,69 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
 
           {/* 使用上の注意 */}
           <div className="mb-6">
-            <h3 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800">
-              <Lightbulb size={20} />
-              使用上の注意・コツ
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                <Lightbulb size={20} />
+                使用上の注意・コツ
+              </h3>
+              {!isEditingUsageNotes && (
+                <button
+                  onClick={() => {
+                    setIsEditingUsageNotes(true);
+                    setEditedUsageNotes(aiInfo.usageNotes);
+                  }}
+                  className="text-gray-600 hover:text-gray-800 transition-colors"
+                  title="編集"
+                >
+                  <Edit2 size={18} />
+                </button>
+              )}
+            </div>
             <div className="bg-yellow-50 rounded-lg p-4">
-              <p className="text-gray-800">{aiInfo.usageNotes}</p>
+              {isEditingUsageNotes ? (
+                <div>
+                  <textarea
+                    value={editedUsageNotes}
+                    onChange={(e) => setEditedUsageNotes(e.target.value)}
+                    className="w-full p-3 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 min-h-[100px] resize-y"
+                    placeholder="使用上の注意やコツを入力してください..."
+                  />
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => {
+                        // 保存処理
+                        if (word.aiGenerated && onUpdateWord) {
+                          const updatedWord = {
+                            ...word,
+                            aiGenerated: {
+                              ...word.aiGenerated,
+                              usageNotes: editedUsageNotes
+                            }
+                          };
+                          onUpdateWord(updatedWord);
+                        }
+                        setIsEditingUsageNotes(false);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
+                    >
+                      <Save size={16} />
+                      保存
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingUsageNotes(false);
+                        setEditedUsageNotes(aiInfo.usageNotes);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+                    >
+                      <XCircle size={16} />
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-800">{aiInfo.usageNotes}</p>
+              )}
             </div>
           </div>
 
