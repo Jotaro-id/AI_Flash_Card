@@ -100,15 +100,39 @@ Return a JSON object with the following structure:
     "ko": "Korean example sentence",
     "it": "Italian example sentence"
   },
-  "conjugations": {} // if it's a verb, include conjugation information
+  "conjugations": {
+    // For verbs, include detailed conjugation information based on the language:
+    // Spanish example:
+    "present": { "yo": "hablo", "tú": "hablas", "él/ella/usted": "habla", "nosotros/nosotras": "hablamos", "vosotros/vosotras": "habláis", "ellos/ellas/ustedes": "hablan" },
+    "preterite": { "yo": "hablé", "tú": "hablaste", "él/ella/usted": "habló", "nosotros/nosotras": "hablamos", "vosotros/vosotras": "hablasteis", "ellos/ellas/ustedes": "hablaron" },
+    "imperfect": { "yo": "hablaba", "tú": "hablabas", "él/ella/usted": "hablaba", "nosotros/nosotras": "hablábamos", "vosotros/vosotras": "hablabais", "ellos/ellas/ustedes": "hablaban" },
+    "future": { "yo": "hablaré", "tú": "hablarás", "él/ella/usted": "hablará", "nosotros/nosotras": "hablaremos", "vosotros/vosotras": "hablaréis", "ellos/ellas/ustedes": "hablarán" },
+    "conditional": { "yo": "hablaría", "tú": "hablarías", "él/ella/usted": "hablaría", "nosotros/nosotras": "hablaríamos", "vosotros/vosotras": "hablaríais", "ellos/ellas/ustedes": "hablarían" },
+    "subjunctive": { "yo": "hable", "tú": "hables", "él/ella/usted": "hable", "nosotros/nosotras": "hablemos", "vosotros/vosotras": "habléis", "ellos/ellas/ustedes": "hablen" },
+    "subjunctive_imperfect": { "yo": "hablara/hablase", "tú": "hablaras/hablases", "él/ella/usted": "hablara/hablase", "nosotros/nosotras": "habláramos/hablásemos", "vosotros/vosotras": "hablarais/hablaseis", "ellos/ellas/ustedes": "hablaran/hablasen" },
+    "imperative": { "tú": "habla", "usted": "hable", "nosotros/nosotras": "hablemos", "vosotros/vosotras": "hablad", "ustedes": "hablen" },
+    "gerund": "hablando",
+    "pastParticiple": "hablado",
+    // For English verbs:
+    "present": "speak",
+    "past": "spoke",
+    "pastParticiple": "spoken",
+    "gerund": "speaking",
+    "presentThirdPerson": "speaks"
+  }
 }
 
 IMPORTANT: 
 - Detect the source language of "${word}" automatically
 - Provide accurate translations in all languages
-- If the word is a verb, include conjugation information
+- If the word is a verb, YOU MUST include complete conjugation information in the "conjugations" field:
+  - For Spanish verbs: Include all tenses (present, preterite, imperfect, future, conditional, subjunctive, subjunctive_imperfect, imperative) with all person conjugations (yo, tú, él/ella/usted, nosotros/nosotras, vosotros/vosotras, ellos/ellas/ustedes)
+  - For English verbs: Include present, past, pastParticiple, gerund, and presentThirdPerson forms
+  - For French/Italian/German verbs: Include appropriate conjugations for each language
+  - Always include gerund and pastParticiple forms when applicable
 - Make example sentences natural and educational
 - Ensure all JSON fields are properly filled
+- The conjugations field should contain the actual verb forms, not empty objects
 `;
 
       const response = await this.groq.chat.completions.create({
