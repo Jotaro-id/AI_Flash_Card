@@ -140,27 +140,13 @@ Return a JSON object with the following structure:
 }
 
 IMPORTANT: 
-- Detect the source language of "${word}" automatically
-- Provide accurate translations in all languages
-${targetLanguage ? `- The "example" field MUST contain an example sentence in ${this.getLanguageName(targetLanguage)} language
-- If generating multilingualExamples, the "${targetLanguage}" field MUST contain an example in ${this.getLanguageName(targetLanguage)}` : ''}
-- For ALL nouns and adjectives in languages with grammatical gender (Spanish, French, Italian, German, etc.):
-  YOU MUST ALWAYS include complete gender and number variations in the "genderNumberChanges" field
-  - For Spanish/French/Italian: Include masculine/feminine forms in both singular and plural
-  - For German: Include masculine/feminine/neuter forms in both singular and plural
-  - Even if the word doesn't change form, still provide the forms with appropriate articles
-  - Example for Spanish "casa" (house): feminine only, but still show: feminine: {singular: "la casa", plural: "las casas"}
-  - NEVER return "性数変化がありません" or indicate no gender changes exist
-- If the word is a verb, YOU MUST include complete conjugation information in the "conjugations" field:
-  - For Spanish verbs: Include all tenses (present, preterite, imperfect, future, conditional, subjunctive, subjunctive_imperfect, imperative) with all person conjugations (yo, tú, él/ella/usted, nosotros/nosotras, vosotros/vosotras, ellos/ellas/ustedes)
-  - For English verbs: Include present, past, pastParticiple, gerund, and presentThirdPerson forms
-  - For French/Italian/German verbs: Include appropriate conjugations for each language
-  - Always include gerund and pastParticiple forms when applicable
-- Make example sentences natural and educational
-- Ensure all JSON fields are properly filled
-- The conjugations field should contain the actual verb forms, not empty objects
-- The genderNumberChanges field MUST be filled for ALL nouns and adjectives, never empty or null
-- ALWAYS provide gender/number variations, even for words that don't change (show with articles)
+- Detect the language of "${word}"
+- All translations must be accurate
+${targetLanguage ? `- The "example" field MUST be in ${this.getLanguageName(targetLanguage)}` : ''}
+- For nouns/adjectives: ALWAYS fill "genderNumberChanges" with appropriate forms (include articles)
+- For verbs: Fill "conjugations" with all relevant tenses and forms
+- Never leave genderNumberChanges empty - always provide forms
+- Return valid JSON only
 `;
 
       const response = await this.groq.chat.completions.create({
@@ -176,7 +162,7 @@ ${targetLanguage ? `- The "example" field MUST contain an example sentence in ${
         ],
         model: 'gemma2-9b-it',
         temperature: 0.3,
-        max_tokens: 1500,
+        max_tokens: 2500,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -184,7 +170,8 @@ ${targetLanguage ? `- The "example" field MUST contain an example sentence in ${
         throw new Error('No content received from Groq API');
       }
 
-      console.log('[Groq Service] Raw response:', content);
+      console.log('[Groq Service] Raw response length:', content.length);
+      console.log('[Groq Service] Raw response preview:', content.substring(0, 500) + '...');
 
       try {
         // Clean up the response if it contains markdown code blocks
@@ -200,26 +187,38 @@ ${targetLanguage ? `- The "example" field MUST contain an example sentence in ${
         }
         cleanContent = cleanContent.trim();
 
+        // 応答が途中で切れている可能性をチェック
+        if (!cleanContent.endsWith('}')) {
+          console.warn('[Groq Service] Response appears to be truncated. Attempting to fix...');
+          // 最後の完全なオブジェクトを探す
+          const lastBrace = cleanContent.lastIndexOf('}');
+          if (lastBrace > 0) {
+            cleanContent = cleanContent.substring(0, lastBrace + 1);
+          }
+        }
+
         const parsedContent = JSON.parse(cleanContent);
-        console.log('[Groq Service] Parsed response:', parsedContent);
+        console.log('[Groq Service] Successfully parsed response');
         return parsedContent;
       } catch (parseError) {
-        console.error('Failed to parse JSON response:', content);
+        console.error('Failed to parse JSON response');
         console.error('Parse error:', parseError);
+        console.error('Content that failed to parse:', content);
         
         // Try to extract JSON from the response
         const jsonMatch = content.match(/\{[\s\S]*\}/); 
         if (jsonMatch) {
           try {
             const extracted = JSON.parse(jsonMatch[0]);
-            console.log('[Groq Service] Extracted JSON:', extracted);
+            console.log('[Groq Service] Successfully extracted JSON from response');
             return extracted;
           } catch (e) {
             console.error('Failed to parse extracted JSON:', e);
+            console.error('Extracted content:', jsonMatch[0]);
           }
         }
         
-        throw new Error('Invalid JSON response from AI service');
+        throw new Error('Invalid JSON response from AI service - check logs for details');
       }
     } catch (error) {
       console.error('Error generating flashcard content:', error);
