@@ -20,9 +20,9 @@ export interface SyncConflict {
 
 // 同期状態の管理
 let syncStatus: SyncStatus = {
-  isOnline: navigator.onLine,
+  isOnline: typeof window !== 'undefined' ? navigator.onLine : true,
   isSyncing: false,
-  lastSyncedAt: localStorage.getItem('lastSyncedAt'),
+  lastSyncedAt: typeof window !== 'undefined' ? localStorage.getItem('lastSyncedAt') : null,
   pendingChanges: 0,
   syncError: null
 };
@@ -45,16 +45,18 @@ const updateSyncStatus = (updates: Partial<SyncStatus>) => {
   syncListeners.forEach(listener => listener(syncStatus));
 };
 
-// オンライン状態の監視
-window.addEventListener('online', () => {
-  updateSyncStatus({ isOnline: true });
-  // オンラインに復帰したら自動同期
-  syncAll();
-});
+// オンライン状態の監視（クライアントサイドのみ）
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    updateSyncStatus({ isOnline: true });
+    // オンラインに復帰したら自動同期
+    syncAll();
+  });
 
-window.addEventListener('offline', () => {
-  updateSyncStatus({ isOnline: false });
-});
+  window.addEventListener('offline', () => {
+    updateSyncStatus({ isOnline: false });
+  });
+}
 
 // LocalStorageからSupabaseへの同期
 export const syncLocalToSupabase = async (): Promise<void> => {
@@ -101,7 +103,9 @@ export const syncLocalToSupabase = async (): Promise<void> => {
     }
     
     const now = new Date().toISOString();
-    localStorage.setItem('lastSyncedAt', now);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lastSyncedAt', now);
+    }
     updateSyncStatus({ 
       lastSyncedAt: now,
       isSyncing: false 
@@ -160,7 +164,9 @@ export const syncSupabaseToLocal = async (): Promise<void> => {
     }
     
     const now = new Date().toISOString();
-    localStorage.setItem('lastSyncedAt', now);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lastSyncedAt', now);
+    }
     updateSyncStatus({ 
       lastSyncedAt: now,
       isSyncing: false 
@@ -243,6 +249,11 @@ export const resolveConflict = async (
 // 初期化時の同期
 export const initializeSync = async (): Promise<void> => {
   logger.info('同期サービスの初期化');
+  
+  // ブラウザ環境でのみ実行
+  if (typeof window === 'undefined') {
+    return;
+  }
   
   // オンラインの場合は初回同期を実行
   if (navigator.onLine) {

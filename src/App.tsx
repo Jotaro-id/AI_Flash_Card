@@ -23,7 +23,6 @@ import {
 // import { runSupabaseDiagnostics, DiagnosticResult } from './utils/supabaseDiagnostics';
 // import { runDetailedSupabaseDiagnostics } from './utils/performanceDiagnostics';
 import { logger } from './utils/logger';
-import { initializeSync } from './services/syncService';
 
 type AppState = 'file-manager' | 'word-manager' | 'flashcards';
 
@@ -105,8 +104,11 @@ function App() {
           await loadVocabularyFiles();
           logger.info('loadVocabularyFiles完了');
           
-          // 同期サービスを初期化
-          await initializeSync();
+          // 同期サービスを初期化（クライアントサイドのみ）
+          if (typeof window !== 'undefined') {
+            const { initializeSync } = await import('./services/syncService');
+            await initializeSync();
+          }
         } else {
           logger.info('No user found. Need to login.');
           setIsAuthenticated(false);
