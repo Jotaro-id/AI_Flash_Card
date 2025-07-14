@@ -286,21 +286,42 @@ export default function ClientPage() {
     logger.info('Updating learning status', { wordId, status });
     
     try {
-      // 単語の学習状況を更新
-      const updatedWords = currentFile.words.map(word => 
+      // フィルタリングされている場合は、元のファイルを取得して更新
+      let fileToUpdate = currentFile;
+      if (currentFile.isFiltered) {
+        const files = await fetchVocabularyFiles();
+        const originalFile = files.find(f => f.id === currentFile.id);
+        if (originalFile) {
+          // 元のファイルの単語を更新
+          const updatedWords = originalFile.words.map(word => 
+            word.id === wordId 
+              ? { ...word, learningStatus: status }
+              : word
+          );
+          fileToUpdate = { ...originalFile, words: updatedWords };
+        }
+      } else {
+        // フィルタリングされていない場合は通常の更新
+        const updatedWords = currentFile.words.map(word => 
+          word.id === wordId 
+            ? { ...word, learningStatus: status }
+            : word
+        );
+        fileToUpdate = { ...currentFile, words: updatedWords };
+      }
+      
+      // ファイルを保存（isFilteredフラグは削除）
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { isFiltered, ...fileToSave } = fileToUpdate as VocabularyFile & { isFiltered?: boolean };
+      await updateVocabularyFile(fileToSave);
+      
+      // 現在の表示を更新（フィルタリング状態を維持）
+      const updatedCurrentWords = currentFile.words.map(word => 
         word.id === wordId 
           ? { ...word, learningStatus: status }
           : word
       );
-      
-      const updatedFile = {
-        ...currentFile,
-        words: updatedWords
-      };
-      
-      // ファイルを保存
-      await updateVocabularyFile(updatedFile);
-      setCurrentFile(updatedFile);
+      setCurrentFile({ ...currentFile, words: updatedCurrentWords });
       
       // Supabaseに学習状況を保存
       if (currentUser) {
@@ -462,9 +483,19 @@ export default function ClientPage() {
           currentIndex={currentWordIndex}
           onIndexChange={setCurrentWordIndex}
           onBack={async () => {
-            // フィルタリングされている場合は、元のファイルを再読み込み
+            // フィルタリングされている場合は、元のファイルに戻す
             if (currentFile?.isFiltered) {
-              await loadVocabularyFiles();
+              // ファイルを再読み込みして最新の状態を取得
+              const files = await fetchVocabularyFiles();
+              const originalFile = files.find(f => f.id === currentFile.id);
+              if (originalFile) {
+                // 学習状況の更新を反映させるため、現在のファイルの単語の学習状況を元のファイルにマージ
+                const updatedWords = originalFile.words.map(word => {
+                  const currentWord = currentFile.words.find(w => w.id === word.id);
+                  return currentWord ? { ...word, learningStatus: currentWord.learningStatus } : word;
+                });
+                setCurrentFile({ ...originalFile, words: updatedWords });
+              }
             }
             setAppState('word-manager');
           }}
