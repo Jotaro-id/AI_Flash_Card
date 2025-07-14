@@ -26,11 +26,13 @@ import { logger } from './utils/logger';
 type AppState = 'file-manager' | 'word-manager' | 'flashcards';
 
 function App() {
-  logger.info('App component rendering...');
-  logger.info('Environment check', {
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set',
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Not set'
-  });
+  if (process.env.NODE_ENV === 'development') {
+    logger.info('App component rendering...');
+    logger.info('Environment check', {
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Not set'
+    });
+  }
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email?: string; id: string } | null>(null);
@@ -67,17 +69,21 @@ function App() {
         };
       };
       
-      logger.info('デバッグ関数をwindowオブジェクトに追加しました');
-      logger.info('利用可能なデバッグ関数:', [
-        'window.debugLocalStorageData()',
-        'window.aiFlashcardLogger (ログユーティリティ)'
-      ]);
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('デバッグ関数をwindowオブジェクトに追加しました');
+        logger.info('利用可能なデバッグ関数:', [
+          'window.debugLocalStorageData()',
+          'window.aiFlashcardLogger (ログユーティリティ)'
+        ]);
+      }
     }
   }, []);
 
   // LocalStorage版の認証チェック
   useEffect(() => {
-    logger.info('App component mounted. Starting auth check...');
+    if (process.env.NODE_ENV === 'development') {
+      logger.info('App component mounted. Starting auth check...');
+    }
     
     const checkAuth = async () => {
       try {

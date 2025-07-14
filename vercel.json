@@ -1,0 +1,19 @@
+{
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "functions": {
+    "app/api/groq/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/learning-status/route.ts": {
+      "maxDuration": 10
+    }
+  }
+}

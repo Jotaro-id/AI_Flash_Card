@@ -82,8 +82,20 @@ const addLog = (level: LogLevel, message: string, data?: unknown) => {
   }
 };
 
+// 本番環境では何もしない関数
+const noop = () => {};
+
 // ログAPI
-export const logger = {
+export const logger = process.env.NODE_ENV === 'production' ? {
+  debug: noop,
+  info: noop,
+  warn: noop,
+  error: noop,
+  getLogs: () => [],
+  clearLogs: noop,
+  exportLogs: () => '',
+  downloadLogs: noop
+} : {
   debug: (message: string, data?: unknown) => addLog(LogLevel.DEBUG, message, data),
   info: (message: string, data?: unknown) => addLog(LogLevel.INFO, message, data),
   warn: (message: string, data?: unknown) => addLog(LogLevel.WARN, message, data),
@@ -126,7 +138,7 @@ export const logger = {
 };
 
 // グローバルにも公開（デバッグ用）
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   // @ts-expect-error デバッグ目的でwindowオブジェクトに追加
   window.aiFlashcardLogger = logger;
 }
