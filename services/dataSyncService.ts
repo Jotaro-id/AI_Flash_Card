@@ -66,49 +66,73 @@ class DataSyncService {
 
     try {
       const localData = localStorageService.getAllData();
+      if (!localData.vocabularyFiles || localData.vocabularyFiles.length === 0) {
+        return { count: 0, errors: [] };
+      }
+
+      // すべての単語帳IDを取得
+      const localFileIds = localData.vocabularyFiles.map(f => f.id);
       
-      for (const file of localData.vocabularyFiles || []) {
+      // 既存の単語帳を一括で取得
+      const { data: existingBooks, error: fetchError } = await supabase
+        .from('word_books')
+        .select('id')
+        .eq('user_id', userId)
+        .in('id', localFileIds);
+
+      if (fetchError) throw fetchError;
+
+      const existingIds = new Set((existingBooks || []).map(b => b.id));
+      const toInsert: any[] = [];
+      const toUpdate: any[] = [];
+
+      // 挿入と更新を分類
+      for (const file of localData.vocabularyFiles) {
+        const data = {
+          id: file.id,
+          name: file.name,
+          target_language: file.targetLanguage || 'en',
+          user_id: userId,
+          updated_at: new Date().toISOString()
+        };
+
+        if (existingIds.has(file.id)) {
+          toUpdate.push(data);
+        } else {
+          toInsert.push({ ...data, created_at: file.createdAt });
+        }
+      }
+
+      // バッチ挿入
+      if (toInsert.length > 0) {
+        const { error } = await supabase
+          .from('word_books')
+          .insert(toInsert);
+        
+        if (error) {
+          errors.push(`単語帳の一括挿入エラー: ${error.message}`);
+        } else {
+          syncedCount += toInsert.length;
+        }
+      }
+
+      // 個別更新（Supabaseはバッチ更新が制限されているため）
+      for (const updateData of toUpdate) {
         try {
-          // 単語帳が存在するか確認
-          const { data: existingBook } = await supabase
+          const { error } = await supabase
             .from('word_books')
-            .select('id')
-            .eq('id', file.id)
-            .eq('user_id', userId)
-            .single();
+            .update({
+              name: updateData.name,
+              target_language: updateData.target_language,
+              updated_at: updateData.updated_at
+            })
+            .eq('id', updateData.id)
+            .eq('user_id', userId);
 
-          if (existingBook) {
-            // 更新
-            const { error } = await supabase
-              .from('word_books')
-              .update({
-                name: file.name,
-                target_language: file.targetLanguage,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', file.id)
-              .eq('user_id', userId);
-
-            if (error) throw error;
-          } else {
-            // 新規作成
-            const { error } = await supabase
-              .from('word_books')
-              .insert({
-                id: file.id,
-                name: file.name,
-                target_language: file.targetLanguage,
-                user_id: userId,
-                created_at: file.createdAt,
-                updated_at: new Date().toISOString()
-              });
-
-            if (error) throw error;
-          }
-
+          if (error) throw error;
           syncedCount++;
         } catch (error) {
-          errors.push(`単語帳「${file.name}」の同期エラー: ${error}`);
+          errors.push(`単語帳「${updateData.name}」の更新エラー: ${error}`);
         }
       }
     } catch (error) {
@@ -128,131 +152,156 @@ class DataSyncService {
     try {
       const localData = localStorageService.getAllData();
       
+      // 全ての単語を収集
+      const allWords: Array<{word: any, fileId: string}> = [];
       for (const file of localData.vocabularyFiles || []) {
         for (const word of file.words || []) {
-          try {
-            // 単語カードが存在するか確認
-            const { data: existingCard, error: selectError } = await supabase
-              .from('word_cards')
-              .select('id')
-              .eq('word', word.word)
-              .eq('user_id', userId)
-              .maybeSingle();
+          allWords.push({ word, fileId: file.id });
+        }
+      }
 
-            if (selectError) {
-              console.error('word_cards SELECT error:', {
-                error: selectError,
-                code: selectError.code,
-                details: selectError.details,
-                hint: selectError.hint,
-                message: selectError.message,
-                word: word.word,
-                userId
-              });
-              throw selectError;
-            }
+      if (allWords.length === 0) {
+        return { count: 0, errors: [] };
+      }
 
-            const wordCardId = existingCard?.id || word.id;
+      // 処理を小さなバッチに分割（50件ずつ）
+      const batchSize = 50;
+      for (let i = 0; i < allWords.length; i += batchSize) {
+        const batch = allWords.slice(i, i + batchSize);
+        
+        try {
+          await this.syncWordCardBatch(batch, userId);
+          syncedCount += batch.length;
+        } catch (error) {
+          errors.push(`単語カードバッチ同期エラー (${i}-${i + batch.length}): ${error}`);
+        }
+      }
+    } catch (error) {
+      errors.push(`単語カード同期の全体エラー: ${error}`);
+    }
 
-            if (existingCard) {
-              // 更新
-              const { error } = await supabase
-                .from('word_cards')
-                .update({
-                  ai_generated_info: word.aiGenerated,
-                  english_equivalent: word.aiGenerated?.englishEquivalent || null,
-                  japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
-                  pronunciation: word.aiGenerated?.pronunciation || null,
-                  example_sentence: word.aiGenerated?.exampleSentence || null,
-                  usage_notes: word.aiGenerated?.usageNotes || null,
-                  word_class: word.aiGenerated?.wordClass || null,
-                  gender_variations: null,
-                  tense_variations: null,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', wordCardId)
-                .eq('user_id', userId);
+    return { count: syncedCount, errors };
+  }
 
-              if (error) {
-                console.error('word_cards UPDATE error:', {
-                  error,
-                  code: error.code,
-                  details: error.details,
-                  hint: error.hint,
-                  message: error.message,
-                  wordCardId,
-                  userId
-                });
-                throw error;
-              }
-            } else {
-              // 新規作成
-              const insertData = {
-                id: wordCardId,
-                word: word.word,
-                user_id: userId,
-                ai_generated_info: word.aiGenerated,
-                english_equivalent: word.aiGenerated?.englishEquivalent || null,
-                japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
-                pronunciation: word.aiGenerated?.pronunciation || null,
-                example_sentence: word.aiGenerated?.exampleSentence || null,
-                usage_notes: word.aiGenerated?.usageNotes || null,
-                word_class: word.aiGenerated?.wordClass || null,
-                gender_variations: null,
-                tense_variations: null,
-                created_at: word.createdAt || new Date().toISOString()
-              };
+  /**
+   * 単語カードをバッチで同期
+   */
+  private async syncWordCardBatch(
+    batch: Array<{word: any, fileId: string}>, 
+    userId: string
+  ): Promise<void> {
+    // 既存の単語カードを一括で確認
+    const wordTexts = batch.map(item => item.word.word);
+    const { data: existingCards, error: fetchError } = await supabase
+      .from('word_cards')
+      .select('id, word')
+      .eq('user_id', userId)
+      .in('word', wordTexts);
 
-              console.log('Attempting to insert word_card:', insertData);
+    if (fetchError) throw fetchError;
 
-              const { error } = await supabase
-                .from('word_cards')
-                .insert(insertData)
-                .select()
-                .single();
+    const existingMap = new Map((existingCards || []).map(c => [c.word, c.id]));
+    const toInsert: any[] = [];
+    const toUpdate: any[] = [];
 
-              if (error) {
-                console.error('word_cards INSERT error:', {
-                  error: error,
-                  errorString: JSON.stringify(error),
-                  code: error?.code || 'unknown',
-                  details: error?.details || 'no details',
-                  hint: error?.hint || 'no hint',
-                  message: error?.message || 'no message',
-                  insertData
-                });
-                
-                // Supabaseの認証状態を確認
-                const { data: { user } } = await supabase.auth.getUser();
-                console.error('Current auth state:', {
-                  userId: user?.id,
-                  userEmail: user?.email,
-                  insertUserId: userId
-                });
-                
-                throw error;
-              }
-            }
+    for (const { word, fileId } of batch) {
+      const existingId = existingMap.get(word.word);
+      const wordCardId = existingId || word.id;
 
-            // 単語帳と単語の関連を作成
-            const { error: linkError } = await supabase
-              .from('word_book_cards')
-              .upsert({
-                word_book_id: file.id,
-                word_card_id: wordCardId,
-                learning_status: word.learningStatus || 'not_started'
-              }, {
-                onConflict: 'word_book_id,word_card_id'
-              });
+      const cardData = {
+        id: wordCardId,
+        word: word.word,
+        user_id: userId,
+        ai_generated_info: word.aiGenerated,
+        english_equivalent: word.aiGenerated?.englishEquivalent || null,
+        japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
+        pronunciation: word.aiGenerated?.pronunciation || null,
+        example_sentence: word.aiGenerated?.exampleSentence || null,
+        usage_notes: word.aiGenerated?.usageNotes || null,
+        word_class: word.aiGenerated?.wordClass || null,
+        gender_variations: null,
+        tense_variations: null,
+        updated_at: new Date().toISOString()
+      };
 
-            if (linkError) throw linkError;
+      if (existingId) {
+        toUpdate.push(cardData);
+      } else {
+        toInsert.push({ ...cardData, created_at: word.createdAt || new Date().toISOString() });
+      }
+    }
 
-            syncedCount++;
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`単語「${word.word}」の同期エラー:`, error);
-            errors.push(`単語「${word.word}」の同期エラー: ${errorMessage}`);
-          }
+    // バッチ挿入
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from('word_cards')
+        .insert(toInsert);
+      
+      if (error) {
+        console.error('word_cards バッチ挿入エラー:', error);
+        throw error;
+      }
+    }
+
+    // 個別更新
+    for (const updateData of toUpdate) {
+      try {
+        const { error } = await supabase
+          .from('word_cards')
+          .update(updateData)
+          .eq('id', updateData.id)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } catch (error) {
+        console.error(`単語「${updateData.word}」の更新エラー:`, error);
+        // エラーはログに記録するが、処理は継続
+      }
+    }
+  }
+
+  /**
+   * 単語帳と単語カードの関連を同期
+   */
+  private async syncWordBookCards(userId: string): Promise<{ count: number; errors: string[] }> {
+    const errors: string[] = [];
+    let syncedCount = 0;
+
+    try {
+      const localData = localStorageService.getAllData();
+      
+      // 全ての関連を収集
+      const relations: any[] = [];
+      for (const file of localData.vocabularyFiles || []) {
+        for (const word of file.words || []) {
+          relations.push({
+            word_book_id: file.id,
+            word_card_id: word.id,
+            learning_status: 'not_started'
+          });
+        }
+      }
+
+      if (relations.length === 0) {
+        return { count: 0, errors: [] };
+      }
+
+      // バッチでupsert（50件ずつ）
+      const batchSize = 50;
+      for (let i = 0; i < relations.length; i += batchSize) {
+        const batch = relations.slice(i, i + batchSize);
+        
+        try {
+          const { error } = await supabase
+            .from('word_book_cards')
+            .upsert(batch, {
+              onConflict: 'word_book_id,word_card_id'
+            });
+
+          if (error) throw error;
+          syncedCount += batch.length;
+        } catch (error) {
+          errors.push(`関連バッチ同期エラー (${i}-${i + batch.length}): ${error}`);
         }
       }
     } catch (error) {
@@ -345,14 +394,6 @@ class DataSyncService {
   async syncAllData(): Promise<SyncResult> {
     console.log('[DataSync] syncAllData が呼ばれました', new Date().toISOString());
     
-    // 一時的に同期を無効化
-    console.log('[DataSync] 同期機能は一時的に無効化されています');
-    return {
-      success: true,
-      syncedItems: { wordBooks: 0, wordCards: 0, conjugationHistory: 0, settings: 0 },
-      errors: []
-    };
-    
     if (this.syncStatus.isSyncing) {
       console.log('[DataSync] 同期処理が既に実行中のためスキップ');
       return {
@@ -395,18 +436,35 @@ class DataSyncService {
       
       console.log('[DataSync] Supabase接続成功 - ユーザーID:', user.id);
 
-      // 各データを同期
-      console.log('[DataSync] 単語帳の同期を開始...');
-      const wordBooksResult = await this.syncWordBooks(user.id);
-      result.syncedItems.wordBooks = wordBooksResult.count;
-      result.errors.push(...wordBooksResult.errors);
-      console.log('[DataSync] 単語帳の同期完了:', wordBooksResult.count, '件');
+      // 同期処理にタイムアウトを設定（30秒）
+      const syncTimeout = 30000;
+      const syncPromise = (async () => {
+        // 各データを同期
+        console.log('[DataSync] 単語帳の同期を開始...');
+        const wordBooksResult = await this.syncWordBooks(user.id);
+        result.syncedItems.wordBooks = wordBooksResult.count;
+        result.errors.push(...wordBooksResult.errors);
+        console.log('[DataSync] 単語帳の同期完了:', wordBooksResult.count, '件');
 
-      console.log('[DataSync] 単語カードの同期を開始...');
-      const wordCardsResult = await this.syncWordCards(user.id);
-      result.syncedItems.wordCards = wordCardsResult.count;
-      result.errors.push(...wordCardsResult.errors);
-      console.log('[DataSync] 単語カードの同期完了:', wordCardsResult.count, '件');
+        console.log('[DataSync] 単語カードの同期を開始...');
+        const wordCardsResult = await this.syncWordCards(user.id);
+        result.syncedItems.wordCards = wordCardsResult.count;
+        result.errors.push(...wordCardsResult.errors);
+        console.log('[DataSync] 単語カードの同期完了:', wordCardsResult.count, '件');
+
+        // 単語帳と単語カードの関連を同期
+        console.log('[DataSync] 単語帳と単語カードの関連を同期...');
+        const relationsResult = await this.syncWordBookCards(user.id);
+        console.log('[DataSync] 関連の同期完了:', relationsResult.count, '件');
+      })();
+
+      // タイムアウトを設定
+      await Promise.race([
+        syncPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('同期処理がタイムアウトしました')), syncTimeout)
+        )
+      ]);
 
       // 動詞活用履歴の同期は一時的に無効化（テーブル作成後に有効化）
       try {
