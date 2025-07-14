@@ -13,13 +13,15 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 
 // ダミーのSupabaseクライアント（環境変数がない場合用）
 const createDummyClient = () => {
-  return {
+  const dummyClient = {
     auth: {
       getUser: async () => ({ data: { user: null }, error: null }),
       signOut: async () => ({ error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
     }
-  } as any;
+  };
+  // 型アサーションを使用してSupabaseClientとして扱う
+  return dummyClient as ReturnType<typeof createClient>;
 };
 
 // Supabaseクライアントを作成（環境変数がない場合はダミークライアント）
