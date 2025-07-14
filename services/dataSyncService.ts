@@ -280,6 +280,17 @@ class DataSyncService {
     batch: Array<{word: any, fileId: string}>, 
     userId: string
   ): Promise<void> {
+    // ファイル情報を一度だけ取得
+    const localData = localStorageService.getAllData();
+    const fileLanguageMap = new Map<string, string>();
+    
+    // バッチ内のファイルIDごとに言語を取得
+    const uniqueFileIds = [...new Set(batch.map(item => item.fileId))];
+    for (const fileId of uniqueFileIds) {
+      const vocabularyFile = localData.vocabularyFiles?.find(f => f.id === fileId);
+      const language = vocabularyFile?.targetLanguage || 'en';
+      fileLanguageMap.set(fileId, language);
+    }
     // 既存の単語カードを一括で確認
     const wordTexts = batch.map(item => item.word.word);
     const { data: existingCards, error: fetchError } = await supabase
@@ -300,9 +311,13 @@ class DataSyncService {
       const existingId = existingMap.get(mapKey);
       const localCardId = idMappingService.generateWordCardLocalId(fileId, word.id);
       
+      // ファイルの言語を取得
+      const language = fileLanguageMap.get(fileId) || 'en';
+
       const cardData = {
         word: word.word,
         user_id: userId,
+        language: language, // 必須フィールドを追加
         ai_generated_info: word.aiGenerated,
         english_equivalent: word.aiGenerated?.englishEquivalent || null,
         japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
@@ -356,6 +371,7 @@ class DataSyncService {
           console.log('- データ検証:');
           console.log('  - word:', typeof insertData.word, insertData.word);
           console.log('  - user_id:', typeof insertData.user_id, insertData.user_id);
+          console.log('  - language:', typeof insertData.language, insertData.language);
           console.log('  - created_at:', typeof insertData.created_at, insertData.created_at);
           console.log('  - updated_at:', typeof insertData.updated_at, insertData.updated_at);
           
