@@ -352,6 +352,22 @@ class DataSyncService {
         try {
           console.log(`[DataSync] 挿入試行 ${i + 1}/${toInsert.length}:`, insertData.word);
           
+          // データ検証
+          console.log('- データ検証:');
+          console.log('  - word:', typeof insertData.word, insertData.word);
+          console.log('  - user_id:', typeof insertData.user_id, insertData.user_id);
+          console.log('  - created_at:', typeof insertData.created_at, insertData.created_at);
+          console.log('  - updated_at:', typeof insertData.updated_at, insertData.updated_at);
+          
+          // null/undefined値をチェック
+          const problematicFields = Object.entries(insertData).filter(([key, value]) => {
+            return value === undefined || (typeof value === 'string' && value.includes('undefined'));
+          });
+          
+          if (problematicFields.length > 0) {
+            console.warn('- 問題のあるフィールド:', problematicFields);
+          }
+          
           const { data: insertedCard, error } = await supabase
             .from('word_cards')
             .insert(insertData)
@@ -359,13 +375,15 @@ class DataSyncService {
             .single();
           
           if (error) {
-            console.error(`[DataSync] 単語カード挿入エラー (${insertData.word}):`, {
-              message: error.message,
-              code: error.code,
-              details: error.details,
-              hint: error.hint,
-              insertData: insertData
-            });
+            // エラーオブジェクトの詳細を個別に確認
+            console.error(`[DataSync] 単語カード挿入エラー (${insertData.word}):`);
+            console.error('- message:', error.message || 'メッセージなし');
+            console.error('- code:', error.code || 'コードなし');
+            console.error('- details:', error.details || '詳細なし');
+            console.error('- hint:', error.hint || 'ヒントなし');
+            console.error('- エラー型:', typeof error);
+            console.error('- エラーキー:', Object.keys(error));
+            console.error('- 挿入データ:', JSON.stringify(insertData, null, 2));
             throw error;
           } else if (insertedCard) {
             console.log(`[DataSync] 挿入成功 (${insertData.word}):`, insertedCard.id);
@@ -375,11 +393,26 @@ class DataSyncService {
             }
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-          console.error(`[DataSync] 個別挿入エラー (${insertData.word}):`, {
-            error: errorMessage,
-            data: insertData
-          });
+          console.error(`[DataSync] 個別挿入エラー (${insertData.word}):`);
+          console.error('- エラー型:', typeof error);
+          console.error('- エラーコンストラクタ:', error?.constructor?.name);
+          
+          if (error instanceof Error) {
+            console.error('- message:', error.message);
+            console.error('- stack:', error.stack);
+          } else {
+            console.error('- エラー内容:', error);
+            console.error('- エラーキー:', Object.keys(error || {}));
+            
+            // エラーオブジェクトのプロパティを個別に確認
+            if (error && typeof error === 'object') {
+              for (const key of Object.keys(error)) {
+                console.error(`- ${key}:`, error[key]);
+              }
+            }
+          }
+          
+          console.error('- 挿入データ:', JSON.stringify(insertData, null, 2));
           throw error;
         }
       }
