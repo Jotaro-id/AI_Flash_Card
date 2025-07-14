@@ -255,8 +255,14 @@ class DataSyncService {
           await this.syncWordCardBatch(batch, userId);
           syncedCount += batch.length;
         } catch (error) {
-          console.error(`[DataSync] 単語カードバッチ同期エラー (${i}-${i + batch.length}):`, error);
-          errors.push(`単語カードバッチ同期エラー (${i}-${i + batch.length}): ${error}`);
+          const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+          const errorStack = error instanceof Error ? error.stack : 'スタックトレースなし';
+          console.error(`[DataSync] 単語カードバッチ同期エラー (${i}-${i + batch.length}):`, {
+            message: errorMessage,
+            stack: errorStack,
+            error: error
+          });
+          errors.push(`単語カードバッチ同期エラー (${i}-${i + batch.length}): ${errorMessage}`);
           // エラーでも処理を継続（部分的な同期を許可）
         }
       }
@@ -335,33 +341,47 @@ class DataSyncService {
       }
     }
 
-    // バッチ挿入
+    // 個別挿入（デバッグのため）
     if (toInsert.length > 0) {
       console.log('[DataSync] 単語カード挿入開始:', toInsert.length, '件');
       
-      // _localIdを除外して挿入用データを作成
-      const insertDataArray = toInsert.map(item => {
+      for (let i = 0; i < toInsert.length; i++) {
+        const item = toInsert[i];
         const { _localId, ...insertData } = item;
-        return insertData;
-      });
-      
-      const { data: insertedCards, error } = await supabase
-        .from('word_cards')
-        .insert(insertDataArray)
-        .select('id, word, user_id');
-      
-      if (error) {
-        console.error('[DataSync] 単語カード挿入エラー:', error);
-        throw error;
-      } else if (insertedCards) {
-        console.log('[DataSync] 挿入成功:', insertedCards.length, '件');
-        // 挿入されたカードのIDマッピングを保存
-        insertedCards.forEach((card, index) => {
-          const localId = toInsert[index]._localId;
-          if (localId) {
-            idMappingService.setWordCardMapping(localId, card.id);
+        
+        try {
+          console.log(`[DataSync] 挿入試行 ${i + 1}/${toInsert.length}:`, insertData.word);
+          
+          const { data: insertedCard, error } = await supabase
+            .from('word_cards')
+            .insert(insertData)
+            .select('id, word, user_id')
+            .single();
+          
+          if (error) {
+            console.error(`[DataSync] 単語カード挿入エラー (${insertData.word}):`, {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint,
+              insertData: insertData
+            });
+            throw error;
+          } else if (insertedCard) {
+            console.log(`[DataSync] 挿入成功 (${insertData.word}):`, insertedCard.id);
+            // 挿入されたカードのIDマッピングを保存
+            if (_localId) {
+              idMappingService.setWordCardMapping(_localId, insertedCard.id);
+            }
           }
-        });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+          console.error(`[DataSync] 個別挿入エラー (${insertData.word}):`, {
+            error: errorMessage,
+            data: insertData
+          });
+          throw error;
+        }
       }
     }
 
