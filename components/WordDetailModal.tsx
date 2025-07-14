@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff, RefreshCw, Edit2, Save, XCircle } from 'lucide-react';
-import { Word, supportedLanguages } from '@/types';
+import { X, Globe, BookOpen, Lightbulb, Languages, Info, Eye, EyeOff, RefreshCw, Edit2, Save, XCircle, CheckCircle, AlertCircle, XOctagon, HelpCircle } from 'lucide-react';
+import { Word, supportedLanguages, LearningStatus } from '@/types';
 import { SpeechButton } from './SpeechButton';
 import { GrammaticalChangesTable } from './GrammaticalChangesTable';
 
@@ -12,17 +12,38 @@ interface WordDetailModalProps {
   isRegenerating?: boolean;
   targetLanguage?: string;
   onUpdateWord?: (updatedWord: Word) => void;
+  wordBookId?: string;
+  onUpdateLearningStatus?: (wordId: string, status: LearningStatus) => Promise<void>;
 }
 
-export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating, targetLanguage = 'en', onUpdateWord }) => {
+export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, onClose, onRegenerate, isRegenerating, targetLanguage = 'en', onUpdateWord, wordBookId, onUpdateLearningStatus }) => {
   const [showJapaneseTranslation, setShowJapaneseTranslation] = useState(false);
   const [showEnglishTranslation, setShowEnglishTranslation] = useState(false);
   const [isEditingUsageNotes, setIsEditingUsageNotes] = useState(false);
   const [editedUsageNotes, setEditedUsageNotes] = useState('');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   if (!isOpen || !word.aiGenerated) return null;
 
   const aiInfo = word.aiGenerated;
+
+  const handleLearningStatusUpdate = async (status: LearningStatus) => {
+    if (!onUpdateLearningStatus || !wordBookId) return;
+    
+    setUpdatingStatus(true);
+    try {
+      await onUpdateLearningStatus(word.id, status);
+      if (onUpdateWord) {
+        onUpdateWord({ ...word, learningStatus: status });
+      }
+    } catch (error) {
+      console.error('Failed to update learning status:', error);
+      alert('学習状況の更新に失敗しました');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   console.log('[WordDetailModal] Word:', word);
   console.log('[WordDetailModal] AI Info:', aiInfo);
   console.log('[WordDetailModal] Enhanced Example:', aiInfo.enhancedExample);
@@ -131,6 +152,66 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({ word, isOpen, 
               </div>
             </div>
           </div>
+
+          {/* 学習状況 */}
+          {wordBookId && onUpdateLearningStatus && (
+            <div className="mb-6">
+              <h3 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800">
+                <CheckCircle size={20} />
+                学習状況
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleLearningStatusUpdate('learned')}
+                  disabled={updatingStatus || word.learningStatus === 'learned'}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-lg text-white transition-all duration-200 ${
+                    word.learningStatus === 'learned' 
+                      ? 'bg-green-600 ring-2 ring-green-300' 
+                      : 'bg-green-500 hover:bg-green-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <CheckCircle size={20} />
+                  覚えた
+                </button>
+                <button
+                  onClick={() => handleLearningStatusUpdate('uncertain')}
+                  disabled={updatingStatus || word.learningStatus === 'uncertain'}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-lg text-white transition-all duration-200 ${
+                    word.learningStatus === 'uncertain' 
+                      ? 'bg-yellow-600 ring-2 ring-yellow-300' 
+                      : 'bg-yellow-500 hover:bg-yellow-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <AlertCircle size={20} />
+                  怪しい
+                </button>
+                <button
+                  onClick={() => handleLearningStatusUpdate('forgot')}
+                  disabled={updatingStatus || word.learningStatus === 'forgot'}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-lg text-white transition-all duration-200 ${
+                    word.learningStatus === 'forgot' 
+                      ? 'bg-red-600 ring-2 ring-red-300' 
+                      : 'bg-red-500 hover:bg-red-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <XOctagon size={20} />
+                  覚えていない
+                </button>
+                <button
+                  onClick={() => handleLearningStatusUpdate('not_started')}
+                  disabled={updatingStatus || word.learningStatus === 'not_started' || !word.learningStatus}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-lg text-white transition-all duration-200 ${
+                    word.learningStatus === 'not_started' || !word.learningStatus
+                      ? 'bg-gray-600 ring-2 ring-gray-300' 
+                      : 'bg-gray-500 hover:bg-gray-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <HelpCircle size={20} />
+                  未学習
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 段階的表示の例文 */}
           {aiInfo.enhancedExample && (

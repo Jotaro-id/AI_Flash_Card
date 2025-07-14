@@ -164,7 +164,8 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
           <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
             <div>単語帳: {lastSyncResult.syncedItems.wordBooks}件</div>
             <div>単語カード: {lastSyncResult.syncedItems.wordCards}件</div>
-            <div>活用履歴: {lastSyncResult.syncedItems.conjugationHistory}件</div>
+            <div>関連データ: {lastSyncResult.syncedItems.relations}件</div>
+            <div>活用履歴: {lastSyncResult.syncedItems.history}件</div>
             {lastSyncResult.errors.length > 0 && (
               <div className="text-red-600 dark:text-red-400">
                 エラー: {lastSyncResult.errors.length}件

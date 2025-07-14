@@ -441,18 +441,12 @@ class DataSyncService {
             console.error('- code:', supabaseError?.code);
             console.error('- details:', supabaseError?.details);
             console.error('- hint:', supabaseError?.hint);
-            console.error('- status:', supabaseError?.status);
-            console.error('- statusText:', supabaseError?.statusText);
             
             // PostgreSQLエラーの場合
             if (supabaseError?.code) {
               console.error('- PostgreSQLエラーコード:', supabaseError.code);
             }
             
-            // ネットワークエラーの場合
-            if (supabaseError?.status) {
-              console.error('- HTTPステータス:', supabaseError.status, supabaseError.statusText);
-            }
             
             throw new Error(`Supabaseエラー: ${supabaseError?.message || 'Unknown error'}`);
           }
@@ -480,8 +474,9 @@ class DataSyncService {
             
             // エラーオブジェクトのプロパティを個別に確認
             if (error && typeof error === 'object') {
-              for (const key of Object.keys(error)) {
-                console.error(`- ${key}:`, error[key]);
+              const errorObj = error as Record<string, any>;
+              for (const key of Object.keys(errorObj)) {
+                console.error(`- ${key}:`, errorObj[key]);
               }
             }
           }
@@ -654,10 +649,7 @@ class DataSyncService {
                 is_correct: entry.is_correct,
                 response_time_ms: entry.response_time_ms,
                 attempts: entry.attempts,
-                created_at: entry.created_at,
-                review_interval_days: entry.review_interval_days || 1,
-                next_review_at: entry.next_review_at || new Date(Date.now() + 86400000).toISOString(),
-                ease_factor: entry.ease_factor || 2.5
+                created_at: entry.created_at
               });
 
             if (error) {

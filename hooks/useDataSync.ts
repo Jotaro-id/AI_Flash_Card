@@ -14,8 +14,8 @@ interface SyncResult {
   syncedItems: {
     wordBooks: number;
     wordCards: number;
-    conjugationHistory: number;
-    settings: number;
+    relations: number;
+    history: number;
   };
   errors: string[];
 }

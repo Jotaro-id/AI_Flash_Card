@@ -25,12 +25,14 @@ export interface WordBook {
   user_id: string
 }
 
+export type LearningStatus = 'not_started' | 'learned' | 'uncertain' | 'forgot'
+
 export interface WordBookCard {
   id: string
   word_book_id: string
   word_card_id: string
   created_at: string
-  learning_status?: string
+  learning_status?: LearningStatus
   last_reviewed_at?: string
   review_count?: number
 }

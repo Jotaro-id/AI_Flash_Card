@@ -302,6 +302,32 @@ export default function ClientPage() {
       await updateVocabularyFile(updatedFile);
       setCurrentFile(updatedFile);
       
+      // Supabaseに学習状況を保存
+      if (currentUser) {
+        try {
+          const response = await fetch('/api/learning-status', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              wordBookId: currentFile.id,
+              wordCardId: wordId,
+              learningStatus: status
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update learning status in Supabase');
+          }
+
+          logger.info('Learning status synced to Supabase');
+        } catch (error) {
+          logger.error('Failed to sync learning status to Supabase:', error);
+          // Supabaseへの保存が失敗してもローカルの更新は維持
+        }
+      }
+      
       logger.info('Learning status updated successfully');
     } catch (error) {
       logger.error('Failed to update learning status:', error);
@@ -426,6 +452,7 @@ export default function ClientPage() {
           onThemeChange={setTheme}
           currentUser={currentUser}
           onSignOut={handleLogout}
+          onLearningStatusChange={handleLearningStatusChange}
         />
       )}
 

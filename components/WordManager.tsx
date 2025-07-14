@@ -31,6 +31,7 @@ interface WordManagerProps {
   onThemeChange: (themeId: string) => void;
   currentUser?: { email?: string; id: string } | null;
   onSignOut?: () => void;
+  onLearningStatusChange?: (wordId: string, status: LearningStatus) => Promise<void>;
 }
 
 // 動的ローディングメッセージ定数
@@ -51,7 +52,8 @@ export const WordManager: React.FC<WordManagerProps> = ({
   availableThemes,
   onThemeChange,
   currentUser,
-  onSignOut
+  onSignOut,
+  onLearningStatusChange
 }) => {
   const [newWord, setNewWord] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -971,6 +973,8 @@ export const WordManager: React.FC<WordManagerProps> = ({
             await updateVocabularyFile(updatedFile);
             onUpdateFile(updatedFile);
           }}
+          wordBookId={file.id}
+          onUpdateLearningStatus={onLearningStatusChange}
         />
       )}
       
