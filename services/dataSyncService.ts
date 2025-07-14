@@ -368,24 +368,82 @@ class DataSyncService {
             console.warn('- 問題のあるフィールド:', problematicFields);
           }
           
-          const { data: insertedCard, error } = await supabase
-            .from('word_cards')
-            .insert(insertData)
-            .select('id, word, user_id')
-            .single();
+          // データサイズをチェック
+          const fieldSizes = {
+            word: insertData.word?.length || 0,
+            usage_notes: insertData.usage_notes?.length || 0,
+            example_sentence: insertData.example_sentence?.length || 0,
+            ai_generated_info_size: JSON.stringify(insertData.ai_generated_info || {}).length
+          };
           
-          if (error) {
-            // エラーオブジェクトの詳細を個別に確認
-            console.error(`[DataSync] 単語カード挿入エラー (${insertData.word}):`);
-            console.error('- message:', error.message || 'メッセージなし');
-            console.error('- code:', error.code || 'コードなし');
-            console.error('- details:', error.details || '詳細なし');
-            console.error('- hint:', error.hint || 'ヒントなし');
-            console.error('- エラー型:', typeof error);
-            console.error('- エラーキー:', Object.keys(error));
-            console.error('- 挿入データ:', JSON.stringify(insertData, null, 2));
-            throw error;
-          } else if (insertedCard) {
+          console.log('- フィールドサイズ:', fieldSizes);
+          
+          // 長すぎるフィールドを警告
+          if (fieldSizes.word > 255) console.warn('- word フィールドが長すぎます:', fieldSizes.word);
+          if (fieldSizes.usage_notes > 1000) console.warn('- usage_notes フィールドが長すぎます:', fieldSizes.usage_notes);
+          if (fieldSizes.ai_generated_info_size > 10000) console.warn('- ai_generated_info が大きすぎます:', fieldSizes.ai_generated_info_size);
+          
+          // 重複チェック（デバッグ用）
+          const { data: existingWord, error: checkError } = await supabase
+            .from('word_cards')
+            .select('id, word')
+            .eq('word', insertData.word)
+            .eq('user_id', insertData.user_id)
+            .maybeSingle();
+            
+          if (checkError) {
+            console.warn('- 重複チェックエラー:', checkError);
+          } else if (existingWord) {
+            console.warn('- 重複データ検出:', existingWord);
+          }
+          
+          let insertResult;
+          let supabaseError = null;
+          
+          try {
+            insertResult = await supabase
+              .from('word_cards')
+              .insert(insertData)
+              .select('id, word, user_id')
+              .single();
+              
+            supabaseError = insertResult.error;
+          } catch (networkError) {
+            console.error(`[DataSync] ネットワークエラー (${insertData.word}):`, networkError);
+            throw networkError;
+          }
+          
+          if (supabaseError) {
+            console.error(`[DataSync] Supabaseエラー (${insertData.word}):`);
+            
+            // エラーオブジェクトを文字列として出力
+            console.error('- エラー全体:', String(supabaseError));
+            console.error('- エラーJSON:', JSON.stringify(supabaseError));
+            
+            // 個別プロパティを確認
+            console.error('- message:', supabaseError?.message);
+            console.error('- code:', supabaseError?.code);
+            console.error('- details:', supabaseError?.details);
+            console.error('- hint:', supabaseError?.hint);
+            console.error('- status:', supabaseError?.status);
+            console.error('- statusText:', supabaseError?.statusText);
+            
+            // PostgreSQLエラーの場合
+            if (supabaseError?.code) {
+              console.error('- PostgreSQLエラーコード:', supabaseError.code);
+            }
+            
+            // ネットワークエラーの場合
+            if (supabaseError?.status) {
+              console.error('- HTTPステータス:', supabaseError.status, supabaseError.statusText);
+            }
+            
+            throw new Error(`Supabaseエラー: ${supabaseError?.message || 'Unknown error'}`);
+          }
+          
+          const insertedCard = insertResult?.data;
+          
+          if (insertedCard) {
             console.log(`[DataSync] 挿入成功 (${insertData.word}):`, insertedCard.id);
             // 挿入されたカードのIDマッピングを保存
             if (_localId) {
