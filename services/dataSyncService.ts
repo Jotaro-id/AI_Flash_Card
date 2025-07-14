@@ -41,6 +41,12 @@ class DataSyncService {
       const storedStatus = localStorage.getItem(this.SYNC_STATUS_KEY);
       if (storedStatus) {
         this.syncStatus = JSON.parse(storedStatus);
+        // 起動時に同期中フラグをリセット（前回異常終了の場合の対策）
+        if (this.syncStatus.isSyncing) {
+          console.warn('[DataSync] 前回の同期が異常終了した可能性があります。フラグをリセットします。');
+          this.syncStatus.isSyncing = false;
+          this.saveSyncStatus();
+        }
       }
     }
   }
@@ -338,6 +344,14 @@ class DataSyncService {
    */
   async syncAllData(): Promise<SyncResult> {
     console.log('[DataSync] syncAllData が呼ばれました', new Date().toISOString());
+    
+    // 一時的に同期を無効化
+    console.log('[DataSync] 同期機能は一時的に無効化されています');
+    return {
+      success: true,
+      syncedItems: { wordBooks: 0, wordCards: 0, conjugationHistory: 0, settings: 0 },
+      errors: []
+    };
     
     if (this.syncStatus.isSyncing) {
       console.log('[DataSync] 同期処理が既に実行中のためスキップ');

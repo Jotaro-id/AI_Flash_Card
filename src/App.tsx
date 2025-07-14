@@ -5,7 +5,6 @@ import { Flashcard } from './components/Flashcard';
 import { Auth } from './components/Auth';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { RateLimitStatus } from './components/RateLimitStatus';
-import SyncStatusComponent from './components/SyncStatus';
 import { VocabularyFile, SupportedLanguage } from './types';
 import { useTheme } from './hooks/useTheme';
 // LocalStorageを使用するように変更
@@ -103,12 +102,6 @@ function App() {
           logger.info('loadVocabularyFilesを実行中...');
           await loadVocabularyFiles();
           logger.info('loadVocabularyFiles完了');
-          
-          // 同期サービスを初期化（クライアントサイドのみ）
-          if (typeof window !== 'undefined') {
-            const { initializeSync } = await import('./services/syncService');
-            await initializeSync();
-          }
         } else {
           logger.info('No user found. Need to login.');
           setIsAuthenticated(false);
@@ -390,7 +383,6 @@ function App() {
         />
         <ConnectionStatus />
         <RateLimitStatus />
-        <SyncStatusComponent />
       </>
     );
   }
@@ -411,7 +403,6 @@ function App() {
         />
         <ConnectionStatus />
         <RateLimitStatus />
-        <SyncStatusComponent />
       </>
     );
   }
@@ -434,7 +425,6 @@ function App() {
         />
         <ConnectionStatus />
         <RateLimitStatus />
-        <SyncStatusComponent />
       </>
     );
   }
