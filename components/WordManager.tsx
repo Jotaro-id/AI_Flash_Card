@@ -24,6 +24,7 @@ interface WordManagerProps {
   file: VocabularyFile;
   onBack: () => void;
   onUpdateFile: (file: VocabularyFile) => void;
+  onUpdateFileTemporary?: (file: VocabularyFile) => void;
   onStartFlashcards: () => void;
   onStartVerbConjugation?: () => void;
   currentTheme: ColorTheme;
@@ -46,6 +47,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
   file,
   onBack,
   onUpdateFile,
+  onUpdateFileTemporary,
   onStartFlashcards,
   onStartVerbConjugation,
   currentTheme,
@@ -257,8 +259,13 @@ export const WordManager: React.FC<WordManagerProps> = ({
       isFiltered: true, // フィルタリングされていることを示すフラグ
     };
     
-    // フィルタリングされたファイルを更新
-    onUpdateFile(filteredFile);
+    // フィルタリングされたファイルを一時的に更新（LocalStorageには保存しない）
+    if (onUpdateFileTemporary) {
+      onUpdateFileTemporary(filteredFile);
+    } else {
+      // フォールバック: onUpdateFileTemporaryが提供されていない場合は従来の方法
+      onUpdateFile(filteredFile);
+    }
     
     setShowFilterDialog(false);
     // 少し遅延を入れてからフラッシュカードを開始（状態更新を待つため）

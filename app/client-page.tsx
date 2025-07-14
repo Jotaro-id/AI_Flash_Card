@@ -280,6 +280,12 @@ export default function ClientPage() {
     }
   };
 
+  // フィルタリング用の一時的なファイル更新（LocalStorageには保存しない）
+  const handleUpdateCurrentFileTemporary = (updatedFile: VocabularyFile) => {
+    logger.info('Temporarily updating current file for filtering', { fileId: updatedFile.id });
+    setCurrentFile(updatedFile);
+  };
+
   const handleLearningStatusChange = async (wordId: string, status: LearningStatus) => {
     if (!currentFile) return;
     
@@ -466,6 +472,7 @@ export default function ClientPage() {
           file={currentFile}
           onBack={handleBack}
           onUpdateFile={handleUpdateFile}
+          onUpdateFileTemporary={handleUpdateCurrentFileTemporary}
           onStartFlashcards={handleStudyWords}
           onStartVerbConjugation={handleStartVerbConjugation}
           currentTheme={currentTheme}
