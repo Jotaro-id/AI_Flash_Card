@@ -206,7 +206,9 @@ class DataSyncService {
 
     for (const { word, fileId } of batch) {
       const existingId = existingMap.get(word.word);
-      const wordCardId = existingId || word.id;
+      
+      // ユニークなIDを生成（fileIdを含めることで重複を防ぐ）
+      const wordCardId = existingId || `${fileId}_${word.id}`;
 
       const cardData = {
         id: wordCardId,
@@ -217,10 +219,12 @@ class DataSyncService {
         japanese_equivalent: word.aiGenerated?.japaneseEquivalent || null,
         pronunciation: word.aiGenerated?.pronunciation || null,
         example_sentence: word.aiGenerated?.exampleSentence || null,
+        example_sentence_japanese: word.aiGenerated?.japaneseExample || null,
+        example_sentence_english: word.aiGenerated?.englishExample || null,
         usage_notes: word.aiGenerated?.usageNotes || null,
         word_class: word.aiGenerated?.wordClass || null,
-        gender_variations: null,
-        tense_variations: null,
+        gender_variations: word.aiGenerated?.grammaticalChanges?.genderNumberChanges || null,
+        tense_variations: word.aiGenerated?.grammaticalChanges?.verbConjugations || null,
         updated_at: new Date().toISOString()
       };
 
@@ -233,13 +237,24 @@ class DataSyncService {
 
     // バッチ挿入
     if (toInsert.length > 0) {
+      console.log('[DataSync] 単語カードバッチ挿入開始:', toInsert.length, '件');
+      console.log('[DataSync] 挿入データサンプル:', toInsert[0]);
+      
       const { error } = await supabase
         .from('word_cards')
         .insert(toInsert);
       
       if (error) {
-        console.error('word_cards バッチ挿入エラー:', error);
-        throw error;
+        console.error('word_cards バッチ挿入エラー詳細:', {
+          error,
+          errorMessage: error?.message || 'No message',
+          errorCode: error?.code || 'No code',
+          errorDetails: error?.details || 'No details',
+          errorHint: error?.hint || 'No hint',
+          dataCount: toInsert.length,
+          sampleData: toInsert[0]
+        });
+        throw new Error(`word_cards挿入エラー: ${error?.message || JSON.stringify(error)}`);
       }
     }
 
@@ -274,9 +289,11 @@ class DataSyncService {
       const relations: any[] = [];
       for (const file of localData.vocabularyFiles || []) {
         for (const word of file.words || []) {
+          // 単語カードIDを同じ形式で生成
+          const wordCardId = `${file.id}_${word.id}`;
           relations.push({
             word_book_id: file.id,
-            word_card_id: word.id,
+            word_card_id: wordCardId,
             learning_status: 'not_started'
           });
         }
