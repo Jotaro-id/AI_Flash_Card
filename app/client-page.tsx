@@ -286,6 +286,50 @@ export default function ClientPage() {
     setCurrentFile(updatedFile);
   };
 
+  // ローカルストレージから欠落している単語を復元
+  const handleRestoreFromLocalStorage = async () => {
+    if (!currentFile) return;
+
+    logger.info('Restoring missing words from LocalStorage', { fileId: currentFile.id });
+    
+    try {
+      // LocalStorageから元のファイルを取得
+      const localFiles = await fetchVocabularyFiles();
+      const originalFile = localFiles.find(f => f.id === currentFile.id);
+      
+      if (!originalFile) {
+        alert('元のファイルがローカルストレージに見つかりません');
+        return;
+      }
+
+      // 現在のファイルにない単語を特定
+      const currentWordIds = new Set(currentFile.words.map(w => w.id));
+      const missingWords = originalFile.words.filter(w => !currentWordIds.has(w.id));
+      
+      if (missingWords.length === 0) {
+        alert('復元する単語がありません');
+        return;
+      }
+
+      // 欠落している単語を復元
+      const restoredFile = {
+        ...currentFile,
+        words: [...currentFile.words, ...missingWords],
+        isFiltered: false // フィルタリング状態を解除
+      };
+
+      setCurrentFile(restoredFile);
+      
+      // 復元された単語数を表示
+      alert(`${missingWords.length}個の単語をローカルストレージから復元しました`);
+      logger.info('Words restored successfully', { restoredCount: missingWords.length });
+      
+    } catch (error) {
+      logger.error('Failed to restore words from LocalStorage:', error);
+      alert('ローカルストレージからの復元に失敗しました');
+    }
+  };
+
   const handleLearningStatusChange = async (wordId: string, status: LearningStatus) => {
     if (!currentFile) return;
     
@@ -481,6 +525,7 @@ export default function ClientPage() {
           currentUser={currentUser}
           onSignOut={handleLogout}
           onLearningStatusChange={handleLearningStatusChange}
+          onRestoreFromLocalStorage={handleRestoreFromLocalStorage}
         />
       )}
 

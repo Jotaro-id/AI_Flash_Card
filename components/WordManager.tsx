@@ -33,6 +33,7 @@ interface WordManagerProps {
   currentUser?: { email?: string; id: string } | null;
   onSignOut?: () => void;
   onLearningStatusChange?: (wordId: string, status: LearningStatus) => Promise<void>;
+  onRestoreFromLocalStorage?: () => void;
 }
 
 // 動的ローディングメッセージ定数
@@ -55,7 +56,8 @@ export const WordManager: React.FC<WordManagerProps> = ({
   onThemeChange,
   currentUser,
   onSignOut,
-  onLearningStatusChange
+  onLearningStatusChange,
+  onRestoreFromLocalStorage
 }) => {
   const [newWord, setNewWord] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -573,6 +575,16 @@ export const WordManager: React.FC<WordManagerProps> = ({
               <span className="text-white/70">({file.words.length} 単語)</span>
             </div>
             <div className="flex gap-3">
+              {/* デバッグ用: ローカルストレージから復元 */}
+              {process.env.NODE_ENV === 'development' && onRestoreFromLocalStorage && (
+                <button
+                  onClick={onRestoreFromLocalStorage}
+                  className="bg-orange-500/80 hover:bg-orange-600/80 text-white px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 text-sm"
+                  title="ローカルストレージから欠落した単語を復元"
+                >
+                  復元
+                </button>
+              )}
               {/* 設定メニュー */}
               <div className="relative">
                 <button
