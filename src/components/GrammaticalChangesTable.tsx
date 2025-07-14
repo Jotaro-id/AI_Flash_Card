@@ -56,7 +56,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                         {conjugations.languageSpecific?.['present_1sg'] || conjugations.present}
                         <SpeechButton 
                           text={conjugations.languageSpecific?.['present_1sg'] || conjugations.present || ''} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       </div>
@@ -67,7 +67,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                         {conjugations.languageSpecific?.['present_1pl'] && (
                           <SpeechButton 
                             text={conjugations.languageSpecific['present_1pl']} 
-                            language={targetLanguage as any} 
+                            language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                             size={14} 
                           />
                         )}
@@ -82,7 +82,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                         {conjugations.languageSpecific?.['present_2sg'] && (
                           <SpeechButton 
                             text={conjugations.languageSpecific['present_2sg']} 
-                            language={targetLanguage as any} 
+                            language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                             size={14} 
                           />
                         )}
@@ -94,7 +94,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                         {conjugations.languageSpecific?.['present_2pl'] && (
                           <SpeechButton 
                             text={conjugations.languageSpecific['present_2pl']} 
-                            language={targetLanguage as any} 
+                            language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                             size={14} 
                           />
                         )}
@@ -109,7 +109,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                         {conjugations.languageSpecific?.['present_3sg'] && (
                           <SpeechButton 
                             text={conjugations.languageSpecific['present_3sg']} 
-                            language={targetLanguage as any} 
+                            language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                             size={14} 
                           />
                         )}
@@ -121,7 +121,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                         {conjugations.languageSpecific?.['present_3pl'] && (
                           <SpeechButton 
                             text={conjugations.languageSpecific['present_3pl']} 
-                            language={targetLanguage as any} 
+                            language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                             size={14} 
                           />
                         )}
@@ -140,7 +140,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                 <h5 className="text-white/80 font-medium mb-1">過去形</h5>
                 <div className="flex items-center gap-2">
                   <p className="text-white">{conjugations.past}</p>
-                  <SpeechButton text={conjugations.past} language={targetLanguage as any} size={14} />
+                  <SpeechButton text={conjugations.past} language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} size={14} />
                 </div>
               </div>
             )}
@@ -149,7 +149,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                 <h5 className="text-white/80 font-medium mb-1">未来形</h5>
                 <div className="flex items-center gap-2">
                   <p className="text-white">{conjugations.future}</p>
-                  <SpeechButton text={conjugations.future} language={targetLanguage as any} size={14} />
+                  <SpeechButton text={conjugations.future} language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} size={14} />
                 </div>
               </div>
             )}
@@ -158,7 +158,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                 <h5 className="text-white/80 font-medium mb-1">条件法</h5>
                 <div className="flex items-center gap-2">
                   <p className="text-white">{conjugations.conditional}</p>
-                  <SpeechButton text={conjugations.conditional} language={targetLanguage as any} size={14} />
+                  <SpeechButton text={conjugations.conditional} language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} size={14} />
                 </div>
               </div>
             )}
@@ -167,7 +167,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                 <h5 className="text-white/80 font-medium mb-1">接続法</h5>
                 <div className="flex items-center gap-2">
                   <p className="text-white">{conjugations.subjunctive}</p>
-                  <SpeechButton text={conjugations.subjunctive} language={targetLanguage as any} size={14} />
+                  <SpeechButton text={conjugations.subjunctive} language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} size={14} />
                 </div>
               </div>
             )}
@@ -176,7 +176,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                 <h5 className="text-white/80 font-medium mb-1">命令形</h5>
                 <div className="flex items-center gap-2">
                   <p className="text-white">{conjugations.imperative}</p>
-                  <SpeechButton text={conjugations.imperative} language={targetLanguage as any} size={14} />
+                  <SpeechButton text={conjugations.imperative} language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} size={14} />
                 </div>
               </div>
             )}
@@ -185,7 +185,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                 <h5 className="text-white/80 font-medium mb-1">動名詞</h5>
                 <div className="flex items-center gap-2">
                   <p className="text-white">{conjugations.gerund}</p>
-                  <SpeechButton text={conjugations.gerund} language={targetLanguage as any} size={14} />
+                  <SpeechButton text={conjugations.gerund} language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} size={14} />
                 </div>
               </div>
             )}
@@ -194,7 +194,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                 <h5 className="text-white/80 font-medium mb-1">過去分詞</h5>
                 <div className="flex items-center gap-2">
                   <p className="text-white">{conjugations.pastParticiple}</p>
-                  <SpeechButton text={conjugations.pastParticiple} language={targetLanguage as any} size={14} />
+                  <SpeechButton text={conjugations.pastParticiple} language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} size={14} />
                 </div>
               </div>
             )}
@@ -244,7 +244,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                       {pair.value && (
                         <SpeechButton 
                           text={pair.value} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       )}
@@ -288,7 +288,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                       {changes.masculine.singular && (
                         <SpeechButton 
                           text={changes.masculine.singular} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       )}
@@ -300,7 +300,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                       {changes.masculine.plural && (
                         <SpeechButton 
                           text={changes.masculine.plural} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       )}
@@ -317,7 +317,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                       {changes.feminine.singular && (
                         <SpeechButton 
                           text={changes.feminine.singular} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       )}
@@ -329,7 +329,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                       {changes.feminine.plural && (
                         <SpeechButton 
                           text={changes.feminine.plural} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       )}
@@ -346,7 +346,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                       {changes.neuter.singular && (
                         <SpeechButton 
                           text={changes.neuter.singular} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       )}
@@ -358,7 +358,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                       {changes.neuter.plural && (
                         <SpeechButton 
                           text={changes.neuter.plural} 
-                          language={targetLanguage as any} 
+                          language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                           size={14} 
                         />
                       )}
@@ -384,7 +384,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                     </p>
                     <SpeechButton 
                       text={grammaticalChanges.comparativeForms.comparative} 
-                      language={targetLanguage as any} 
+                      language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                       size={14} 
                     />
                   </div>
@@ -399,7 +399,7 @@ export const GrammaticalChangesTable: React.FC<GrammaticalChangesTableProps> = (
                     </p>
                     <SpeechButton 
                       text={grammaticalChanges.comparativeForms.superlative} 
-                      language={targetLanguage as any} 
+                      language={targetLanguage as 'en' | 'ja' | 'es' | 'fr' | 'it' | 'de' | 'zh' | 'ko'} 
                       size={14} 
                     />
                   </div>

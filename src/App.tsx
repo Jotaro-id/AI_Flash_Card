@@ -28,8 +28,8 @@ type AppState = 'file-manager' | 'word-manager' | 'flashcards';
 function App() {
   logger.info('App component rendering...');
   logger.info('Environment check', {
-    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set',
-    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set'
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Not set'
   });
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -61,9 +61,9 @@ function App() {
       // @ts-expect-error デバッグ目的でwindowオブジェクトに関数を追加
       window.getSupabaseConfig = () => {
         return {
-          VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-          VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set',
-          isDev: import.meta.env.DEV
+          NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Not set',
+          isDev: process.env.NODE_ENV === 'development'
         };
       };
       
@@ -408,7 +408,7 @@ function App() {
           word={currentFile.words[currentWordIndex]}
           currentIndex={currentWordIndex}
           totalWords={currentFile.words.length}
-          targetLanguage={currentFile.targetLanguage}
+          targetLanguage={currentFile.targetLanguage || 'ja'}
           onNext={handleNextWord}
           onPrevious={handlePreviousWord}
           onShuffle={handleShuffleWords}

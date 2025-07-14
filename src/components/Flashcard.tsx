@@ -396,7 +396,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                         <p className="text-white/70">{word.aiGenerated.pronunciation}</p>
                         <div className="mt-4 p-3 bg-white/20 rounded-lg">
                           <div className="flex items-start gap-2">
-                            <p className="text-white/90 text-sm italic flex-1">"{word.aiGenerated.exampleSentence}"</p>
+                            <p className="text-white/90 text-sm italic flex-1">&ldquo;{word.aiGenerated.exampleSentence}&rdquo;</p>
                             <SpeechButton text={word.aiGenerated.exampleSentence} language="en" size={16} />
                           </div>
                         </div>

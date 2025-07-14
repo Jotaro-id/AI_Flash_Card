@@ -250,7 +250,7 @@ export const createSampleData = async (): Promise<void> => {
           japaneseExample: 'こんにちは、元気ですか？',
           englishExample: 'Hello, how are you?',
           usageNotes: 'スペイン語の最も一般的な挨拶',
-          wordClass: 'interjection',
+          wordClass: 'other' as const,
           enhancedExample: {
             originalLanguage: 'es',
             originalSentence: 'Hola, ¿cómo estás?',
@@ -271,7 +271,7 @@ export const createSampleData = async (): Promise<void> => {
           japaneseExample: '助けてくれて本当にありがとう。',
           englishExample: 'Thank you very much for your help.',
           usageNotes: '感謝を表す基本的な表現',
-          wordClass: 'interjection',
+          wordClass: 'other' as const,
           enhancedExample: {
             originalLanguage: 'es',
             originalSentence: 'Muchas gracias por tu ayuda.',

@@ -6,7 +6,7 @@ import { geminiRateLimiter } from '../utils/rateLimiter';
 import { aiWordInfoCache } from './aiCacheService';
 
 // APIキーを環境変数から取得
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 // APIキーの状態を管理
 export const apiKeyStatus = {
@@ -17,10 +17,10 @@ export const apiKeyStatus = {
 
 // APIキーの検証
 if (!apiKey) {
-  apiKeyStatus.message = "VITE_GEMINI_API_KEY is not set in .env.local file";
+  apiKeyStatus.message = "NEXT_PUBLIC_GEMINI_API_KEY is not set in .env.local file";
   logger.warn(apiKeyStatus.message);
 } else if (apiKey === 'your_api_key_here') {
-  apiKeyStatus.message = "VITE_GEMINI_API_KEY is set to default value. Please update it with your actual API key.";
+  apiKeyStatus.message = "NEXT_PUBLIC_GEMINI_API_KEY is set to default value. Please update it with your actual API key.";
   logger.warn(apiKeyStatus.message);
 } else {
   apiKeyStatus.isConfigured = true;
@@ -30,7 +30,7 @@ if (!apiKey) {
 }
 
 // Google Generative AIクライアントの初期化
-const genAI = apiKeyStatus.isValid
+const genAI = apiKeyStatus.isValid && apiKey
   ? new GoogleGenerativeAI(apiKey) 
   : null;
 
@@ -284,7 +284,7 @@ export const checkSpelling = async (word: string): Promise<string[]> => {
   // APIキーが設定されていない場合はオフラインチェックのみ
   if (!model) {
     const { getSpellSuggestions } = await import('../utils/spellChecker');
-    const suggestions = await getSpellSuggestions(word, false);
+    const suggestions = await getSpellSuggestions(word);
     return suggestions.map(s => s.word);
   }
   
@@ -318,7 +318,7 @@ Response:`;
     console.error('Spell check error:', error);
     // エラー時はオフラインチェックを使用
     const { getSpellSuggestions } = await import('../utils/spellChecker');
-    const suggestions = await getSpellSuggestions(word, false);
+    const suggestions = await getSpellSuggestions(word);
     return suggestions.map(s => s.word);
   }
 };
