@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { FileManager } from '@/components/FileManager';
 import { WordManager } from '@/components/WordManager';
 import { FlashcardContainer } from '@/components/FlashcardContainer';
@@ -10,7 +11,6 @@ import { SyncStatus } from '@/components/SyncStatus';
 import { VocabularyFile, SupportedLanguage, LearningStatus } from '@/types';
 import { useTheme } from '@/hooks/useTheme';
 import { useDataSync } from '@/hooks/useDataSync';
-import { supabase } from '@/lib/supabase';
 // LocalStorageを使用するように変更
 import { 
   fetchVocabularyFiles, 
@@ -26,12 +26,17 @@ import { logger } from '@/utils/logger';
 
 type AppState = 'file-manager' | 'word-manager' | 'flashcards' | 'verb-conjugation';
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// Supabaseクライアントの動的インポート
+const getSupabase = async () => {
+  const { supabase } = await import('@/lib/supabase');
+  return supabase;
+};
+
 export default function Home() {
-  logger.info('App component rendering...');
-  logger.info('Environment check', {
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set',
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Not set'
-  });
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email?: string; id: string } | null>(null);
@@ -71,6 +76,7 @@ export default function Home() {
         }, 5000);
 
         // まずSupabase認証をチェック
+        const supabase = await getSupabase();
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
         
         // Supabaseユーザーがいる場合
@@ -118,8 +124,12 @@ export default function Home() {
     checkAuth();
 
     // Supabase認証状態の変更を監視
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    let unsubscribe: (() => void) | null = null;
+    
+    const setupAuthListener = async () => {
+      const supabase = await getSupabase();
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
         logger.info('Auth state changed', { event, user: session?.user?.email });
         console.log('onAuthStateChange triggered:', { event, session });
         
@@ -146,11 +156,17 @@ export default function Home() {
             setIsSupabaseUser(false);
           }
         }
-      }
-    );
+        }
+      );
+      unsubscribe = subscription.unsubscribe;
+    };
+
+    setupAuthListener();
 
     return () => {
-      subscription.unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, []);
 
@@ -181,6 +197,7 @@ export default function Home() {
     logger.info('Logging out...');
     try {
       // Supabaseからログアウト
+      const supabase = await getSupabase();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.auth.signOut();
@@ -301,6 +318,7 @@ export default function Home() {
     
     // 認証と同期状態も確認
     console.log('\n=== 認証・同期状態の確認 ===');
+    const supabase = await getSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
