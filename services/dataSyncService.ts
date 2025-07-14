@@ -28,6 +28,9 @@ class DataSyncService {
     pendingChanges: 0,
     errors: []
   };
+  
+  private syncInterval: NodeJS.Timeout | null = null;
+  private readonly SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5分間隔
 
   /**
    * 同期ステータスを取得
@@ -76,18 +79,23 @@ class DataSyncService {
       result.syncedItems.wordCards = wordCardResult.count;
       result.errors.push(...wordCardResult.errors);
 
-      // 3. 単語帳と単語カードの関連を同期
-      const relationResult = await this.syncWordBookCards(user.id);
-      result.syncedItems.relations = relationResult.count;
-      result.errors.push(...relationResult.errors);
+      // 単語カードの同期が完了したかどうかを確認
+      if (wordCardResult.errors.length === 0) {
+        // 3. 単語帳と単語カードの関連を同期
+        const relationResult = await this.syncWordBookCards(user.id);
+        result.syncedItems.relations = relationResult.count;
+        result.errors.push(...relationResult.errors);
 
-      // 4. 動詞活用履歴を同期
-      try {
-        const historyResult = await this.syncConjugationHistory(user.id);
-        result.syncedItems.history = historyResult.count;
-        result.errors.push(...historyResult.errors);
-      } catch (error) {
-        console.log('[DataSync] 動詞活用履歴テーブルは存在しません（スキップ）');
+        // 4. 動詞活用履歴を同期
+        try {
+          const historyResult = await this.syncConjugationHistory(user.id);
+          result.syncedItems.history = historyResult.count;
+          result.errors.push(...historyResult.errors);
+        } catch (error) {
+          console.log('[DataSync] 動詞活用履歴テーブルは存在しません（スキップ）');
+        }
+      } else {
+        console.warn('[DataSync] 単語カードの同期エラーのため、関連データの同期をスキップします');
       }
 
       this.syncStatus.lastSyncTime = new Date().toISOString();
@@ -247,7 +255,9 @@ class DataSyncService {
           await this.syncWordCardBatch(batch, userId);
           syncedCount += batch.length;
         } catch (error) {
+          console.error(`[DataSync] 単語カードバッチ同期エラー (${i}-${i + batch.length}):`, error);
           errors.push(`単語カードバッチ同期エラー (${i}-${i + batch.length}): ${error}`);
+          // エラーでも処理を継続（部分的な同期を許可）
         }
       }
     } catch (error) {
@@ -453,21 +463,47 @@ class DataSyncService {
 
       if (tableCheckError) {
         if (tableCheckError.message.includes('relation') && tableCheckError.message.includes('does not exist')) {
-          throw new Error('verb_conjugation_historyテーブルが存在しません');
+          console.log('[DataSync] verb_conjugation_historyテーブルが存在しません（スキップ）');
+          return { count: 0, errors: [] };
+        }
+        if (tableCheckError.message.includes('permission denied')) {
+          console.log('[DataSync] verb_conjugation_historyテーブルへのアクセス権限がありません（スキップ）');
+          return { count: 0, errors: [] };
         }
         throw tableCheckError;
       }
 
       const history = conjugationHistoryLocalService.getHistory();
       
+      if (history.length === 0) {
+        return { count: 0, errors: [] };
+      }
+
       for (const entry of history) {
         try {
-          // 履歴が存在するか確認
+          // LocalStorageのword_card_idをSupabaseのUUIDに変換
+          const wordCardId = idMappingService.getWordCardSupabaseId(entry.word_card_id);
+          if (!wordCardId) {
+            console.warn(`[DataSync] 単語カードIDマッピングが見つかりません: ${entry.word_card_id}`);
+            continue;
+          }
+
+          // 履歴が存在するか確認（idがUUIDでない場合はスキップ）
+          if (!entry.id || typeof entry.id !== 'string') {
+            console.warn(`[DataSync] 無効な履歴ID: ${entry.id}`);
+            continue;
+          }
+
           const { data: existing, error: selectError } = await supabase
             .from('verb_conjugation_history')
             .select('id')
-            .eq('id', entry.id)
             .eq('user_id', userId)
+            .eq('word_card_id', wordCardId)
+            .eq('practice_type', entry.practice_type)
+            .eq('tense', entry.tense)
+            .eq('mood', entry.mood)
+            .eq('person', entry.person)
+            .eq('created_at', entry.created_at)
             .maybeSingle();
 
           if (selectError) {
@@ -476,18 +512,10 @@ class DataSyncService {
           }
 
           if (!existing) {
-            // LocalStorageのword_card_idをSupabaseのUUIDに変換
-            const wordCardId = idMappingService.getWordCardSupabaseId(entry.word_card_id);
-            if (!wordCardId) {
-              console.warn(`[DataSync] 単語カードIDマッピングが見つかりません: ${entry.word_card_id}`);
-              continue;
-            }
-
             // 新規作成のみ（履歴は更新しない）
             const { error } = await supabase
               .from('verb_conjugation_history')
               .insert({
-                id: entry.id,
                 user_id: userId,
                 word_card_id: wordCardId,
                 practice_type: entry.practice_type,
@@ -516,7 +544,8 @@ class DataSyncService {
         }
       }
     } catch (error) {
-      errors.push(`動詞活用履歴同期の全体エラー: ${error}`);
+      console.log(`[DataSync] 動詞活用履歴同期をスキップします: ${error}`);
+      return { count: 0, errors: [] };
     }
 
     return { count: syncedCount, errors };
@@ -532,6 +561,75 @@ class DataSyncService {
       errors: ['SupabaseからLocalStorageへの同期は未実装です'],
       syncedItems: { wordBooks: 0, wordCards: 0, relations: 0, history: 0 }
     };
+  }
+
+  /**
+   * 全データを同期（useDataSyncで使用）
+   */
+  async syncAllData(): Promise<SyncResult> {
+    return await this.syncToSupabase();
+  }
+
+  /**
+   * 定期同期を開始
+   */
+  startPeriodicSync(): void {
+    if (this.syncInterval) {
+      console.log('[DataSync] 定期同期は既に開始されています');
+      return;
+    }
+
+    console.log('[DataSync] 定期同期を開始します (間隔:', this.SYNC_INTERVAL_MS / 1000, '秒)');
+    
+    this.syncInterval = setInterval(async () => {
+      try {
+        console.log('[DataSync] 定期同期を実行します');
+        await this.syncToSupabase();
+      } catch (error) {
+        console.error('[DataSync] 定期同期エラー:', error);
+      }
+    }, this.SYNC_INTERVAL_MS);
+  }
+
+  /**
+   * 定期同期を停止
+   */
+  stopPeriodicSync(): void {
+    if (this.syncInterval) {
+      console.log('[DataSync] 定期同期を停止します');
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
+    }
+  }
+
+  /**
+   * エラーをクリア
+   */
+  clearErrors(): void {
+    this.syncStatus.errors = [];
+  }
+
+  /**
+   * 保留中の変更数を増やす
+   */
+  incrementPendingChanges(): void {
+    this.syncStatus.pendingChanges++;
+  }
+
+  /**
+   * 保留中の変更数を減らす
+   */
+  decrementPendingChanges(): void {
+    if (this.syncStatus.pendingChanges > 0) {
+      this.syncStatus.pendingChanges--;
+    }
+  }
+
+  /**
+   * 保留中の変更数をリセット
+   */
+  resetPendingChanges(): void {
+    this.syncStatus.pendingChanges = 0;
   }
 }
 
