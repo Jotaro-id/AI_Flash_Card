@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { FileManager } from '@/components/FileManager';
 import { WordManager } from '@/components/WordManager';
 import { FlashcardContainer } from '@/components/FlashcardContainer';
@@ -26,7 +25,8 @@ import { logger } from '@/utils/logger';
 
 type AppState = 'file-manager' | 'word-manager' | 'flashcards' | 'verb-conjugation';
 
-// 動的レンダリングを強制
+// 動的レンダリングを強制（Next.js 13+の設定）
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
