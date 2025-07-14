@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDataSync } from '@/hooks/useDataSync';
-import { RotateCw, CheckCircle, AlertCircle, Clock, WifiOff } from 'lucide-react';
+import { RotateCw, CheckCircle, AlertCircle, Clock, WifiOff, Download } from 'lucide-react';
 
 interface SyncStatusProps {
   className?: string;
@@ -15,7 +15,8 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
   const { 
     syncStatus, 
     lastSyncResult, 
-    syncNow, 
+    syncNow,
+    syncFromSupabase, 
     clearErrors,
     startPeriodicSync,
     stopPeriodicSync 
@@ -93,6 +94,14 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
     }
   };
 
+  const handleSyncFromSupabase = async () => {
+    try {
+      await syncFromSupabase();
+    } catch (error) {
+      console.error('Supabaseからの同期エラー:', error);
+    }
+  };
+
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {/* 同期アイコンとステータス */}
@@ -116,14 +125,24 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({
       {/* 詳細情報 */}
       {showDetails && (
         <div className="flex items-center gap-2">
-          {/* 手動同期ボタン */}
+          {/* 手動同期ボタン（アップロード） */}
           <button
             onClick={handleSyncNow}
             disabled={syncStatus.isSyncing}
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-            title="今すぐ同期"
+            title="Supabaseへアップロード"
           >
             <RotateCw className={`w-4 h-4 ${syncStatus.isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+
+          {/* Supabaseから同期ボタン（ダウンロード） */}
+          <button
+            onClick={handleSyncFromSupabase}
+            disabled={syncStatus.isSyncing}
+            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+            title="Supabaseから復元"
+          >
+            <Download className={`w-4 h-4 ${syncStatus.isSyncing ? 'animate-spin' : ''}`} />
           </button>
 
           {/* エラークリアボタン */}

@@ -674,12 +674,148 @@ class DataSyncService {
    * SupabaseからLocalStorageにデータを同期
    */
   async syncFromSupabase(): Promise<SyncResult> {
-    // TODO: 実装予定
-    return {
-      success: false,
-      errors: ['SupabaseからLocalStorageへの同期は未実装です'],
-      syncedItems: { wordBooks: 0, wordCards: 0, relations: 0, history: 0 }
+    console.log('[DataSync] SupabaseからLocalStorageへの同期を開始');
+    const errors: string[] = [];
+    const syncedItems = {
+      wordBooks: 0,
+      wordCards: 0,
+      relations: 0,
+      history: 0
     };
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      if (!userId) {
+        return {
+          success: false,
+          errors: ['ユーザーがログインしていません'],
+          syncedItems
+        };
+      }
+
+      // 1. Supabaseから単語帳を取得
+      const { data: supabaseBooks, error: booksError } = await supabase
+        .from('word_books')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (booksError) {
+        errors.push(`単語帳の取得エラー: ${booksError.message}`);
+      } else if (supabaseBooks) {
+        console.log(`[DataSync] Supabaseから${supabaseBooks.length}個の単語帳を取得`);
+
+        // 2. Supabaseから単語カードを取得
+        const { data: supabaseCards, error: cardsError } = await supabase
+          .from('word_cards')
+          .select('*')
+          .eq('user_id', userId);
+
+        if (cardsError) {
+          errors.push(`単語カードの取得エラー: ${cardsError.message}`);
+        } else if (supabaseCards) {
+          console.log(`[DataSync] Supabaseから${supabaseCards.length}個の単語カードを取得`);
+
+          // 3. Supabaseから関連情報を取得
+          const { data: supabaseRelations, error: relationsError } = await supabase
+            .from('word_book_cards')
+            .select('*')
+            .in('word_book_id', supabaseBooks.map(b => b.id));
+
+          if (relationsError) {
+            errors.push(`関連情報の取得エラー: ${relationsError.message}`);
+          } else if (supabaseRelations) {
+            console.log(`[DataSync] Supabaseから${supabaseRelations.length}個の関連情報を取得`);
+
+            // LocalStorageのデータを取得
+            const localData = localStorageService.getAllData();
+            const localFiles = localData.vocabularyFiles || [];
+
+            // Supabaseのデータを統合
+            for (const book of supabaseBooks) {
+              // 対応するローカルファイルを探す
+              let localFile = localFiles.find(f => f.id === book.id);
+              
+              if (!localFile) {
+                // ローカルに存在しない場合は新規作成
+                localFile = {
+                  id: book.id,
+                  name: book.name,
+                  createdAt: new Date(book.created_at),
+                  words: [],
+                  targetLanguage: book.target_language || 'en'
+                };
+                localFiles.push(localFile);
+                syncedItems.wordBooks++;
+              }
+
+              // この単語帳に関連する単語カードを取得
+              const bookRelations = supabaseRelations.filter(r => r.word_book_id === book.id);
+              const bookCardIds = bookRelations.map(r => r.word_card_id);
+              const bookCards = supabaseCards.filter(c => bookCardIds.includes(c.id));
+
+              // 単語カードをローカル形式に変換
+              for (const card of bookCards) {
+                const relation = bookRelations.find(r => r.word_card_id === card.id);
+                const existingWord = localFile.words.find(w => w.id === card.id);
+                
+                if (!existingWord) {
+                  const word = {
+                    id: card.id,
+                    word: card.word,
+                    createdAt: new Date(card.created_at),
+                    learningStatus: relation?.learning_status || 'not_started',
+                    aiGenerated: card.ai_generated_info ? {
+                      englishEquivalent: card.english_equivalent || '',
+                      japaneseEquivalent: card.japanese_equivalent || '',
+                      pronunciation: card.pronunciation || '',
+                      exampleSentence: card.example_sentence || '',
+                      japaneseExample: card.example_sentence_japanese || '',
+                      englishExample: card.example_sentence_english || '',
+                      usageNotes: card.usage_notes || '',
+                      wordClass: card.word_class || 'other',
+                      tenseInfo: card.ai_generated_info?.tenseInfo,
+                      additionalInfo: card.ai_generated_info?.additionalInfo,
+                      enhancedExample: card.ai_generated_info?.enhancedExample,
+                      translations: card.ai_generated_info?.translations,
+                      multilingualExamples: card.ai_generated_info?.multilingualExamples,
+                      grammaticalChanges: card.ai_generated_info?.grammaticalChanges
+                    } : undefined
+                  };
+                  localFile.words.push(word);
+                  syncedItems.wordCards++;
+                } else {
+                  // 既存の単語の学習状況を更新
+                  existingWord.learningStatus = relation?.learning_status || existingWord.learningStatus;
+                  syncedItems.relations++;
+                }
+              }
+            }
+
+            // LocalStorageに保存
+            localStorageService.saveAllData({ 
+              vocabularyFiles: localFiles,
+              lastUpdated: new Date().toISOString()
+            });
+            console.log('[DataSync] LocalStorageへの保存が完了');
+          }
+        }
+      }
+
+      return {
+        success: errors.length === 0,
+        errors,
+        syncedItems
+      };
+    } catch (error) {
+      console.error('[DataSync] 同期中にエラーが発生:', error);
+      errors.push(`同期エラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
+      return {
+        success: false,
+        errors,
+        syncedItems
+      };
+    }
   }
 
   /**

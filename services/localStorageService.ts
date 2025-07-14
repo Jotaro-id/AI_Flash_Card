@@ -293,6 +293,7 @@ export const createSampleData = async (): Promise<void> => {
 // Export all functions
 export const localStorageService = {
   getAllData: getData,
+  saveAllData: saveData,
   fetchVocabularyFiles,
   createVocabularyFile,
   updateVocabularyFile,

@@ -36,10 +36,19 @@ export const useDataSync = () => {
     setSyncStatus(status);
   }, []);
 
-  // 手動同期
+  // 手動同期（Supabaseへアップロード）
   const syncNow = useCallback(async (): Promise<SyncResult> => {
     updateSyncStatus();
     const result = await dataSyncService.syncAllData();
+    setLastSyncResult(result);
+    updateSyncStatus();
+    return result;
+  }, [updateSyncStatus]);
+
+  // Supabaseから同期（ダウンロード）
+  const syncFromSupabase = useCallback(async (): Promise<SyncResult> => {
+    updateSyncStatus();
+    const result = await dataSyncService.syncFromSupabase();
     setLastSyncResult(result);
     updateSyncStatus();
     return result;
@@ -87,6 +96,7 @@ export const useDataSync = () => {
     syncStatus,
     lastSyncResult,
     syncNow,
+    syncFromSupabase,
     startPeriodicSync,
     stopPeriodicSync,
     clearErrors,

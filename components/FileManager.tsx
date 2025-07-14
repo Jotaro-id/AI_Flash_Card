@@ -5,6 +5,7 @@ import { ThemeSelector } from './ThemeSelector';
 import { UserMenu } from './UserMenu';
 import { RateLimitStatus } from './RateLimitStatus';
 import { ConnectionStatus } from './ConnectionStatus';
+import { SyncStatus } from './SyncStatus';
 
 interface FileManagerProps {
   files: VocabularyFile[];
@@ -76,6 +77,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
               />
               <RateLimitStatus />
               <ConnectionStatus />
+              {currentUser && <SyncStatus showDetails={true} />}
               {currentUser && onSignOut && (
                 <UserMenu user={currentUser} onSignOut={onSignOut} />
               )}
