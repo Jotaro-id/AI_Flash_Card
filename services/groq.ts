@@ -70,7 +70,103 @@ Make sure to provide accurate and helpful information for language learners.
 
   async generateFlashcardContent(word: string, context?: string, difficulty?: string, targetLanguage?: string) {
     try {
-      const prompt = `
+      // スペイン語動詞用の詳細なプロンプト
+      const spanishVerbPrompt = `
+あなたは語学学習アシスタントです。
+単語: ${word}
+対象言語: スペイン語
+
+以下の情報をJSON形式で生成してください：
+{
+  "meaning": "単語の意味（日本語で）",
+  "pronunciation": "発音ガイド",
+  "example": "例文（スペイン語で1文）",
+  "example_translation": "例文の日本語訳",
+  "english_example": "例文の英語訳",
+  "notes": "使用上の注意点",
+  "wordClass": "verb",
+  "translations": {
+    "en": "英語訳",
+    "ja": "日本語訳"
+  },
+  "grammaticalChanges": {
+    "verbConjugations": {
+      "present": {
+        "yo": "実際の活用形",
+        "tú": "実際の活用形",
+        "él/ella/usted": "実際の活用形",
+        "nosotros/nosotras": "実際の活用形",
+        "vosotros/vosotras": "実際の活用形",
+        "ellos/ellas/ustedes": "実際の活用形"
+      },
+      "preterite": {
+        "yo": "実際の活用形",
+        "tú": "実際の活用形",
+        "él/ella/usted": "実際の活用形",
+        "nosotros/nosotras": "実際の活用形",
+        "vosotros/vosotras": "実際の活用形",
+        "ellos/ellas/ustedes": "実際の活用形"
+      },
+      "imperfect": {
+        "yo": "実際の活用形",
+        "tú": "実際の活用形",
+        "él/ella/usted": "実際の活用形",
+        "nosotros/nosotras": "実際の活用形",
+        "vosotros/vosotras": "実際の活用形",
+        "ellos/ellas/ustedes": "実際の活用形"
+      },
+      "future": {
+        "yo": "実際の活用形",
+        "tú": "実際の活用形",
+        "él/ella/usted": "実際の活用形",
+        "nosotros/nosotras": "実際の活用形",
+        "vosotros/vosotras": "実際の活用形",
+        "ellos/ellas/ustedes": "実際の活用形"
+      },
+      "conditional": {
+        "yo": "実際の活用形",
+        "tú": "実際の活用形",
+        "él/ella/usted": "実際の活用形",
+        "nosotros/nosotras": "実際の活用形",
+        "vosotros/vosotras": "実際の活用形",
+        "ellos/ellas/ustedes": "実際の活用形"
+      },
+      "subjunctive": {
+        "yo": "実際の活用形",
+        "tú": "実際の活用形",
+        "él/ella/usted": "実際の活用形",
+        "nosotros/nosotras": "実際の活用形",
+        "vosotros/vosotras": "実際の活用形",
+        "ellos/ellas/ustedes": "実際の活用形"
+      },
+      "subjunctive_imperfect": {
+        "yo": "実際の活用形（-ra形）",
+        "tú": "実際の活用形（-ra形）",
+        "él/ella/usted": "実際の活用形（-ra形）",
+        "nosotros/nosotras": "実際の活用形（-ra形）",
+        "vosotros/vosotras": "実際の活用形（-ra形）",
+        "ellos/ellas/ustedes": "実際の活用形（-ra形）"
+      },
+      "imperative": {
+        "tú": "実際の活用形",
+        "vosotros": "実際の活用形",
+        "usted": "実際の活用形",
+        "ustedes": "実際の活用形"
+      },
+      "gerund": "現在分詞形",
+      "past_participle": "過去分詞形"
+    }
+  }
+}
+
+重要：
+- すべての活用形を実際のスペイン語の活用形で記入（例：hablar → yo hablo, tú hablas等）
+- 命令形は該当する人称のみ記入
+- 有効なJSONのみを返す
+`;
+
+      // デフォルトのプロンプト
+      const defaultPrompt = `
 あなたは語学学習アシスタントです。
 単語: ${word}
 ${targetLanguage ? `対象言語: ${this.getLanguageName(targetLanguage)}` : ''}
@@ -106,6 +202,9 @@ ${targetLanguage ? `対象言語: ${this.getLanguageName(targetLanguage)}` : ''}
 - 有効なJSONのみを返す
 `;
 
+      // 対象言語とコンテキストに応じてプロンプトを選択
+      const prompt = (targetLanguage === 'es' && context?.includes('verb')) ? spanishVerbPrompt : defaultPrompt;
+
       const response = await this.groq.chat.completions.create({
         messages: [
           {
@@ -119,7 +218,7 @@ ${targetLanguage ? `対象言語: ${this.getLanguageName(targetLanguage)}` : ''}
         ],
         model: 'gemma2-9b-it',
         temperature: 0.3,
-        max_tokens: 1000,
+        max_tokens: (targetLanguage === 'es' && context?.includes('verb')) ? 2000 : 1000,
       });
 
       const content = response.choices[0]?.message?.content;
