@@ -71,92 +71,46 @@ Make sure to provide accurate and helpful information for language learners.
   async generateFlashcardContent(word: string, context?: string, difficulty?: string, targetLanguage?: string) {
     try {
       const prompt = `
-Generate comprehensive language learning information for the word "${word}".
-${targetLanguage ? `IMPORTANT: 
-- This word is being studied in the context of ${this.getLanguageName(targetLanguage)} language learning
-- Consider "${word}" as a ${this.getLanguageName(targetLanguage)} word first, unless it's clearly from another language
-- Generate the example sentences in ${this.getLanguageName(targetLanguage)} language` : ''}
+あなたは語学学習アシスタントです。
+単語: ${word}
+${targetLanguage ? `対象言語: ${this.getLanguageName(targetLanguage)}` : ''}
 
-Return a JSON object with the following structure:
+以下の情報を簡潔にJSON形式で生成してください：
 {
-  "meaning": "the meaning/definition of the word${targetLanguage ? ` (treating it as a ${this.getLanguageName(targetLanguage)} word)` : ' in the original language'}",
-  "pronunciation": "phonetic pronunciation guide",
-  "example": "example sentence using the word${targetLanguage ? ` in ${this.getLanguageName(targetLanguage)}` : ' in its original language'}",
-  "example_translation": "その例文の日本語訳（必ず日本語で翻訳してください）",
-  "english_example": "English translation of the example sentence",
-  "notes": "usage notes, common mistakes, or cultural context",
-  "wordClass": "noun/verb/adjective/adverb/other",
+  "meaning": "単語の意味（日本語で）",
+  "pronunciation": "発音ガイド",
+  "example": "例文（原語で1文）",
+  "example_translation": "例文の日本語訳",
+  "english_example": "例文の英語訳",
+  "notes": "使用上の注意点",
+  "wordClass": "品詞（noun/verb/adjective/adverb/other）",
   "translations": {
-    "en": "English translation",
-    "ja": "日本語訳（必ず日本語で翻訳してください）",
-    "es": "Spanish translation",
-    "fr": "French translation",
-    "de": "German translation",
-    "zh": "Chinese translation",
-    "ko": "Korean translation",
-    "it": "Italian translation"
-  },
-  "multilingualExamples": {
-    "es": "Spanish example sentence${targetLanguage === 'es' ? ' (MUST be in Spanish)' : ''}",
-    "fr": "French example sentence${targetLanguage === 'fr' ? ' (MUST be in French)' : ''}",
-    "de": "German example sentence${targetLanguage === 'de' ? ' (MUST be in German)' : ''}",
-    "zh": "Chinese example sentence${targetLanguage === 'zh' ? ' (MUST be in Chinese)' : ''}",
-    "ko": "Korean example sentence${targetLanguage === 'ko' ? ' (MUST be in Korean)' : ''}",
-    "it": "Italian example sentence${targetLanguage === 'it' ? ' (MUST be in Italian)' : ''}"
+    "en": "英語訳",
+    "ja": "日本語訳"
   },
   "conjugations": {
-    // For verbs, include detailed conjugation information based on the language:
-    // Spanish example:
-    "present": { "yo": "hablo", "tú": "hablas", "él/ella/usted": "habla", "nosotros/nosotras": "hablamos", "vosotros/vosotras": "habláis", "ellos/ellas/ustedes": "hablan" },
-    "preterite": { "yo": "hablé", "tú": "hablaste", "él/ella/usted": "habló", "nosotros/nosotras": "hablamos", "vosotros/vosotras": "hablasteis", "ellos/ellas/ustedes": "hablaron" },
-    "imperfect": { "yo": "hablaba", "tú": "hablabas", "él/ella/usted": "hablaba", "nosotros/nosotras": "hablábamos", "vosotros/vosotras": "hablabais", "ellos/ellas/ustedes": "hablaban" },
-    "future": { "yo": "hablaré", "tú": "hablarás", "él/ella/usted": "hablará", "nosotros/nosotras": "hablaremos", "vosotros/vosotras": "hablaréis", "ellos/ellas/ustedes": "hablarán" },
-    "conditional": { "yo": "hablaría", "tú": "hablarías", "él/ella/usted": "hablaría", "nosotros/nosotras": "hablaríamos", "vosotros/vosotras": "hablaríais", "ellos/ellas/ustedes": "hablarían" },
-    "subjunctive": { "yo": "hable", "tú": "hables", "él/ella/usted": "hable", "nosotros/nosotras": "hablemos", "vosotros/vosotras": "habléis", "ellos/ellas/ustedes": "hablen" },
-    "subjunctive_imperfect": { "yo": "hablara/hablase", "tú": "hablaras/hablases", "él/ella/usted": "hablara/hablase", "nosotros/nosotras": "habláramos/hablásemos", "vosotros/vosotras": "hablarais/hablaseis", "ellos/ellas/ustedes": "hablaran/hablasen" },
-    "imperative": { "tú": "habla", "usted": "hable", "nosotros/nosotras": "hablemos", "vosotros/vosotras": "hablad", "ustedes": "hablen" },
-    "gerund": "hablando",
-    "pastParticiple": "hablado",
-    // For English verbs:
-    "present": "speak",
-    "past": "spoke",
-    "pastParticiple": "spoken",
-    "gerund": "speaking",
-    "presentThirdPerson": "speaks"
+    // 動詞の場合のみ記入。動詞でない場合は空のオブジェクト{}にする
+    "present": "現在形",
+    "past": "過去形",
+    "pastParticiple": "過去分詞形",
+    "gerund": "動名詞形",
+    "presentThirdPerson": "3人称単数現在"
   },
-  "genderNumberChanges": {
-    // REQUIRED for nouns and adjectives in gendered languages
-    "masculine": {
-      "singular": "example: alto (tall - masculine singular)",
-      "plural": "example: altos (tall - masculine plural)"
-    },
-    "feminine": {
-      "singular": "example: alta (tall - feminine singular)",
-      "plural": "example: altas (tall - feminine plural)"
-    },
-    "neuter": {
-      // Only for languages with neuter gender like German
-      "singular": "example: das Kind (the child - neuter)",
-      "plural": "example: die Kinder (the children)"
-    }
-  }
+  "genderNumberChanges": {}
 }
 
-IMPORTANT: 
-${targetLanguage ? `- Assume "${word}" is a ${this.getLanguageName(targetLanguage)} word unless clearly from another language` : '- Detect the language of "${word}"'}
-- All translations must be accurate
-${targetLanguage ? `- The "example" field MUST be in ${this.getLanguageName(targetLanguage)}` : ''}
-- For nouns/adjectives: ALWAYS fill "genderNumberChanges" with appropriate forms (include articles)
-- For verbs: Fill "conjugations" with all relevant tenses and forms
-- Never leave genderNumberChanges empty - always provide forms
-- Return valid JSON only
+重要：
+- 動詞の場合は必ずconjugationsを記入
+- 動詞でない場合はconjugationsを空のオブジェクト{}にする
+- シンプルで正確な情報のみを提供
+- 有効なJSONのみを返す
 `;
 
       const response = await this.groq.chat.completions.create({
         messages: [
           {
             role: 'system',
-            content: 'You are a multilingual language learning assistant. Always respond with valid JSON containing comprehensive word information. IMPORTANT: For the "ja" field in translations and "example_translation" field, you MUST provide actual Japanese translations (in hiragana, katakana, or kanji as appropriate), NOT English text. 例: "hello" -> "こんにちは", "run" -> "走る"',
+            content: 'あなたは語学学習アシスタントです。指定された形式のJSONのみを返してください。余計な説明は不要です。',
           },
           {
             role: 'user',
@@ -165,7 +119,7 @@ ${targetLanguage ? `- The "example" field MUST be in ${this.getLanguageName(targ
         ],
         model: 'gemma2-9b-it',
         temperature: 0.3,
-        max_tokens: 2500,
+        max_tokens: 1000,
       });
 
       const content = response.choices[0]?.message?.content;
