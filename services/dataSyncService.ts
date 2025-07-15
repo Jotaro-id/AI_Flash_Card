@@ -686,6 +686,8 @@ class DataSyncService {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id;
+      console.log('[DataSync] 認証状態チェック:', { user: !!user, userId });
+      
       if (!userId) {
         return {
           success: false,
@@ -695,37 +697,83 @@ class DataSyncService {
       }
 
       // 1. Supabaseから単語帳を取得
+      console.log('[DataSync] 単語帳データの取得を開始:', { userId });
       const { data: supabaseBooks, error: booksError } = await supabase
         .from('word_books')
         .select('*')
         .eq('user_id', userId);
 
+      console.log('[DataSync] 単語帳取得結果:', { 
+        data: supabaseBooks, 
+        error: booksError,
+        dataLength: supabaseBooks?.length || 0
+      });
+
       if (booksError) {
+        console.error('[DataSync] 単語帳取得エラー:', booksError);
         errors.push(`単語帳の取得エラー: ${booksError.message}`);
-      } else if (supabaseBooks) {
-        console.log(`[DataSync] Supabaseから${supabaseBooks.length}個の単語帳を取得`);
+      } else {
+        console.log(`[DataSync] Supabaseから${supabaseBooks?.length || 0}個の単語帳を取得`);
+        
+        if (!supabaseBooks || supabaseBooks.length === 0) {
+          console.log('[DataSync] 単語帳データが存在しません。空の状態で同期を完了します。');
+          return {
+            success: true,
+            errors: ['Supabaseに単語帳データが存在しません'],
+            syncedItems
+          };
+        }
 
         // 2. Supabaseから単語カードを取得
+        console.log('[DataSync] 単語カードデータの取得を開始:', { userId });
         const { data: supabaseCards, error: cardsError } = await supabase
           .from('word_cards')
           .select('*')
           .eq('user_id', userId);
 
+        console.log('[DataSync] 単語カード取得結果:', { 
+          data: supabaseCards, 
+          error: cardsError,
+          dataLength: supabaseCards?.length || 0
+        });
+
         if (cardsError) {
+          console.error('[DataSync] 単語カード取得エラー:', cardsError);
           errors.push(`単語カードの取得エラー: ${cardsError.message}`);
-        } else if (supabaseCards) {
-          console.log(`[DataSync] Supabaseから${supabaseCards.length}個の単語カードを取得`);
+        } else {
+          console.log(`[DataSync] Supabaseから${supabaseCards?.length || 0}個の単語カードを取得`);
+          
+          if (!supabaseCards || supabaseCards.length === 0) {
+            console.log('[DataSync] 単語カードデータが存在しません。');
+            return {
+              success: true,
+              errors: ['Supabaseに単語カードデータが存在しません'],
+              syncedItems
+            };
+          }
 
           // 3. Supabaseから関連情報を取得
+          console.log('[DataSync] 関連情報の取得を開始:', { bookIds: supabaseBooks.map(b => b.id) });
           const { data: supabaseRelations, error: relationsError } = await supabase
             .from('word_book_cards')
             .select('*')
             .in('word_book_id', supabaseBooks.map(b => b.id));
 
+          console.log('[DataSync] 関連情報取得結果:', { 
+            data: supabaseRelations, 
+            error: relationsError,
+            dataLength: supabaseRelations?.length || 0
+          });
+
           if (relationsError) {
+            console.error('[DataSync] 関連情報取得エラー:', relationsError);
             errors.push(`関連情報の取得エラー: ${relationsError.message}`);
-          } else if (supabaseRelations) {
-            console.log(`[DataSync] Supabaseから${supabaseRelations.length}個の関連情報を取得`);
+          } else {
+            console.log(`[DataSync] Supabaseから${supabaseRelations?.length || 0}個の関連情報を取得`);
+            
+            if (!supabaseRelations) {
+              supabaseRelations = [];
+            }
 
             // LocalStorageのデータを取得
             const localData = localStorageService.getAllData();
@@ -765,7 +813,7 @@ class DataSyncService {
                     word: card.word,
                     createdAt: new Date(card.created_at),
                     learningStatus: relation?.learning_status || 'not_started',
-                    aiGenerated: card.ai_generated_info ? {
+                    aiGenerated: (card.ai_generated_info || card.english_equivalent) ? {
                       englishEquivalent: card.english_equivalent || '',
                       japaneseEquivalent: card.japanese_equivalent || '',
                       pronunciation: card.pronunciation || '',
@@ -773,13 +821,13 @@ class DataSyncService {
                       japaneseExample: card.example_sentence_japanese || '',
                       englishExample: card.example_sentence_english || '',
                       usageNotes: card.usage_notes || '',
-                      wordClass: card.word_class || 'other',
-                      tenseInfo: card.ai_generated_info?.tenseInfo,
-                      additionalInfo: card.ai_generated_info?.additionalInfo,
-                      enhancedExample: card.ai_generated_info?.enhancedExample,
-                      translations: card.ai_generated_info?.translations,
-                      multilingualExamples: card.ai_generated_info?.multilingualExamples,
-                      grammaticalChanges: card.ai_generated_info?.grammaticalChanges
+                      wordClass: (card.word_class || 'other') as 'noun' | 'verb' | 'adjective' | 'adverb' | 'other',
+                      tenseInfo: (card.ai_generated_info as any)?.tenseInfo,
+                      additionalInfo: (card.ai_generated_info as any)?.additionalInfo,
+                      enhancedExample: (card.ai_generated_info as any)?.enhancedExample,
+                      translations: (card.ai_generated_info as any)?.translations,
+                      multilingualExamples: (card.ai_generated_info as any)?.multilingualExamples,
+                      grammaticalChanges: (card.ai_generated_info as any)?.grammaticalChanges
                     } : undefined
                   };
                   localFile.words.push(word);
